@@ -3,7 +3,7 @@ import { species } from '../content/species';
 import { inWater, isBlocked, onLand, randomLand, randomWater, type Geo } from '../content/islands';
 import { creatureTraits, currentScale, displayName } from '../core/creatures';
 import type { Creature, EventKind, Personality, Trait } from '../core/types';
-import { animatePrismatic, buildCreature, disposeCreature, type CreatureModel } from './creatureModels';
+import { animateGlow, animatePrismatic, buildCreature, disposeCreature, type CreatureModel } from './creatureModels';
 import { emoteTexture } from './materials';
 
 // The living world: creatures pick small goals (wander, nap, visit a lure, dig,
@@ -369,6 +369,7 @@ export class CreatureActor {
       m.twinkles.children.forEach((s, i) => s.scale.setScalar(0.03 + Math.max(0, Math.sin(this.phase * 4 + i * 1.7)) * 0.05));
     }
     if (this.root.userData.prismatic) animatePrismatic(m, time);
+    animateGlow(m, time);
 
     // emote bubble
     this.emoteLife -= dt;

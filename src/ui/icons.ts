@@ -119,3 +119,25 @@ export const AXOLOTL = svg(`
   <ellipse cx="17" cy="39" rx="3.6" ry="2.2" fill="#ff7ab0" opacity=".8"/><ellipse cx="47" cy="39" rx="3.6" ry="2.2" fill="#ff7ab0" opacity=".8"/>
   <path d="M25 39q7 7 14 0" fill="none" stroke="${INK}" stroke-width="3" stroke-linecap="round"/>
   <path d="M20 23q6-4 12-4" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" opacity=".8"/>`);
+
+/** Mango, the monkey shopkeeper, in a merchant's fez. */
+export const MONKEY = svg(`
+  <g stroke="${INK}" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <circle cx="10" cy="35" r="8" fill="#8a5a3c"/><circle cx="54" cy="35" r="8" fill="#8a5a3c"/>
+    <circle cx="32" cy="36" r="20" fill="#8a5a3c"/>
+    <path d="M24 15h16l-2-11H26z" fill="#e2483d"/>
+  </g>
+  <circle cx="10.5" cy="35" r="4.4" fill="#f2c79a"/><circle cx="53.5" cy="35" r="4.4" fill="#f2c79a"/>
+  <path d="M32 27c-4-6-15-5-15 4 0 3 1 5 2 6-1 2-1 4-1 5 0 7 6 11 14 11s14-4 14-11c0-1 0-3-1-5 1-1 2-3 2-6 0-9-11-10-15-4z" fill="#f2c79a"/>
+  <circle cx="25" cy="33" r="3.8" fill="${INK}"/><circle cx="39" cy="33" r="3.8" fill="${INK}"/>
+  <circle cx="26.3" cy="31.7" r="1.3" fill="#fff"/><circle cx="40.3" cy="31.7" r="1.3" fill="#fff"/>
+  <circle cx="30" cy="40" r="1.2" fill="${INK}"/><circle cx="34" cy="40" r="1.2" fill="${INK}"/>
+  <ellipse cx="19" cy="41" rx="3" ry="1.8" fill="#ff8fa0" opacity=".7"/><ellipse cx="45" cy="41" rx="3" ry="1.8" fill="#ff8fa0" opacity=".7"/>
+  <path d="M26 45q6 5 12 0" fill="none" stroke="${INK}" stroke-width="2.6" stroke-linecap="round"/>
+  <path d="M32 4q8 0 10 8" fill="none" stroke="#ffd36a" stroke-width="2.4" stroke-linecap="round"/><circle cx="42" cy="13" r="2.6" fill="#ffd36a" stroke="${INK}" stroke-width="1.6"/>`);
+
+export const POTION = svg(`
+  <path d="M26 8h12v14l12 20a10 10 0 0 1-9 15H23a10 10 0 0 1-9-15l12-20z" fill="#e8f6ff" stroke="${INK}" stroke-width="4" stroke-linejoin="round"/>
+  <path d="M18 40h28l3 5a7 7 0 0 1-6 9H21a7 7 0 0 1-6-9z" fill="#b26bff"/>
+  <circle cx="28" cy="46" r="2.6" fill="#fff" opacity=".85"/><circle cx="36" cy="49" r="1.8" fill="#fff" opacity=".7"/>
+  <rect x="23" y="4" width="18" height="7" rx="2.5" fill="#c98a4b" stroke="${INK}" stroke-width="3.5"/>`);

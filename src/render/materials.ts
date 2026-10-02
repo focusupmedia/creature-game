@@ -122,6 +122,17 @@ export function outlineMaterial(thickness = 3): THREE.ShaderMaterial {
   return m;
 }
 
+/** A per-creature outline whose color can pulse: the "glowy" rim of rare mutations. */
+export function glowOutlineMaterial(color: THREE.Color, thickness: number): THREE.ShaderMaterial {
+  const base = outlineMaterial(thickness);
+  return new THREE.ShaderMaterial({
+    side: THREE.BackSide,
+    uniforms: { color: { value: color.clone() }, thickness: { value: thickness } },
+    vertexShader: base.vertexShader,
+    fragmentShader: base.fragmentShader,
+  });
+}
+
 const hullCache = new WeakMap<THREE.BufferGeometry, THREE.BufferGeometry>();
 
 function hullGeometry(geo: THREE.BufferGeometry): THREE.BufferGeometry {

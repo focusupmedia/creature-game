@@ -46,7 +46,7 @@ button { font: inherit; color: inherit; cursor: pointer; border: 0; background: 
 button:focus-visible { outline: 3px solid var(--white); outline-offset: 2px; }
 
 /* Outlined display text, like the reference: white fill, navy stroke, drop shadow. */
-.outlined, .sheet header h2, .btn, .dock button .lbl, .reveal-ui .title, .modal h2, .wl-spot, .hud-tile .lbl {
+.outlined, .sheet header h2, .btn, .dock button .lbl, .reveal-ui .title, .modal h2, .wl-spot, .hud-tile .lbl, .shop-tab .lbl {
   font-family: var(--display);
   font-weight: 400;
   letter-spacing: .02em;
@@ -386,3 +386,25 @@ input.rename { font-family: var(--display); font-size: 22px; border: var(--outli
 .coach .icon.who { width: 44px; height: 44px; flex: none; }
 
 .toast .icon.toast-mascot { width: 32px; height: 32px; flex: none; }
+
+/* ---- shop: Mango the monkey and category tabs */
+.shopkeeper { display: flex; align-items: center; gap: 10px; margin: 0 0 12px; }
+.shopkeeper .icon.mango { width: 64px; height: 64px; flex: none; filter: drop-shadow(0 3px 0 rgba(0,0,0,.18)); animation: mango-bob 2.4s ease-in-out infinite; }
+.shopkeeper .speech {
+  position: relative; flex: 1; background: var(--white); border: var(--outline); border-radius: 16px; padding: 8px 12px;
+  font-family: var(--display); font-size: 15px; color: var(--ink); box-shadow: 0 3px 0 var(--ink);
+}
+.shopkeeper .speech::before {
+  content: ''; position: absolute; left: -10px; top: 50%; transform: translateY(-50%) rotate(45deg); width: 14px; height: 14px;
+  background: var(--white); border-left: var(--outline); border-bottom: var(--outline);
+}
+@keyframes mango-bob { 0%, 100% { transform: translateY(0) rotate(-3deg); } 50% { transform: translateY(-3px) rotate(3deg); } }
+.shop-tabs { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; margin: 0 0 12px; }
+.shop-tab {
+  height: 64px; border-radius: 14px; border: var(--outline); color: var(--white); font-family: var(--display);
+  background: linear-gradient(180deg, #8fd8ff, var(--blue-2)); box-shadow: inset 0 -5px 0 rgba(0,0,0,.18), 0 4px 0 var(--ink);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 0;
+}
+.shop-tab .icon { width: 32px; height: 32px; }
+.shop-tab .lbl { font-size: 12px; -webkit-text-stroke-width: 3px; text-shadow: 0 2px 0 var(--ink); line-height: 1; }
+.shop-tab.on { background: linear-gradient(180deg, var(--orange-1), var(--orange-2)); transform: translateY(2px); box-shadow: inset 0 -4px 0 rgba(160, 70, 0, .35), 0 2px 0 var(--ink); }

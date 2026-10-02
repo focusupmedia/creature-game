@@ -7,27 +7,27 @@ import type {
 // Mutations add, never replace: a creature accumulates them in order.
 export const MUTATIONS: Record<MutationId, MutationDef> = {
   lunar: {
-    id: 'lunar', trait: 'Lunar', name: 'Lunar', inheritChance: 0.45,
+    id: 'lunar', trait: 'Lunar', name: 'Lunar', inheritChance: 0.45, tier: 'common', glow: '#b9c6ff',
     blurb: 'Silvered by an eclipse. Glows softly in the dark.',
   },
   storm: {
-    id: 'storm', trait: 'Storm', name: 'Storm', inheritChance: 0.45,
+    id: 'storm', trait: 'Storm', name: 'Storm', inheritChance: 0.45, tier: 'common', glow: '#ffe14d',
     blurb: 'Touched by sparkfall. Crackles when excited.',
   },
   giant: {
-    id: 'giant', trait: 'Giant', name: 'Giant', inheritChance: 0.35,
+    id: 'giant', trait: 'Giant', name: 'Giant', inheritChance: 0.35, tier: 'rare', glow: '#ffb36a',
     blurb: 'Grew far beyond its kind. Nobody knows why it stopped.',
   },
   prismatic: {
-    id: 'prismatic', trait: 'Prismatic', name: 'Prismatic', inheritChance: 0.5,
+    id: 'prismatic', trait: 'Prismatic', name: 'Prismatic', inheritChance: 0.5, tier: 'epic', glow: '#ff7ae0',
     blurb: 'Every color at once. Vanishingly rare.',
   },
   starlit: {
-    id: 'starlit', trait: 'Starlit', name: 'Starlit', inheritChance: 0.45,
+    id: 'starlit', trait: 'Starlit', name: 'Starlit', inheritChance: 0.45, tier: 'rare', glow: '#c9b8ff',
     blurb: 'Kissed by a falling star. Tiny lights twinkle in its coat.',
   },
   frost: {
-    id: 'frost', trait: 'Frost', name: 'Frost', inheritChance: 0.45,
+    id: 'frost', trait: 'Frost', name: 'Frost', inheritChance: 0.45, tier: 'rare', glow: '#9fe0ff',
     blurb: 'Came through a blizzard frosted over. It leaves a chill wherever it goes.',
   },
 };

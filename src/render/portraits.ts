@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import type { MutationId, SpeciesId } from '../core/types';
-import { buildCreature, disposeCreature } from './creatureModels';
+import { animateGlow, buildCreature, disposeCreature } from './creatureModels';
 
 // Renders small creature portraits for UI lists and the journal, using the main
 // renderer and an offscreen target. Results are cached as data URLs.
@@ -26,6 +26,7 @@ export class Portraits {
     const hit = this.cache.get(key);
     if (hit) return hit;
     const model = buildCreature(species, mutations, 500);
+    animateGlow(model, 0.65);
     model.root.scale.setScalar(1);
     model.root.rotation.y = -0.5;
     if (silhouette) {
@@ -34,8 +35,16 @@ export class Portraits {
         if (o instanceof THREE.Sprite) o.visible = false;
       });
     }
-    for (const g of model.glows) (g.material as THREE.SpriteMaterial).opacity = silhouette ? 0 : 0.35;
-    const box = new THREE.Box3().setFromObject(model.root);
+    // Additive glow sprites read as dark smudges on a transparent portrait,
+    // and would shrink the framing: hide them; the glowing rim still shows.
+    model.root.traverse((o) => {
+      if (o instanceof THREE.Sprite) o.visible = false;
+    });
+    model.root.updateMatrixWorld(true);
+    const box = new THREE.Box3();
+    model.root.traverse((o) => {
+      if (o instanceof THREE.Mesh && !o.userData.outline) box.expandByObject(o);
+    });
     const size = box.getSize(new THREE.Vector3());
     const center = box.getCenter(new THREE.Vector3());
     const r = Math.max(size.x, size.y, size.z) * 0.62;

@@ -471,3 +471,15 @@ describe('save', () => {
     expect(creatureTraits(frog)).toEqual(expect.arrayContaining(['Amphibian', 'Grove', 'Tide', 'Giant', 'Lunar', 'Storm']));
   });
 });
+
+describe('mutation glow', () => {
+  it('rarer mutations glow more, and stacking three adds a level', async () => {
+    const { glowLevel } = await import('../src/core/creatures');
+    expect(glowLevel({ species: 'mossfrog', mutations: [] })).toBe(0);
+    expect(glowLevel({ species: 'mossfrog', mutations: ['storm'] })).toBe(0);
+    expect(glowLevel({ species: 'mossfrog', mutations: ['frost'] })).toBe(1);
+    expect(glowLevel({ species: 'mossfrog', mutations: ['prismatic'] })).toBe(2);
+    expect(glowLevel({ species: 'mossfrog', mutations: ['lunar', 'storm', 'frost'] })).toBe(2);
+    expect(glowLevel({ species: 'mossfrog', mutations: ['lunar', 'storm', 'prismatic'] })).toBe(3);
+  });
+});

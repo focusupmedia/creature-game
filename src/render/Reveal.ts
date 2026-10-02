@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import type { Creature, Egg } from '../core/types';
-import { buildCreature, animatePrismatic, disposeCreature, type CreatureModel } from './creatureModels';
+import { animateGlow, buildCreature, animatePrismatic, disposeCreature, type CreatureModel } from './creatureModels';
 import { buildEgg, disposeEgg, type EggModel } from './eggModel';
 import { glowSprite, toon } from './materials';
 
@@ -161,6 +161,7 @@ export class Reveal {
       this.model.wings.forEach((w, i) => (w.rotation.z = Math.sin(this.time * 10) * 0.5 * (i % 2 ? -1 : 1)));
       for (const g of this.model.glows) (g.material as THREE.SpriteMaterial).opacity = 0.5;
       if (this.model.root.userData.prismatic) animatePrismatic(this.model, this.time);
+      animateGlow(this.model, this.time);
       const rm = this.rays.material as THREE.MeshBasicMaterial;
       rm.opacity = Math.min(0.8, this.time);
       this.rays.rotation.z += dt * 0.3;

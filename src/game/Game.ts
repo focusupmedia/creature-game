@@ -237,7 +237,7 @@ export class Game {
           if (live) this.ui.toast(`The lure at the ${SPOTS[ev.spot].name} has faded.`);
           break;
         case 'shopRefresh':
-          if (live) this.ui.toast('🛍️ The merchant has new wares.');
+          if (live) this.ui.toast('🐒 Mango has new wares at the shop!');
           break;
         case 'note':
           if (live) this.ui.toast(`📝 Journal: ${ev.text}`, 'info', undefined, 4500);

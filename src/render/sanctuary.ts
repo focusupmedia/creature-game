@@ -6,6 +6,7 @@ import { SPOTS } from '../content/world';
 import { mulberry32 } from '../core/rng';
 import type { IslandId } from '../core/types';
 import { addOutlines, glowSprite, glowTexture, toon, vertexToon } from './materials';
+import { buildShopkeeper } from './creatureModels';
 
 // Island dioramas. Everything static is merged into one vertex-colored mesh per
 // island (one draw call, plus one for its outline); animated or tappable bits stay separate.
@@ -479,6 +480,16 @@ function buildHome(view: IslandView, M: Merger, g: Geo, rand: () => number, clea
   lamp.position.set(1.15, 1.5, 1.0);
   stall.add(lamp);
   stall.userData.lamp = lamp;
+  // Mango the monkey minds the counter, standing on a crate by the window.
+  const crate = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.4, 0.42), toon('#b07a46'));
+  crate.position.set(0.45, 0.2, 1.22);
+  crate.castShadow = true;
+  stall.add(crate);
+  const keeper = buildShopkeeper();
+  keeper.position.set(0.45, 0.4, 1.22);
+  keeper.scale.setScalar(0.75);
+  stall.add(keeper);
+  stall.userData.keeper = keeper;
   const sHit = new THREE.Mesh(new THREE.BoxGeometry(2.4, 2.8, 2.0), new THREE.MeshBasicMaterial({ visible: false }));
   sHit.position.y = 1.4;
   sHit.userData.pick = { kind: 'shop' };

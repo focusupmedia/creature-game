@@ -16,6 +16,28 @@ export function visibleMutations(c: { species: SpeciesId; mutations: MutationId[
   return c.mutations.filter((m) => !native.includes(MUTATIONS[m].trait));
 }
 
+const TIER_LEVEL = { common: 0, rare: 1, epic: 2, legendary: 3 } as const;
+
+/**
+ * How strongly a creature glows: 0 none, 1 soft (rare mutation), 2 strong
+ * (epic), 3 radiant (legendary). Stacking three or more mutations adds a level.
+ */
+export function glowLevel(c: { species: SpeciesId; mutations: MutationId[] }): number {
+  const muts = visibleMutations(c);
+  if (!muts.length) return 0;
+  const top = Math.max(...muts.map((m) => TIER_LEVEL[MUTATIONS[m].tier]));
+  return Math.min(3, top + (muts.length >= 3 ? 1 : 0));
+}
+
+/** The rarest visible mutation, whose color the glow takes. */
+export function rarestMutation(c: { species: SpeciesId; mutations: MutationId[] }): MutationId | null {
+  let best: MutationId | null = null;
+  for (const m of visibleMutations(c)) {
+    if (!best || TIER_LEVEL[MUTATIONS[m].tier] >= TIER_LEVEL[MUTATIONS[best].tier]) best = m;
+  }
+  return best;
+}
+
 export function speciesTitle(c: { species: SpeciesId; mutations: MutationId[] }): string {
   const adj = visibleMutations(c).map((m) => MUTATIONS[m].name);
   return [...adj, species(c.species).name].join(' ');

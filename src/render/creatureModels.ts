@@ -1,8 +1,9 @@
 import * as THREE from 'three';
 import { species as speciesDef } from '../content/species';
-import { visibleMutations } from '../core/creatures';
+import { MUTATIONS } from '../content/world';
+import { glowLevel, rarestMutation, visibleMutations } from '../core/creatures';
 import type { MutationId, Movement, SpeciesId } from '../core/types';
-import { addOutlines, glowSprite, uniqueToon } from './materials';
+import { addOutlines, glowOutlineMaterial, glowSprite, uniqueToon } from './materials';
 
 // Procedural, primitive-built creatures. This is a deliberate prototype choice:
 // silhouettes and mutation overlays can be iterated in code in minutes, and each
@@ -22,12 +23,27 @@ export interface CreatureModel {
   /** Starlit: tiny lights that twinkle across the body. */
   twinkles?: THREE.Group;
   materials: THREE.MeshToonMaterial[];
+  /** The species' own body materials (the first N of `materials`); Prismatic recolors only these. */
+  bodyMats: number;
+  /** Rare-mutation glow: colored rim, aura and (epic+) orbiting sparkles. */
+  aura?: Aura;
   height: number;
   movement: Movement;
   baseScale: number;
 }
 
 interface Palette { main: string; second: string; accent: string; belly: string }
+
+interface Aura {
+  level: number;
+  color: THREE.Color;
+  prismatic: boolean;
+  outline: THREE.ShaderMaterial;
+  sprite: THREE.Sprite;
+  /** Body materials that glow softly with the rim. */
+  mats: THREE.MeshToonMaterial[];
+  orbit?: THREE.Group;
+}
 
 const PALETTES: Record<string, Palette> = {
   sunscale: { main: '#ffc83d', second: '#4fb34a', accent: '#ff7a2a', belly: '#fff2b8' },
@@ -738,25 +754,35 @@ function mutatePalette(P: Palette, muts: MutationId[], seed: number): Palette {
     return `#${c.getHexString()}`;
   };
   out.main = shift(out.main, jitter);
+  const mix = (hex: string, to: string, t: number) => `#${new THREE.Color(hex).lerp(new THREE.Color(to), t).getHexString()}`;
+  // One color mutation tints the whole creature. When several stack, each
+  // takes its own part of the body so every one stays visible.
+  const colorMuts = muts.filter((m) => m === 'lunar' || m === 'storm' || m === 'frost' || m === 'starlit');
+  const solo = colorMuts.length <= 1;
   if (muts.includes('lunar')) {
-    const mix = (hex: string, to: string, t: number) => `#${new THREE.Color(hex).lerp(new THREE.Color(to), t).getHexString()}`;
-    out.main = mix(out.main, '#c7cfff', 0.55);
-    out.second = mix(out.second, '#7f86d6', 0.5);
-    out.belly = mix(out.belly, '#eef0ff', 0.5);
+    out.main = mix(out.main, '#c7cfff', solo ? 0.55 : 0.45);
+    if (solo) {
+      out.second = mix(out.second, '#7f86d6', 0.5);
+      out.belly = mix(out.belly, '#eef0ff', 0.5);
+    }
   }
   if (muts.includes('storm')) {
-    out.second = '#ffd23d';
     out.accent = '#fff27a';
+    if (solo || (!muts.includes('starlit') && !muts.includes('frost'))) out.second = '#ffd23d';
   }
-  const mix = (hex: string, to: string, t: number) => `#${new THREE.Color(hex).lerp(new THREE.Color(to), t).getHexString()}`;
   if (muts.includes('frost')) {
-    out.main = mix(out.main, '#cdeeff', 0.55);
-    out.second = mix(out.second, '#8fd0ff', 0.45);
     out.belly = mix(out.belly, '#ffffff', 0.6);
+    if (solo) {
+      out.main = mix(out.main, '#cdeeff', 0.55);
+      out.second = mix(out.second, '#8fd0ff', 0.45);
+    } else {
+      out.main = mix(out.main, '#cdeeff', 0.2);
+      if (!muts.includes('starlit')) out.second = mix(out.second, '#8fd0ff', 0.5);
+    }
   }
   if (muts.includes('starlit')) {
-    out.main = mix(out.main, '#3b3f9a', 0.45);
-    out.second = mix(out.second, '#2a2c70', 0.4);
+    out.second = mix(out.second, '#2a2c70', solo ? 0.4 : 0.55);
+    if (solo) out.main = mix(out.main, '#3b3f9a', 0.45);
   }
   return out;
 }
@@ -772,10 +798,12 @@ export function buildCreature(speciesId: SpeciesId, mutations: MutationId[], see
   const body = new THREE.Group();
   root.add(body);
   const m: CreatureModel = {
-    root, body, wings: [], legs: [], segments: [], glows: [], materials: k.mats, height: 0.8,
+    root, body, wings: [], legs: [], segments: [], glows: [], materials: k.mats, bodyMats: 0, height: 0.8,
     movement: sp.movement, baseScale: 1,
   };
   (BUILDERS[speciesId] ?? BUILDERS.mossfrog)(k, P, m);
+  m.bodyMats = k.mats.length;
+  const plainMats = k.mats.filter((mat) => mat.emissive.getHex() === 0);
 
   if (muts.includes('lunar') || speciesId === 'moonmoth') {
     const crescent = k.mesh(G.torus, '#eef2ff', [0.1, 0.1, 0.1], [0, m.height + 0.08, 0], '#b9c6ff');
@@ -834,7 +862,9 @@ export function buildCreature(speciesId: SpeciesId, mutations: MutationId[], see
     body.add(chill);
     m.glows.push(chill);
   }
-  addOutlines(body, 2.6);
+  const level = glowLevel({ species: speciesId, mutations });
+  addOutlines(body, level >= 2 ? 3.6 : level === 1 ? 3.2 : 2.6);
+  if (level > 0) addAura(m, level, rarestMutation({ species: speciesId, mutations })!, plainMats);
   // The creature's own rolled size and growth are applied on top by the actor.
   m.baseScale = (muts.includes('giant') ? 1.6 : 1) * (sp.rarity === 'legendary' ? 1.2 : 1);
   root.scale.setScalar(m.baseScale);
@@ -842,9 +872,69 @@ export function buildCreature(speciesId: SpeciesId, mutations: MutationId[], see
   return m;
 }
 
-/** Hue-cycle every material for Prismatic creatures. */
+function addAura(m: CreatureModel, level: number, top: MutationId, mats: THREE.MeshToonMaterial[]): void {
+  const color = new THREE.Color(MUTATIONS[top].glow);
+  const outline = glowOutlineMaterial(color, level >= 2 ? 3.6 : 3.2);
+  m.body.traverse((o) => {
+    if (o instanceof THREE.Mesh && o.userData.outline) o.material = outline;
+  });
+  for (const mat of mats) mat.emissive = color.clone();
+  const sprite = glowSprite(MUTATIONS[top].glow, m.height * (1.6 + level * 0.5), 0.4);
+  sprite.position.y = m.height * 0.5;
+  sprite.renderOrder = -1;
+  m.body.add(sprite);
+  const aura: Aura = { level, color, prismatic: top === 'prismatic', outline, sprite, mats };
+  if (level >= 2) {
+    const orbit = new THREE.Group();
+    for (let i = 0; i < 3 + level; i++) {
+      const sp = glowSprite('#ffffff', 0.16, 0.9);
+      sp.userData.i = i;
+      orbit.add(sp);
+    }
+    orbit.position.y = m.height * 0.5;
+    m.body.add(orbit);
+    aura.orbit = orbit;
+  }
+  m.aura = aura;
+  animateGlow(m, 0);
+}
+
+const WHITE = new THREE.Color('#ffffff');
+const INK = new THREE.Color('#1b2a4a');
+const RIM_MIX = [0, 0.6, 0.85, 1];
+const EMISSIVE = [0, 0.1, 0.18, 0.3];
+const AURA_OPACITY = [0, 0.35, 0.55, 0.75];
+
+/** Pulse the rare-mutation glow; call every frame. */
+export function animateGlow(model: CreatureModel, t: number): void {
+  const a = model.aura;
+  if (!a) return;
+  const pulse = 0.5 + 0.5 * Math.sin(t * 2.4);
+  if (a.prismatic) a.color.setHSL((t * 0.15) % 1, 0.9, 0.62);
+  const rim = a.outline.uniforms.color.value as THREE.Color;
+  rim.copy(INK).lerp(a.color, RIM_MIX[a.level] * (0.75 + 0.25 * pulse));
+  if (a.level >= 2) rim.lerp(WHITE, 0.25 * pulse);
+  for (const mat of a.mats) {
+    mat.emissive.copy(a.color);
+    mat.emissiveIntensity = EMISSIVE[a.level] * (0.6 + 0.4 * pulse);
+  }
+  const sm = a.sprite.material as THREE.SpriteMaterial;
+  sm.color.copy(a.color);
+  sm.opacity = AURA_OPACITY[a.level] * (0.7 + 0.3 * pulse);
+  if (a.orbit) {
+    const r = model.height * 0.75;
+    a.orbit.children.forEach((s) => {
+      const i = s.userData.i as number;
+      const ang = t * 1.6 + (i / a.orbit!.children.length) * Math.PI * 2;
+      s.position.set(Math.cos(ang) * r, Math.sin(t * 2 + i * 1.3) * model.height * 0.35, Math.sin(ang) * r);
+      s.scale.setScalar(0.1 + 0.08 * Math.max(0, Math.sin(t * 5 + i * 2)));
+    });
+  }
+}
+
+/** Hue-cycle the body's own materials for Prismatic creatures (mutation extras keep their colors). */
 export function animatePrismatic(model: CreatureModel, t: number): void {
-  model.materials.forEach((mat, i) => {
+  model.materials.slice(0, model.bodyMats).forEach((mat, i) => {
     if (!mat.userData.baseHsl) {
       const hsl = { h: 0, s: 0, l: 0 };
       mat.color.getHSL(hsl);
@@ -857,7 +947,59 @@ export function animatePrismatic(model: CreatureModel, t: number): void {
 
 export function disposeCreature(model: CreatureModel): void {
   for (const m of model.materials) m.dispose();
+  model.aura?.outline.dispose();
   model.root.traverse((o) => {
     if (o instanceof THREE.Sprite) o.material.dispose();
   });
+}
+
+/** Mango, the monkey who runs the shop. Outlines come from the stall. */
+export function buildShopkeeper(): THREE.Group {
+  const k = new Kit();
+  const fur = '#8a5a3c';
+  const skin = '#f2c79a';
+  const g = new THREE.Group();
+  g.add(k.ball(0.28, fur, [0, 0.3, 0], [1, 1.05, 0.9]));
+  g.add(k.ball(0.2, skin, [0, 0.28, 0.12], [1, 1.1, 0.6]));
+  // a curly tail
+  const tail = k.mesh(G.torus, fur, [0.16, 0.16, 0.16], [0.12, 0.3, -0.26]);
+  tail.rotation.set(0, Math.PI / 2, 0.4);
+  g.add(tail);
+  const head = new THREE.Group();
+  head.position.set(0, 0.72, 0);
+  head.add(k.ball(0.3, fur, [0, 0, 0]));
+  head.add(k.ball(0.22, skin, [0, -0.04, 0.16], [1.15, 0.92, 0.62]));
+  head.add(k.ball(0.12, skin, [0, -0.11, 0.26], [1.3, 0.8, 0.8]));
+  for (const s of [1, -1]) {
+    head.add(k.ball(0.11, fur, [s * 0.3, 0.02, 0], [1, 1, 0.6]));
+    head.add(k.ball(0.07, skin, [s * 0.32, 0.02, 0.05], [1, 1, 0.4]));
+    k.eye(head, s * 0.09, 0.04, 0.25, 0.055);
+  }
+  // merchant's fez with a gold tassel
+  const fez = k.mesh(G.cyl, '#e2483d', [0.13, 0.15, 0.13], [0.05, 0.32, 0]);
+  fez.rotation.z = -0.18;
+  head.add(fez);
+  head.add(k.ball(0.04, '#ffd36a', [0.18, 0.3, 0.02]));
+  g.add(head);
+  const arm = new THREE.Group();
+  arm.position.set(0.24, 0.42, 0.02);
+  arm.add(k.ball(0.075, fur, [0, 0.15, 0], [0.85, 2.1, 0.85]));
+  arm.add(k.ball(0.07, skin, [0, 0.32, 0]));
+  g.add(arm);
+  const rest = k.ball(0.075, fur, [-0.25, 0.32, 0.1], [0.85, 1.9, 0.85]);
+  rest.rotation.x = -0.5;
+  g.add(rest);
+  g.userData.head = head;
+  g.userData.arm = arm;
+  return g;
+}
+
+/** Idle bob, with a friendly wave every few seconds. */
+export function animateShopkeeper(g: THREE.Group, t: number): void {
+  const head = g.userData.head as THREE.Group;
+  const arm = g.userData.arm as THREE.Group;
+  head.rotation.z = Math.sin(t * 1.3) * 0.1;
+  head.position.y = 0.72 + Math.abs(Math.sin(t * 2.6)) * 0.02;
+  const waving = t % 7 < 1.6;
+  arm.rotation.z = waving ? -0.5 + Math.sin(t * 12) * 0.45 : -2.6;
 }

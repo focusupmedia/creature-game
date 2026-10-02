@@ -6,6 +6,7 @@ import type { Creature, Egg, EventKind, GameEvent, GameState, IslandId } from '.
 import { CameraRig } from './CameraRig';
 import { CreatureActor, type ActorContext } from './CreatureActor';
 import { buildDecor } from './decor';
+import { animateShopkeeper } from './creatureModels';
 import { buildEgg, disposeEgg, type EggModel } from './eggModel';
 import { glowSprite, toon } from './materials';
 import { Portraits } from './portraits';
@@ -622,6 +623,7 @@ export class World {
         (v.home.fontWater.material as THREE.MeshToonMaterial).emissiveIntensity = 0.5 + Math.sin(this.time * 2) * 0.2;
         const lamp = v.home.stall.userData.lamp as THREE.Sprite;
         (lamp.material as THREE.SpriteMaterial).opacity = darkness * 0.9;
+        if (v.id === this.current) animateShopkeeper(v.home.stall.userData.keeper as THREE.Group, this.time);
       }
       if (v.fireflies) {
         const fm = v.fireflies.material as THREE.PointsMaterial;

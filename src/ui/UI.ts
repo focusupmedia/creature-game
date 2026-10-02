@@ -21,6 +21,15 @@ const MUT_ICON: Record<MutationId, string> = { lunar: '🌙', storm: '⚡', gian
 const HABITAT_ICON: Partial<Record<Trait, string>> = { Grove: '🌳', Tide: '💧', Bloom: '🌸', Mystic: '🔮' };
 const MUTATION_TRAITS: Trait[] = ['Lunar', 'Storm', 'Giant', 'Prismatic', 'Starlit', 'Frost'];
 
+/** What Mango says on each shop tab; the line changes with every new stock. */
+const MANGO_LINES: Record<'lure' | 'egg' | 'item' | 'decor' | 'shards', string[]> = {
+  egg: ['Ooh-ooh! Fresh eggs, still warm!', 'Who knows what is inside? Not me!', 'Shake it gently... I hear wings!'],
+  lure: ['A good smell brings good friends.', 'This one makes my nose twitch!', 'Lures! Tastier than bananas. Almost.'],
+  item: ['Curious things from far islands.', 'Do not ask where I found these.', 'Handle with care, keeper!'],
+  decor: ['Make your island cozy!', 'Pretty things for pretty places.', 'Finest decor this side of the sea!'],
+  shards: ['Starshards! Shiny, shiny!', 'Sparkly stones from fallen stars.', 'They twinkle in my paws!'],
+};
+
 export class UI {
   readonly root: HTMLElement;
   private glimmerVal = h('span', { class: 'val' });
@@ -45,6 +54,7 @@ export class UI {
   private refreshTimer = 0;
   private fontPick: [string | null, string | null] = [null, null];
   private journalTab: 'creatures' | 'mutations' | 'notes' = 'creatures';
+  private shopTab: 'lure' | 'egg' | 'item' | 'decor' | 'shards' = 'egg';
   private coachDismissed = -1;
   private coachShownAt = 0;
   private seenShopRotation = 0;
@@ -521,15 +531,36 @@ export class UI {
 
   // ---- shop
 
-  showShop(scrollToShards = false): void {
+  showShop(toShards = false): void {
     const s = this.game.state;
     this.seenShopRotation = s.shop.rotation;
+    if (toShards) this.shopTab = 'shards';
     this.ensureHome();
     this.game.world.focus(SHOP_STALL, 15);
-    this.openSheet('Traveling Merchant', 'New wares arrive with every visit.', (b) => {
+    this.openSheet("Mango's Shop", 'New wares arrive with every visit.', (b) => {
       const t = this.game.now();
+      const line = MANGO_LINES[this.shopTab][s.shop.rotation % MANGO_LINES[this.shopTab].length];
+      b.append(h('div', { class: 'shopkeeper' }, I.icon(I.MONKEY, 'icon mango'), h('div', { class: 'speech' }, line)));
+      const tabs: [typeof this.shopTab, string, string][] = [
+        ['egg', 'EGGS', I.CREATE], ['lure', 'LURES', I.LURE], ['item', 'ITEMS', I.POTION], ['decor', 'DECOR', I.DECOR], ['shards', 'GEMS', I.GEM],
+      ];
+      b.append(h('div', { class: 'shop-tabs' }, ...tabs.map(([id, label, icon]) =>
+        h('button', { class: `shop-tab ${this.shopTab === id ? 'on' : ''}`, 'aria-label': label, onClick: () => { this.game.audio.play('tap'); this.shopTab = id; this.rerender(); } },
+          I.icon(icon), h('span', { class: 'lbl' }, label)))));
+
+      if (this.shopTab === 'shards') {
+        const iap = h('div', { class: 'list' });
+        for (const p of this.game.purchases.products()) {
+          iap.append(h('div', { class: 'item' }, h('div', { class: 'swatch' }, I.icon(I.GEM)),
+            h('div', { class: 'grow' }, h('div', { class: 'name' }, `${p.shards} Starshards`), p.tag ? h('div', { class: 'desc' }, p.tag) : null),
+            h('button', { class: 'btn shard small', onClick: () => this.game.buyShards(p.id) }, p.price)));
+        }
+        b.append(iap, h('p', { class: 'muted' }, 'Starshards buy nests, decorations and time — never creatures or discoveries.'));
+        return;
+      }
+
       b.append(h('div', { class: 'row muted' }, `New stock in ${fmtDuration(s.shop.nextRefreshAt - t)}`));
-      const refresh = h('div', { class: 'btns' },
+      b.append(h('div', { class: 'btns' },
         h('button', { class: 'btn shard small', disabled: s.shards < TUNING.shopRefreshShards, onClick: () => {
           const r = A.paidShopRefresh(s, t);
           if (!r.ok) return this.toast(r.error);
@@ -539,49 +570,35 @@ export class UI {
           this.rerender();
         } }, rich(`Refresh · {gem} ${TUNING.shopRefreshShards}`)),
         A.adsLeft(s, t) > 0 ? h('button', { class: 'btn ad small', onClick: () => this.game.adRefreshShop() }, '▶ Watch ad · refresh') : null,
-      );
-      b.append(refresh);
-      const groups: [string, string[]][] = [['Eggs', ['egg']], ['Lures', ['lure']], ['Curiosities', ['item']], ['Decorations', ['decor']]];
-      for (const [title, kinds] of groups) {
-        b.append(h('div', { class: 'section-title' }, title));
-        const list = h('div', { class: 'list' });
-        for (const o of s.shop.offers.filter((x) => kinds.includes(x.kind))) {
-          let name = '';
-          let desc = '';
-          let icon = '🫙';
-          let style = '';
-          if (o.kind === 'lure') { const l = LURES[o.ref]; name = l.name; desc = l.scent; icon = HABITAT_ICON[l.attracts] ?? '🫙'; style = `background:${l.color}33`; }
-          if (o.kind === 'item') { const it = ITEMS[o.ref]; name = it.name; desc = it.blurb; icon = it.effect === 'warmth' ? '🔥' : '🧪'; }
-          if (o.kind === 'egg') {
-            const tier = EGG_TIERS[o.ref];
-            name = tier?.name ?? 'Egg';
-            desc = tier?.blurb ?? '';
-            icon = '🥚';
-            style = `background:linear-gradient(135deg, ${tier?.colors[0] ?? '#fff'}, ${tier?.colors[1] ?? '#fff'})`;
-          }
-          if (o.kind === 'decor') { const d = DECOR[o.ref]; name = d.name + (d.rotating ? ' ✦' : ''); desc = d.blurb + (d.rotating ? ' Only here for a short while.' : ''); icon = '🪴'; }
-          const can = (o.currency === 'glimmer' ? s.glimmer : s.shards) >= o.price && o.stock > 0;
-          list.append(h('div', { class: 'item' },
-            h('div', { class: 'swatch', style }, icon),
-            h('div', { class: 'grow' }, h('div', { class: 'name' }, name), h('div', { class: 'desc' }, desc),
-              o.stock < 10 ? h('div', { class: 'muted' }, o.stock > 0 ? `${o.stock} left` : 'Sold out') : null),
-            h('button', { class: `btn small ${o.currency === 'shards' ? 'shard' : ''}`, disabled: !can, onClick: () => this.game.buy(o.id) },
-              rich(`${o.currency === 'shards' ? '{gem}' : '{coin}'} ${o.price}`)),
-          ));
+      ));
+      const list = h('div', { class: 'list' });
+      const offers = s.shop.offers.filter((x) => x.kind === this.shopTab);
+      if (!offers.length) list.append(h('p', { class: 'muted' }, 'Nothing of this kind today. Check back when new stock arrives!'));
+      for (const o of offers) {
+        let name = '';
+        let desc = '';
+        let icon = '🫙';
+        let style = '';
+        if (o.kind === 'lure') { const l = LURES[o.ref]; name = l.name; desc = l.scent; icon = HABITAT_ICON[l.attracts] ?? '🫙'; style = `background:${l.color}33`; }
+        if (o.kind === 'item') { const it = ITEMS[o.ref]; name = it.name; desc = it.blurb; icon = it.effect === 'warmth' ? '🔥' : '🧪'; }
+        if (o.kind === 'egg') {
+          const tier = EGG_TIERS[o.ref];
+          name = tier?.name ?? 'Egg';
+          desc = tier?.blurb ?? '';
+          icon = '🥚';
+          style = `background:linear-gradient(135deg, ${tier?.colors[0] ?? '#fff'}, ${tier?.colors[1] ?? '#fff'})`;
         }
-        b.append(list);
+        if (o.kind === 'decor') { const d = DECOR[o.ref]; name = d.name + (d.rotating ? ' ✦' : ''); desc = d.blurb + (d.rotating ? ' Only here for a short while.' : ''); icon = '🪴'; }
+        const can = (o.currency === 'glimmer' ? s.glimmer : s.shards) >= o.price && o.stock > 0;
+        list.append(h('div', { class: 'item' },
+          h('div', { class: 'swatch', style }, icon),
+          h('div', { class: 'grow' }, h('div', { class: 'name' }, name), h('div', { class: 'desc' }, desc),
+            o.stock < 10 ? h('div', { class: 'muted' }, o.stock > 0 ? `${o.stock} left` : 'Sold out') : null),
+          h('button', { class: `btn small ${o.currency === 'shards' ? 'shard' : ''}`, disabled: !can, onClick: () => this.game.buy(o.id) },
+            rich(`${o.currency === 'shards' ? '{gem}' : '{coin}'} ${o.price}`)),
+        ));
       }
-      const shardsTitle = h('div', { class: 'section-title' }, 'Starshards');
-      b.append(shardsTitle);
-      const iap = h('div', { class: 'list' });
-      for (const p of this.game.purchases.products()) {
-        iap.append(h('div', { class: 'item' }, h('div', { class: 'swatch' }, I.icon(I.GEM)),
-          h('div', { class: 'grow' }, h('div', { class: 'name' }, `${p.shards} Starshards`), p.tag ? h('div', { class: 'desc' }, p.tag) : null),
-          h('button', { class: 'btn shard small', onClick: () => this.game.buyShards(p.id) }, p.price)));
-      }
-      b.append(iap, h('p', { class: 'muted' }, 'Starshards buy nests, decorations and time — never creatures or discoveries.'));
-      if (scrollToShards) setTimeout(() => shardsTitle.scrollIntoView({ behavior: 'smooth' }), 50);
-      scrollToShards = false;
+      b.append(list);
     }, I.SHOP);
   }
 

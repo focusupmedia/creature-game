@@ -47,7 +47,13 @@ export interface MutationDef {
   blurb: string;
   /** Chance a parent passes this mutation to an egg. */
   inheritChance: number;
+  /** How rare it is: rarer mutations glow (see glowLevel). */
+  tier: MutationTier;
+  /** Glow and aura color. */
+  glow: string;
 }
+
+export type MutationTier = 'common' | 'rare' | 'epic' | 'legendary';
 
 export interface LureDef {
   id: LureId;
