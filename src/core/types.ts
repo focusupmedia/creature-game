@@ -1,3 +1,5 @@
+import type { QuirkId } from '../content/quirks';
+
 // Core data types shared by simulation, rendering and UI.
 // Everything in src/core is pure (no DOM, no three.js) so it can run in tests,
 // in offline catch-up, and later on a server for validation.
@@ -183,6 +185,8 @@ export interface Creature {
   /** How long it takes to grow up (0 = already grown). Hatchlings start small. */
   growMs: number;
   personality: Personality;
+  /** Behaviour traits, 2-5 (see content/quirks.ts). */
+  quirks: QuirkId[];
 }
 
 export interface Egg {
@@ -205,6 +209,7 @@ export interface Egg {
   /** A different species than either parent. */
   relative?: boolean;
   parentPersonalities?: Personality[];
+  parentQuirks?: QuirkId[][];
   /** Egg shop tier it came from, if bought. */
   tier?: string;
 }
@@ -244,7 +249,7 @@ export interface Gift {
 
 export interface ShopOffer {
   id: string;
-  kind: 'lure' | 'item' | 'egg' | 'decor';
+  kind: 'lure' | 'item' | 'egg' | 'decor' | 'tool';
   ref: string;
   price: number;
   currency: 'glimmer' | 'shards';
@@ -287,6 +292,8 @@ export interface GameState {
   shards: number;
   lures: Record<LureId, number>;
   items: Record<ItemId, number>;
+  /** Trait Deleter / Trait Wiper counts. */
+  tools: Record<string, number>;
   decorOwned: Record<DecorId, number>;
   placedDecor: PlacedDecor[];
   creatures: Creature[];

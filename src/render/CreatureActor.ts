@@ -3,6 +3,8 @@ import { species } from '../content/species';
 import { inWater, isBlocked, onLand, randomLand, randomWater, type Geo } from '../content/islands';
 import { globeNormal, globePoint, globeStep } from '../content/globe';
 import { creatureTraits, currentScale, displayName } from '../core/creatures';
+import { hasQuirk, temperOf } from '../core/quirks';
+import type { QuirkId } from '../content/quirks';
 import type { Creature, EventKind, Personality, Trait } from '../core/types';
 import { animateGlow, animatePrismatic, buildCreature, disposeCreature, type CreatureModel } from './creatureModels';
 import { emoteTexture } from './materials';
@@ -18,6 +20,10 @@ export interface ActorContext {
   actors: CreatureActor[];
   now: number;
   fx: (kind: FxKind, at: THREE.Vector3) => void;
+  /** Coins on the ground a Greedy creature could fetch. */
+  gifts: { id: string; x: number; z: number }[];
+  /** A creature picked up a gift for the player. */
+  collect: (giftId: string, by: CreatureActor) => void;
 }
 
 export type FxKind = 'dirt' | 'dust' | 'splash' | 'leaf';
@@ -30,7 +36,9 @@ const DIG_LOOK: Record<DigStyle, { emote: string; note: string }> = {
   leaf: { emote: '🫐', note: 'Just foraged something! ✨' },
 };
 
-type State = 'arrive' | 'wander' | 'idle' | 'eat' | 'sleep' | 'nap' | 'shelter' | 'social' | 'squabble' | 'dig' | 'celebrate' | 'lookup' | 'carried';
+type State = 'arrive' | 'wander' | 'idle' | 'eat' | 'sleep' | 'nap' | 'shelter' | 'social' | 'squabble' | 'dig' | 'celebrate' | 'lookup' | 'carried' | 'fetch';
+
+const NEUTRAL: Temper = { speed: 1, idle: 0.3, nap: 0.04, social: 0.4, squabble: 0.08, lure: 0.25 };
 
 const CARRY_HEIGHT = 1.4;
 
@@ -83,9 +91,27 @@ export class CreatureActor {
   private noteAt = -999;
   private nightOwl: boolean;
   private dayOnly: boolean;
-  private temper: Temper;
+  private fetchId: string | null = null;
+  private tripT = 0;
   private scaleNow = 1;
-  private amphibious: boolean;
+  /** Its temper (first personality trait), adjusted by its other traits. */
+  private get temper(): Temper {
+    const t = temperOf(this.creature);
+    const base = { ...(t ? TEMPER[t] : NEUTRAL) };
+    if (this.q('sleepy')) base.nap += 0.2;
+    if (this.q('social')) { base.social += 0.4; base.squabble *= 0.5; }
+    if (this.q('loner')) { base.social = 0; base.squabble = 0; }
+    if (this.q('glutton')) base.lure += 0.2;
+    return base;
+  }
+
+  private q(id: QuirkId): boolean {
+    return hasQuirk(this.creature, id);
+  }
+
+  private get amphibious(): boolean {
+    return this.traits.includes('Amphibian') || this.q('swimmer');
+  }
 
   constructor(public creature: Creature, scene: THREE.Object3D, public geo: Geo) {
     this.model = buildCreature(creature.species, creature.mutations, creature.seed);
@@ -94,8 +120,6 @@ export class CreatureActor {
     const sp = species(creature.species);
     this.nightOwl = sp.activity === 'night';
     this.dayOnly = sp.activity === 'day';
-    this.temper = TEMPER[creature.personality] ?? TEMPER.friendly;
-    this.amphibious = this.traits.includes('Amphibian');
     const h = this.model.height;
     this.hit = new THREE.Mesh(new THREE.SphereGeometry(Math.max(0.55, h * 0.7), 6, 4), new THREE.MeshBasicMaterial({ visible: false }));
     this.hit.position.y = h * 0.5;
@@ -153,6 +177,7 @@ export class CreatureActor {
       case 'dig': return this.onDug ? 'Digging for something… ⛏️' : 'Digging';
       case 'celebrate': return 'Celebrating ✨';
       case 'lookup': return 'Staring up at the sky';
+      case 'fetch': return 'Off to grab something shiny 💰';
       case 'idle': return 'Taking in the view';
       default: return this.isSwimmer ? 'Swimming laps' : this.isFlyer ? 'Fluttering about' : 'Wandering about';
     }
@@ -259,7 +284,10 @@ export class CreatureActor {
     this.timer -= dt;
     this.socialCooldown -= dt;
     this.isCold = ctx.sky === 'blizzard';
-    const asleepTime = (this.dayOnly && ctx.darkness > 0.7 && ctx.sky !== 'eclipse') || (this.nightOwl && ctx.darkness < 0.3);
+    // Night Owls stay up all night, Early Birds are up all day, whatever their kind does.
+    const sleepsAtNight = (this.dayOnly || this.q('earlybird')) && !this.q('nightowl');
+    const sleepsByDay = this.nightOwl && !this.q('earlybird');
+    const asleepTime = (sleepsAtNight && ctx.darkness > 0.7 && ctx.sky !== 'eclipse') || (sleepsByDay && ctx.darkness < 0.3);
 
     // growth: hatchlings visibly grow into their rolled size
     this.scaleNow = m.baseScale * currentScale(this.creature, ctx.now);
@@ -271,7 +299,7 @@ export class CreatureActor {
       case 'arrive':
         if (this.moveToward(dt, 1.2)) {
           this.state = 'eat';
-          this.timer = 3 + Math.random() * 2;
+          this.timer = (3 + Math.random() * 2) * (this.q('glutton') ? 2.5 : 1);
           this.onArrived?.();
           this.onArrived = null;
         }
@@ -343,8 +371,26 @@ export class CreatureActor {
           this.decide(ctx, asleepTime);
         }
         break;
+      case 'fetch':
+        if (this.fetchId && !ctx.gifts.some((g) => g.id === this.fetchId)) {
+          this.fetchId = null;
+          this.decide(ctx, asleepTime);
+        } else if (this.moveToward(dt, 1.4) || this.timer < -10) {
+          if (this.fetchId) ctx.collect(this.fetchId, this);
+          this.fetchId = null;
+          this.emote('💰', 1.6);
+          this.note('Grabbed something shiny for you 💰');
+          this.state = 'idle';
+          this.timer = 1.2;
+        }
+        break;
       default:
         if (this.timer <= 0) this.decide(ctx, asleepTime);
+    }
+    // Clumsy creatures trip now and then while walking.
+    if (this.q('clumsy') && this.state === 'wander' && this.tripT <= 0 && Math.random() < dt * 0.04) {
+      this.tripT = 0.8;
+      this.emote('💫', 1.4);
     }
 
     // ---- animate
@@ -404,6 +450,10 @@ export class CreatureActor {
       this.p.y = ground + (this.amphibious && inWater(this.geo, this.p.x, this.p.z, -0.3) ? -0.12 : 0);
     }
     if (m.tail && mv === 'hop') m.tail.rotation.y = Math.sin(this.phase * 3) * 0.25;
+    if (this.tripT > 0) {
+      this.tripT -= dt;
+      body.rotation.x = -Math.sin(Math.min(1, (0.8 - this.tripT) / 0.3) * Math.PI) * 0.9;
+    }
     if (this.state === 'carried') {
       // dangling in the air: legs paddle, body sways
       this.p.y = ground + CARRY_HEIGHT + Math.sin(this.phase * 5) * 0.06;
@@ -510,9 +560,9 @@ export class CreatureActor {
     }
     // bad weather: most creatures run for cover
     const badWeather = ctx.sky === 'storm' || ctx.sky === 'blizzard';
-    const hardy = ctx.sky === 'storm'
+    const hardy = this.q('brave') || (ctx.sky === 'storm'
       ? this.traits.some((t) => t === 'Tide' || t === 'Amphibian' || t === 'Fish' || t === 'Storm' || t === 'Reef')
-      : this.traits.some((t) => t === 'Frost' || t === 'Ember');
+      : this.traits.some((t) => t === 'Frost' || t === 'Ember'));
     if (badWeather && !hardy && !this.isSwimmer && this.geo.shelters.length && Math.random() < 0.85) {
       const s = this.geo.shelters.reduce((best, t) => (this.dist2(t) < this.dist2(best) ? t : best), this.geo.shelters[0]);
       const a = Math.random() * Math.PI * 2;
@@ -528,10 +578,22 @@ export class CreatureActor {
       this.emote(this.traits.includes('Mystic') || this.traits.includes('Spirit') ? '✨' : ctx.sky === 'starry' ? '🌠' : '❓', 2);
       return;
     }
-    // lazy creatures nap during the day too
+    // Greedy creatures can't leave shiny things on the ground
+    if (this.q('greedy') && !this.isSwimmer && ctx.gifts.length && Math.random() < 0.6) {
+      const g = ctx.gifts.reduce((b, x) => (this.dist2(x) < this.dist2(b) ? x : b), ctx.gifts[0]);
+      if (ctx.actors.every((o) => o === this || o.fetchId !== g.id)) {
+        this.fetchId = g.id;
+        this.target.set(g.x, 0, g.z);
+        this.state = 'fetch';
+        this.timer = 0;
+        this.emote('👀', 1.2);
+        return;
+      }
+    }
+    // lazy and sleepy creatures nap during the day too
     if (Math.random() < T.nap) {
       this.state = 'nap';
-      this.timer = 8 + Math.random() * 10;
+      this.timer = (8 + Math.random() * 10) * (this.q('sleepy') ? 2 : 1);
       this.emote('😴', 2);
       return;
     }
@@ -578,7 +640,18 @@ export class CreatureActor {
     if (Math.random() < T.idle) {
       this.state = 'idle';
       this.timer = 1.5 + Math.random() * 4;
-      if (this.creature.personality === 'curious' && Math.random() < 0.3) this.emote('🔍', 1.5);
+      if (this.q('curious') && Math.random() < 0.3) this.emote('🔍', 1.5);
+      else if (this.q('showoff') && Math.random() < 0.35) {
+        this.state = 'celebrate';
+        this.timer = 1.6;
+        this.emote('😎', 1.6);
+      } else if (this.q('musical') && Math.random() < 0.4) {
+        // a little song cheers up whoever is nearby
+        this.emote('🎵', 2);
+        for (const o of ctx.actors) {
+          if (o !== this && o.state !== 'sleep' && Math.hypot(o.p.x - this.p.x, o.p.z - this.p.z) < 3) o.emote('💕', 1.6);
+        }
+      } else if (this.q('lucky') && Math.random() < 0.15) this.emote('🍀', 1.5);
       return;
     }
     this.pickWander();
@@ -588,14 +661,15 @@ export class CreatureActor {
     const g = this.geo;
     let p = this.isSwimmer ? randomWater(g, Math.random) : randomLand(g, Math.random);
     // shy creatures keep to the edges
-    if (this.creature.personality === 'shy' && !this.isSwimmer && Math.random() < 0.6) {
+    if (this.q('shy') && !this.isSwimmer && Math.random() < 0.6) {
       const a = Math.random() * Math.PI * 2;
       const edge = { x: g.ox + Math.cos(a) * (g.r - 1.6), z: g.oz + Math.sin(a) * (g.r - 1.6) };
       if (!isBlocked(g, edge.x, edge.z) && !inWater(g, edge.x, edge.z, 0.4)) p = edge;
     }
     const cur = this.p;
     const d = Math.hypot(p.x - cur.x, p.z - cur.z);
-    const reach = this.creature.personality === 'energetic' ? 6 : 4;
+    // Explorers go all the way round the globe
+    const reach = this.q('explorer') ? 30 : this.q('energetic') ? 6 : 4;
     const k = d > reach ? reach / d : 1;
     this.target.set(cur.x + (p.x - cur.x) * k, 0, cur.z + (p.z - cur.z) * k);
     if (this.isSwimmer) this.clampToWater(this.target);
@@ -633,6 +707,7 @@ export class CreatureActor {
     const to = new THREE.Vector3(this.target.x - pos.x, 0, this.target.z - pos.z);
     const d = to.length();
     if (d < 0.12) return true;
+    if (this.tripT > 0) return false;
     to.normalize();
     if (!this.isFlyer && !this.isSwimmer) {
       for (const o of [...this.geo.obstacles, ...this.geo.lava]) {

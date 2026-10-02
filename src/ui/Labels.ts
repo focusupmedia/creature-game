@@ -10,6 +10,7 @@ import { activeEvent, isDark } from '../core/world';
 import type { Game } from '../game/Game';
 import { h } from './dom';
 import { rarityTag } from './rarity';
+import { QUIRKS } from '../content/quirks';
 import { species } from '../content/species';
 import { GEAR, icon } from './icons';
 
@@ -185,10 +186,11 @@ export class WorldLabels {
       const line = w.creatureActivity(c.id);
       const r = species(c.species).rarity;
       const odd = isOutlier(c.size) ? sizeLabel(c.size) : '';
-      const key = `${name}|${r}|${odd}`;
+      const icons = c.quirks.map((q) => QUIRKS[q].icon).join('');
+      const key = `${name}|${r}|${odd}|${icons}`;
       if (key !== this.lastName) {
         this.lastName = key;
-        this.bubbleName.replaceChildren(document.createTextNode(name + ' '), rarityTag(r), odd ? h('span', { class: 'rarity r-outlier' }, odd) : '');
+        this.bubbleName.replaceChildren(document.createTextNode(name + ' '), rarityTag(r), odd ? h('span', { class: 'rarity r-outlier' }, odd) : '', h('span', { class: 'quirk-icons' }, icons));
       }
       if (line !== this.lastLine) this.bubbleLine.textContent = this.lastLine = line;
     }

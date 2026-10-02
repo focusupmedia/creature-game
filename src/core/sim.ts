@@ -13,6 +13,7 @@ import { arrivalChance, arrivalMutations, arrivalWeights } from './lures';
 import { StateRng } from './rng';
 import { refreshShop } from './shop';
 import { stepLegendary } from './legendary';
+import { hasQuirk, temperOf } from './quirks';
 import { freeNest } from './state';
 import type { DigKind, EventKind, GameEvent, GameState, Gift, IslandId } from './types';
 import { activeEvent, isDark } from './world';
@@ -144,19 +145,22 @@ function step(state: GameState, t: number, dt: number, out: GameEvent[]): void {
   // ---- digging: residents dig things up, more or less often depending on personality
   if (state.gifts.length < TUNING.maxGiftsOnGround && state.creatures.length) {
     const diggers = state.creatures.filter((c) => growth(c, t) >= 0.5);
-    const total = diggers.reduce((s, c) => s + (TUNING.digRate[c.personality] ?? 1), 0);
+    const rate1 = (c: (typeof diggers)[number]) => (TUNING.digRate[temperOf(c) ?? ''] ?? 1) * (hasQuirk(c, 'digger') ? 2 : 1);
+    const total = diggers.reduce((s, c) => s + rate1(c), 0);
     // Capped so hoarding creatures isn't an income strategy.
     const rate = Math.min(total, TUNING.giftResidentsCap) / (TUNING.giftEveryMin * MIN);
     if (diggers.length && rng.chance(1 - Math.exp(-rate * dt))) {
-      const from = rng.weighted(diggers.map((c) => [c, TUNING.digRate[c.personality] ?? 1] as [typeof c, number]))!;
+      const from = rng.weighted(diggers.map((c) => [c, rate1(c)] as [typeof c, number]))!;
       const g = islandGeo(from.island, state.islands[from.island]?.size ?? 0);
       const p = randomLand(g, () => rng.next());
       const [g0, g1] = TUNING.giftGlimmer;
-      const curious = from.personality === 'curious' ? 2 : 1;
+      const curious = hasQuirk(from, 'curious') ? 2 : 1;
+      const lucky = hasQuirk(from, 'lucky') ? 2 : 1;
       const gift: Gift = {
         id: newId(state, 'g'), x: p.x, z: p.z, glimmer: rng.int(g0, g1),
-        shards: rng.chance(TUNING.giftShardChance * curious) ? 1 : 0, from: from.id, island: from.island,
+        shards: rng.chance(TUNING.giftShardChance * curious * lucky) ? 1 : 0, from: from.id, island: from.island,
       };
+      if (lucky > 1) gift.glimmer = Math.round(gift.glimmer * 1.5);
       if (rng.chance(TUNING.digItemChance * curious)) gift.item = rng.chance(0.75) ? 'warmstone' : 'rootswell';
       else if (rng.chance(TUNING.digEggChance * curious) && state.eggs.filter((e) => e.nest === null).length < TUNING.basketSize) {
         gift.item = 'egg';

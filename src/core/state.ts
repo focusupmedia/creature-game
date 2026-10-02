@@ -5,7 +5,7 @@ import { recordSpecies } from './journal';
 import { generateShop } from './shop';
 import type { GameState } from './types';
 
-export const SAVE_VERSION = 4;
+export const SAVE_VERSION = 5;
 
 export function createGame(now: number, seed = Math.floor(Math.random() * 2 ** 31)): GameState {
   const state: GameState = {
@@ -19,6 +19,7 @@ export function createGame(now: number, seed = Math.floor(Math.random() * 2 ** 3
     shards: TUNING.start.shards,
     lures: { ...TUNING.start.lures },
     items: {},
+    tools: {},
     decorOwned: {},
     placedDecor: [],
     creatures: [],

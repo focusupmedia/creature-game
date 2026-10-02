@@ -273,6 +273,12 @@ export const DIG_KINDS: Record<DigKind, DigKindDef> = {
   },
 };
 
+// ---------------------------------------------------------------- tools (used on creatures)
+export const TOOLS: Record<string, { id: string; name: string; icon: string; blurb: string; price: number }> = {
+  traitDeleter: { id: 'traitDeleter', name: 'Trait Deleter', icon: '✂️', price: 30, blurb: 'Remove one trait you choose from a creature (it keeps at least 2).' },
+  traitWiper: { id: 'traitWiper', name: 'Trait Wiper', icon: '🧽', price: 20, blurb: 'Wipe all of a creature\'s traits and roll a fresh set of 2 to 5.' },
+};
+
 // ---------------------------------------------------------------- items
 export const ITEMS: Record<string, ItemDef> = {
   rootswell: {

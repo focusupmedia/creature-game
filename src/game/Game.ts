@@ -59,6 +59,7 @@ export class Game {
     this.world.onFrame = (dt) => this.frame(dt);
     this.world.onRevealTap = () => this.audio.play('crack');
     this.world.onCarryStart = () => this.audio.play('egg');
+    this.world.onCreatureCollect = (giftId, by) => this.collectGift(giftId, by);
     this.world.onCarryDrop = (id, target) => this.onCarryDrop(id, target);
     window.addEventListener('pointerdown', () => this.audio.unlock(), { once: false });
     document.addEventListener('visibilitychange', () => this.onVisibility());
@@ -319,20 +320,24 @@ export class Game {
         const k = DIG_KINDS[d.kind];
         return this.ui.toast(`${k.icon} ${k.name}! Press and hold a creature, then drop it here.`);
       }
-      case 'gift': {
-        const via = this.state.gifts.find((x) => x.id === p.id)?.via;
-        const r = A.collectGift(this.state, p.id, this.now());
-        if (r.ok) {
-          this.audio.play('coin');
-          const extra = r.item === 'egg' ? ' …and a whole egg! It\'s in your basket.'
-            : r.item ? ` …and a ${ITEMS[r.item]?.name ?? 'curiosity'}!` : '';
-          this.ui.toast(`${via ? DIG_KINDS[via].verb : 'Dug up'}: {coin} ${r.glimmer}${r.shards ? ` and {gem} ${r.shards}` : ''}${extra}`, r.item ? 'discovery' : 'info', undefined, r.item ? 4000 : 1800);
-          this.analytics.track('gift_collected', { glimmer: r.glimmer, shards: r.shards, item: r.item ?? '' });
-          this.saveSoon();
-        }
-      }
+      case 'gift': return this.collectGift(p.id);
     }
   }
+
+  /** Pick up a find, by tapping it or because a Greedy creature fetched it. */
+  collectGift(giftId: string, by?: string): void {
+    const via = this.state.gifts.find((x) => x.id === giftId)?.via;
+    const r = A.collectGift(this.state, giftId, this.now());
+    if (!r.ok) return;
+    this.audio.play('coin');
+    const extra = r.item === 'egg' ? ' …and a whole egg! It\'s in your basket.'
+      : r.item ? ` …and a ${ITEMS[r.item]?.name ?? 'curiosity'}!` : '';
+    const who = by ? this.state.creatures.find((c) => c.id === by) : undefined;
+    this.ui.toast(`${who ? `${displayName(who)} grabbed` : via ? DIG_KINDS[via].verb : 'Dug up'}: {coin} ${r.glimmer}${r.shards ? ` and {gem} ${r.shards}` : ''}${extra}`, r.item ? 'discovery' : 'info', undefined, r.item ? 4000 : 1800);
+    this.analytics.track('gift_collected', { glimmer: r.glimmer, shards: r.shards, item: r.item ?? '', by: by ? 'creature' : 'player' });
+    this.saveSoon();
+  }
+
 
   /** You put a creature down: on another creature (breed?), on a dig spot (work it), or just somewhere new. */
   private onCarryDrop(id: string, target: CarryTarget | null): void {

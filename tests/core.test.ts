@@ -12,7 +12,7 @@ import { compatibility, combine } from '../src/core/genetics';
 import { StateRng } from '../src/core/rng';
 import { activeEvent, eventInWindow, isDark, nextEvent } from '../src/core/world';
 import { deserialize, serialize } from '../src/core/save';
-import { addMutation, creatureTraits, speciesTitle } from '../src/core/creatures';
+import { addMutation, creatureTraits, makeCreature, speciesTitle } from '../src/core/creatures';
 import { arrivalWeights } from '../src/core/lures';
 import { TUNING } from '../src/content/tuning';
 import type { Creature, GameState } from '../src/core/types';
@@ -27,7 +27,7 @@ function fresh(seed = 42): GameState {
 function spawn(state: GameState, species: string, mutations: Creature['mutations'] = []): Creature {
   const c: Creature = {
     id: `t${state.creatures.length}${species}`, species, mutations, bornAt: T0, seed: 1, history: [],
-    island: 'home', size: 1, growMs: 0, personality: 'friendly',
+    island: 'home', size: 1, growMs: 0, personality: 'friendly', quirks: ['friendly', 'curious'],
   };
   state.creatures.push(c);
   return c;
@@ -360,8 +360,10 @@ describe('growth, personalities and first eggs', () => {
   it('every creature has a personality, and energetic ones dig more than lazy ones', () => {
     const s = fresh();
     expect(s.creatures.every((c) => !!c.personality)).toBe(true);
-    s.creatures.forEach((c, i) => (c.personality = i === 0 ? 'energetic' : 'lazy'));
-    s.creatures[0].personality = 'energetic';
+    s.creatures.forEach((c, i) => {
+      c.personality = i === 0 ? 'energetic' : 'lazy';
+      c.quirks = [c.personality, 'musical'];
+    });
     const by: Record<string, number> = {};
     for (let i = 0; i < 40; i++) {
       s.gifts = [];
@@ -443,7 +445,7 @@ describe('save', () => {
     for (const c of v1.creatures) { delete c.island; delete c.size; delete c.growMs; delete c.personality; }
     for (const k of ['vent', 'ash', 'reef', 'shallows']) delete v1.spots[k];
     const s = deserialize(JSON.stringify(v1));
-    expect(s.version).toBe(4);
+    expect(s.version).toBe(5);
     expect(s.digSpots).toEqual([]);
     expect(s.islands.home.owned).toBe(true);
     expect(s.creatures.every((c) => c.island === 'home' && c.size > 0.9 && c.growMs === 0 && !!c.personality)).toBe(true);
@@ -566,3 +568,39 @@ describe('legendary events', () => {
     }
   });
 });
+
+describe('behaviour traits', () => {
+  it('every creature has 2-5 traits, one personality, and no clashing pairs', async () => {
+    const { QUIRKS } = await import('../src/content/quirks');
+    const s = fresh(3);
+    for (let i = 0; i < 300; i++) {
+      const c = makeCreatureForTest(s);
+      expect(c.quirks.length).toBeGreaterThanOrEqual(2);
+      expect(c.quirks.length).toBeLessThanOrEqual(5);
+      expect(new Set(c.quirks).size).toBe(c.quirks.length);
+      expect(c.quirks.filter((q) => QUIRKS[q].temper).length).toBe(1);
+      for (const q of c.quirks) for (const o of c.quirks) expect(QUIRKS[q].clashes?.includes(o) ?? false).toBe(false);
+    }
+  });
+
+  it('the Deleter removes a chosen trait but never below 2, and the Wiper rolls a fresh set', async () => {
+    const { deleteQuirk, wipeQuirks } = await import('../src/core/quirks');
+    const s = fresh(4);
+    const c = s.creatures[0];
+    c.quirks = ['friendly', 'lucky', 'digger'];
+    expect(deleteQuirk(s, c.id, 'lucky').ok).toBe(false); // no tool yet
+    s.tools.traitDeleter = 5;
+    expect(deleteQuirk(s, c.id, 'lucky').ok).toBe(true);
+    expect(c.quirks).toEqual(['friendly', 'digger']);
+    expect(deleteQuirk(s, c.id, 'digger').ok).toBe(false);
+    expect(s.tools.traitDeleter).toBe(4);
+    s.tools.traitWiper = 1;
+    expect(wipeQuirks(s, c.id).ok).toBe(true);
+    expect(c.quirks.length).toBeGreaterThanOrEqual(2);
+    expect(s.tools.traitWiper).toBe(0);
+  });
+});
+
+function makeCreatureForTest(s: GameState): Creature {
+  return makeCreature(s, 'mossfrog', [], T0, 'test');
+}

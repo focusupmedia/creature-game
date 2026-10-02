@@ -3,6 +3,8 @@ import { MUTATIONS } from '../content/world';
 import { TUNING } from '../content/tuning';
 import type { Creature, GameState, IslandId, MutationId, Personality, SpeciesId, Trait } from './types';
 import { StateRng } from './rng';
+import { rollQuirks } from './quirks';
+import type { QuirkId } from '../content/quirks';
 
 export function creatureTraits(c: { species: SpeciesId; mutations: MutationId[] }): Trait[] {
   const set = new Set<Trait>(species(c.species).traits);
@@ -69,6 +71,8 @@ export interface CreatureOpts {
   hatchling?: boolean;
   /** Parents' personalities; a child often takes after one of them. */
   parents?: Personality[];
+  /** Parents' traits; some pass on. */
+  parentQuirks?: QuirkId[][];
 }
 
 /** Grown-up size, mostly in the normal range with rare tiny or huge outliers. */
@@ -100,6 +104,7 @@ export function makeCreature(
     size: rollSize(rng),
     growMs: opts.hatchling ? TUNING.growMin * 60_000 : 0,
     personality,
+    quirks: rollQuirks(rng, opts.parentQuirks, personality),
   };
 }
 

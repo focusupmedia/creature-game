@@ -80,6 +80,8 @@ export class World {
   /** The player pushed past the island edge toward another island. */
   onEdgePush: (toward: IslandId) => void = () => {};
   onCarryStart: (creatureId: string) => void = () => {};
+  /** A Greedy creature picked up a gift for the player. */
+  onCreatureCollect: (giftId: string, creatureId: string) => void = () => {};
   onCarryDrop: (creatureId: string, target: CarryTarget | null) => void = () => {};
   private carry: { actor: CreatureActor; hover: CarryTarget | null } | null = null;
   private hoverRing: THREE.Mesh;
@@ -849,7 +851,14 @@ export class World {
     this.rig.update(dt);
     const darkness = this.sky.darkness;
     const visible = [...this.actors.values()].filter((a) => a.root.visible);
-    const ctx: ActorContext = { darkness, sky: this.skyKind, lures: this.lureCtx, actors: visible, now: this.nowMs, fx: this.fx };
+    const gifts: ActorContext['gifts'] = [];
+    for (const [id, g] of this.gifts) {
+      if (g.userData.island === this.current && !this.hiddenGifts.has(id)) gifts.push({ id, x: g.userData.x, z: g.userData.z });
+    }
+    const ctx: ActorContext = {
+      darkness, sky: this.skyKind, lures: this.lureCtx, actors: visible, now: this.nowMs, fx: this.fx,
+      gifts, collect: (id, by) => this.onCreatureCollect(id, by.id),
+    };
     // Only the island you're on is simulated visually; others are "unloaded".
     for (const a of visible) a.update(dt, this.time, ctx);
     this.updateCarry();

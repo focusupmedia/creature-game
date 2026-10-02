@@ -3,7 +3,9 @@
 
 import { SAVE_VERSION } from './state';
 import { generateShop } from './shop';
-import type { GameState } from './types';
+import type { GameState, Personality } from './types';
+import { StateRng } from './rng';
+import { rollQuirks } from './quirks';
 
 type Migration = (raw: Record<string, unknown>) => void;
 
@@ -36,6 +38,14 @@ const MIGRATIONS: Record<number, Migration> = {
   // v2 → v3: dig spots you drop creatures on.
   2: (raw) => {
     raw.digSpots = [];
+  },
+  // v4 → v5: behaviour traits (2-5 per creature, keeping its personality) and trait tools.
+  4: (raw) => {
+    raw.tools = {};
+    for (const c of (raw.creatures as Record<string, unknown>[]) ?? []) {
+      const rng = new StateRng({ rng: (Number(c.seed) || 1) >>> 0 });
+      c.quirks = rollQuirks(rng, [], c.personality as Personality);
+    }
   },
   // v3 → v4: Sunny Shore and Dune Hollow lure spots.
   3: (raw) => {

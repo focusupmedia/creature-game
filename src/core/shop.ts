@@ -2,7 +2,7 @@
 // curiosities come and go. Premium cosmetics rotate too: urgency without ever
 // selling discovery itself.
 
-import { DECOR, EGG_TIERS, ITEMS } from '../content/world';
+import { DECOR, EGG_TIERS, ITEMS, TOOLS } from '../content/world';
 import { TUNING } from '../content/tuning';
 import { mulberry32 } from './rng';
 import type { GameState, IslandId, ShopOffer, ShopState } from './types';
@@ -24,6 +24,9 @@ export function generateShop(seed: number, rotation: number, t: number, owned: I
   if (owned.includes('lagoon')) add({ kind: 'lure', ref: 'saltkelp', price: 45, currency: 'glimmer', qty: 1, stock: 99 });
   if (owned.includes('beach')) add({ kind: 'lure', ref: 'seaspray', price: 50, currency: 'glimmer', qty: 1, stock: 99 });
   if (owned.includes('desert')) add({ kind: 'lure', ref: 'sunbaked', price: 55, currency: 'glimmer', qty: 1, stock: 99 });
+
+  // trait tools are always stocked, for Starshards
+  for (const t of Object.values(TOOLS)) add({ kind: 'tool', ref: t.id, price: t.price, currency: 'shards', qty: 1, stock: 99 });
 
   const item = pick(Object.values(ITEMS));
   add({ kind: 'item', ref: item.id, price: item.price, currency: 'glimmer', qty: 1, stock: 2 });

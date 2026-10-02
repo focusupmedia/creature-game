@@ -1,10 +1,10 @@
 import { SPECIES, species } from '../content/species';
-import { DECOR, EGG_TIERS, EVENTS, GIFTABLE_MUTATIONS, ITEMS, LEGENDARY, LEGENDARY_ORDER, LURES, MUTATIONS, SPOTS } from '../content/world';
+import { DECOR, EGG_TIERS, EVENTS, GIFTABLE_MUTATIONS, TOOLS, ITEMS, LEGENDARY, LEGENDARY_ORDER, LURES, MUTATIONS, SPOTS } from '../content/world';
 import { ISLANDS, ISLAND_ORDER, SIZE_CAPACITY, SIZE_NAMES, SIZE_PRICE } from '../content/islands';
 import { TUNING } from '../content/tuning';
 import { NESTS, FONT, SHOP_STALL } from '../content/layout';
 import * as A from '../core/actions';
-import { PERSONALITIES, creatureTraits, displayName, growth, isOutlier, sizeLabel, speciesTitle } from '../core/creatures';
+import { creatureTraits, displayName, growth, isOutlier, sizeLabel, speciesTitle } from '../core/creatures';
 import { compatibility, eggClues } from '../core/genetics';
 import { arrivalWeights } from '../core/lures';
 import { nestOccupant } from '../core/state';
@@ -14,6 +14,8 @@ import type { Game } from '../game/Game';
 import { fmtDuration, h, img, rich } from './dom';
 import * as I from './icons';
 import { WorldLabels } from './Labels';
+import { QUIRKS } from '../content/quirks';
+import { deleteQuirk, wipeQuirks } from '../core/quirks';
 import { rarityTag } from './rarity';
 
 const fmtClock = (ms: number) => `${Math.floor(Math.max(0, ms) / 60000)}:${String(Math.floor(Math.max(0, ms) / 1000) % 60).padStart(2, '0')}`;
@@ -333,14 +335,19 @@ export class UI {
             : h('button', { class: 'btn secondary small', style: 'align-self:flex-start', onClick: () => { renaming = true; this.rerender(); } }, '✏️ Name'),
           h('div', { class: 'row', style: 'gap:6px;flex-wrap:wrap' }, rarityTag(sp.rarity), isOutlier(c.size) ? h('span', { class: 'rarity r-outlier' }, sizeLabel(c.size)) : h('span', { class: 'muted' }, sizeLabel(c.size))),
           h('div', { class: 'desc muted' }, sp.blurb),
-          this.traitChips(creatureTraits(c)),
+          h('div', { class: 'quirk-row' }, ...c.quirks.map((q) => h('span', { class: 'quirk', title: QUIRKS[q].blurb }, `${QUIRKS[q].icon} ${QUIRKS[q].name}`))),
         ));
       b.append(head);
       const t = this.game.now();
       const grown = growth(c, t);
-      const P = PERSONALITIES[c.personality];
+      const tools = this.game.state.tools;
       b.append(h('div', { class: 'stats' },
-        h('div', { class: 'stat' }, h('span', { class: 'k' }, 'Personality'), h('span', { class: 'v' }, `${P.emoji} ${P.name}`), h('span', { class: 'muted' }, P.blurb)),
+        h('div', { class: 'stat' }, h('span', { class: 'k' }, `Traits (${c.quirks.length})`),
+          ...c.quirks.map((q) => h('div', { class: 'quirk-line' }, h('b', null, `${QUIRKS[q].icon} ${QUIRKS[q].name}`), h('span', { class: 'muted' }, ` ${QUIRKS[q].blurb}`))),
+          h('div', { class: 'btns', style: 'margin-top:8px' },
+            h('button', { class: 'btn small secondary', onClick: () => (tools.traitDeleter ? this.chooseQuirkToDelete(c) : this.toolHint('traitDeleter')) }, `${TOOLS.traitDeleter.icon} Delete a trait (${tools.traitDeleter ?? 0})`),
+            h('button', { class: 'btn small secondary', onClick: () => (tools.traitWiper ? this.confirmWipe(c) : this.toolHint('traitWiper')) }, `${TOOLS.traitWiper.icon} Wipe traits (${tools.traitWiper ?? 0})`))),
+        h('div', { class: 'stat' }, h('span', { class: 'k' }, 'Types'), this.traitChips(creatureTraits(c)), h('span', { class: 'muted' }, 'Creatures that share a type can breed.')),
         h('div', { class: 'stat' }, h('span', { class: 'k' }, 'Size'), h('span', { class: 'v' }, `${sizeLabel(c.size)}${c.mutations.includes('giant') ? ' · Giant' : ''}`),
           grown < 1
             ? h('div', { class: 'col' }, h('div', { class: 'progress small' }, h('i', { style: `width:${Math.round(grown * 100)}%` })),
@@ -366,6 +373,44 @@ export class UI {
   private when(t: number): string {
     const d = new Date(t);
     return `${d.toLocaleDateString([], { month: 'short', day: 'numeric' })} · ${d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`;
+  }
+
+  private toolHint(id: string): void {
+    this.modal((m, close) => {
+      m.append(h('h2', null, TOOLS[id].name), h('p', { class: 'muted' }, TOOLS[id].blurb),
+        h('div', { class: 'btns' }, h('button', { class: 'btn secondary', onClick: close }, 'Later'),
+          h('button', { class: 'btn', onClick: () => { close(); this.shopTab = 'item'; this.showShop(); } }, 'Visit Mango\'s shop')));
+    });
+  }
+
+  private chooseQuirkToDelete(c: Creature): void {
+    this.modal((m, close) => {
+      m.append(h('h2', null, 'Delete which trait?'),
+        h('p', { class: 'muted' }, c.quirks.length <= 2 ? 'Creatures always keep at least 2 traits.' : 'Uses 1 Trait Deleter.'),
+        h('div', { class: 'col', style: 'gap:6px' }, ...c.quirks.map((q) => h('button', { class: 'btn secondary', disabled: c.quirks.length <= 2, onClick: () => {
+          close();
+          const r = deleteQuirk(this.game.state, c.id, q);
+          this.toast(r.ok ? `✂️ ${r.message}` : r.error);
+          this.game.saveSoon();
+          this.rerender();
+        } }, `${QUIRKS[q].icon} ${QUIRKS[q].name}`))),
+        h('div', { class: 'btns' }, h('button', { class: 'btn secondary', onClick: close }, 'Cancel')));
+    });
+  }
+
+  private confirmWipe(c: Creature): void {
+    this.modal((m, close) => {
+      m.append(h('h2', null, `Wipe ${displayName(c)}'s traits?`),
+        h('p', { class: 'muted' }, `All ${c.quirks.length} traits will be wiped and a fresh random set of 2 to 5 will appear. You can't undo this.`),
+        h('div', { class: 'btns' }, h('button', { class: 'btn secondary', onClick: close }, 'Keep them'),
+          h('button', { class: 'btn danger', onClick: () => {
+            close();
+            const r = wipeQuirks(this.game.state, c.id);
+            this.toast(r.ok ? `🧽 ${r.message}` : r.error, r.ok ? 'discovery' : 'info', undefined, 4500);
+            this.game.saveSoon();
+            this.rerender();
+          } }, 'Wipe them')));
+    });
   }
 
   private confirmRelease(c: Creature): void {
@@ -678,7 +723,7 @@ export class UI {
         A.adsLeft(s, t) > 0 ? h('button', { class: 'btn ad small', onClick: () => this.game.adRefreshShop() }, '▶ Watch ad · refresh') : null,
       ));
       const list = h('div', { class: 'list' });
-      const offers = s.shop.offers.filter((x) => x.kind === this.shopTab);
+      const offers = s.shop.offers.filter((x) => x.kind === this.shopTab || (this.shopTab === 'item' && x.kind === 'tool'));
       if (!offers.length) list.append(h('p', { class: 'muted' }, 'Nothing of this kind today. Check back when new stock arrives!'));
       for (const o of offers) {
         let name = '';
@@ -687,6 +732,7 @@ export class UI {
         let style = '';
         if (o.kind === 'lure') { const l = LURES[o.ref]; name = l.name; desc = l.scent; icon = HABITAT_ICON[l.attracts] ?? '🫙'; style = `background:${l.color}33`; }
         if (o.kind === 'item') { const it = ITEMS[o.ref]; name = it.name; desc = it.blurb; icon = it.effect === 'warmth' ? '🔥' : '🧪'; }
+        if (o.kind === 'tool') { const tl = TOOLS[o.ref]; name = `${tl.name} (have ${s.tools[o.ref] ?? 0})`; desc = tl.blurb; icon = tl.icon; }
         if (o.kind === 'egg') {
           const tier = EGG_TIERS[o.ref];
           name = tier?.name ?? 'Egg';

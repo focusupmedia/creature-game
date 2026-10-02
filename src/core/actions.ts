@@ -2,7 +2,7 @@
 // show. Keeping these pure makes them testable and server-verifiable later.
 
 import { species } from '../content/species';
-import { DECOR, DIG_KINDS, EGG_TIERS, EVENTS, ITEMS, LURES, MUTATIONS, RESONANCES, SPOTS, SUMMON_WEIGHTS } from '../content/world';
+import { DECOR, DIG_KINDS, TOOLS, EGG_TIERS, EVENTS, ITEMS, LURES, MUTATIONS, RESONANCES, SPOTS, SUMMON_WEIGHTS } from '../content/world';
 import { ISLANDS, SIZE_PRICE } from '../content/islands';
 import { WILD_SPECIES } from '../content/species';
 import { islandCapacity, islandPopulation } from './sim';
@@ -11,6 +11,7 @@ import { addMutation, displayName, makeCreature, newId } from './creatures';
 import { compatibility, combine, incubationMs } from './genetics';
 import { addNote, recordMutation, recordResonance, recordSpecies } from './journal';
 import { StateRng } from './rng';
+import { hasQuirk } from './quirks';
 import { refreshShop } from './shop';
 import { freeNest } from './state';
 import type { Creature, Egg, EventKind, GameState, Gift, IslandId, MutationId, SpeciesId, SpotId } from './types';
@@ -64,6 +65,7 @@ export function startCombine(state: GameState, aId: string, bId: string, t: numb
     witnessed: [],
     relative: o.relative,
     parentPersonalities: [a.personality, b.personality],
+    parentQuirks: [a.quirks, b.quirks],
   };
   if (state.tutorial < 4) egg.incubationMs = Math.min(egg.incubationMs, 40_000);
   state.eggs.push(egg);
@@ -99,7 +101,7 @@ export function hatch(state: GameState, eggId: string, t: number): Result<HatchR
     : egg.source === 'shop' ? `Hatched from a ${egg.tier ? EGG_TIERS[egg.tier]?.name ?? 'shop egg' : 'traveler\'s egg'}.`
       : egg.source === 'dug' ? 'Hatched from an egg a creature dug up.' : 'Hatched from a mysterious egg.';
   const c = makeCreature(state, egg.species, egg.mutations, t, story, {
-    seed: egg.seed, island: 'home', hatchling: true, parents: egg.parentPersonalities,
+    seed: egg.seed, island: 'home', hatchling: true, parents: egg.parentPersonalities, parentQuirks: egg.parentQuirks,
   });
   if (egg.relative) c.history.push({ t, text: 'A distant relative! It looks nothing like its parents.' });
   for (const ev of new Set(egg.witnessed)) {
@@ -178,8 +180,9 @@ export function workDigSpot(state: GameState, spotId: string, creatureId: string
   const rng = new StateRng(state);
   const gift: Gift = {
     id: newId(state, 'g'), x: d.x, z: d.z, glimmer: rng.int(kind.glimmer[0], kind.glimmer[1]),
-    shards: rng.chance(kind.shardChance) ? 1 : 0, from: c.id, island: d.island, via: d.kind,
+    shards: rng.chance(kind.shardChance * (hasQuirk(c, 'lucky') ? 2 : 1)) ? 1 : 0, from: c.id, island: d.island, via: d.kind,
   };
+  if (hasQuirk(c, 'lucky')) gift.glimmer = Math.round(gift.glimmer * 1.5);
   if (rng.chance(kind.itemChance)) gift.item = rng.pick(kind.items);
   else if (rng.chance(kind.eggChance) && state.eggs.filter((e) => e.nest === null).length < TUNING.basketSize) gift.item = 'egg';
   state.digSpots = state.digSpots.filter((x) => x !== d);
@@ -273,6 +276,10 @@ export function buyOffer(state: GameState, offerId: string, t: number): Result<{
     case 'item':
       state.items[o.ref] = (state.items[o.ref] ?? 0) + o.qty;
       message = `${ITEMS[o.ref].name} added to your satchel.`;
+      break;
+    case 'tool':
+      state.tools[o.ref] = (state.tools[o.ref] ?? 0) + o.qty;
+      message = `${TOOLS[o.ref]?.name ?? 'Tool'} added to your satchel.`;
       break;
     case 'decor':
       state.decorOwned[o.ref] = (state.decorOwned[o.ref] ?? 0) + o.qty;
