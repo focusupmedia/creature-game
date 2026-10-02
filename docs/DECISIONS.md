@@ -49,6 +49,15 @@
 | A26 | **Egg shop:** coin eggs (Meadow, Wanderer, Ember, Reef) plus a premium gem **Starry Egg** with better rare odds. Wild species only; hybrids must be made | ✅ Built |
 | A27 | **Widgets:** in-game widget (next egg + pinned pet) now; real phone home-screen widgets come with the store build | ✅ In-game built |
 | A28 | **HUD:** coins on the left, Starshards to their right | ✅ Built |
+| A29 | **Stacking, glowing mutations:** every mutation's look shows at once; rarer mutations glow, the rarest glow strongly with sparkles | Approved |
+| A30 | **Shop tabs + monkey shopkeeper:** category buttons (Lures, Eggs, Decor, Food, Starshards) and a monkey at the counter | Approved |
+| A31 | **Round dome islands you can spin:** each island is a rounded mound (top of a little globe); drag to rotate; creatures roam all of it | Approved |
+| A32 | **Pick up and drag creatures:** press-and-hold to lift. Drop on another creature → "Breed these two?" → egg in a free nest, both parents stay. Drop on a **dig spot** (sparkly dust, bubbling puddle, berry bush) → pet digs/fishes/forages for coins, gems, items. Automatic digging (A20) **stays** alongside | Approved |
+| A33 | **Legendary mutations:** first the rare **Angel event** (clouds sweep in, grand music; choose any rare mutation for one creature; a random creature becomes Angelic with halo + wings). Then **Infernal** (Ember Peak) and **Abyssal** (Coral Lagoon) events. Not summonable with ads | Approved |
+| A34 | **New creatures + open Sunny Shore and Dune Hollow:** ~9 new species (monkeys and kin, flamingos and wading birds, scorpions/snakes and kin). Unlocking an island gives only 1–2 starter creatures to breed from; the rest are bred or discovered, not pre-placed | Approved |
+| A35 | **Mythical rarity (above Legendary):** Cloud Serpent (original long sky-dragon), Phoenix, Kraken (Coral Lagoon), Qilin, each found only in special ways | Approved |
+| A36 | **Gentle hunger:** hungry after ~10 h; hungry pets get grumpy (squabble more, won't dig or breed) but never leave; fed pets get a happy bonus. Food: plantable fruit trees/bushes (regrow), feedbags (feed while away), shop food. Max 1 "peckish" reminder a day. Build with the Economy phase | Approved |
+| A37 | **Build order:** quick wins (A29, A30) → round islands (A31) → drag/breed/dig spots (A32) → creatures, islands, mythicals (A34, A35) → Angel then Infernal/Abyssal (A33) → hunger + economy (A36) | Approved |
 
 ## Where I'm challenging the brief
 
