@@ -3,6 +3,7 @@ import { BASKET, NESTS } from '../content/layout';
 import { ISLAND_ORDER, inWater, isBlocked, islandGeo, onLand } from '../content/islands';
 import { EVENTS, LURES, SPOTS } from '../content/world';
 import type { Creature, Egg, EventKind, GameEvent, GameState, IslandId } from '../core/types';
+import { groundAt } from '../content/terrain';
 import { CameraRig } from './CameraRig';
 import { CreatureActor, type ActorContext } from './CreatureActor';
 import { buildDecor } from './decor';
@@ -77,6 +78,7 @@ export class World {
     this.scene.fog = new THREE.Fog('#bfe6ff', 45, 110);
     this.rig = new CameraRig(this.renderer.domElement);
     this.rig.onTap = (x, y) => this.handleTap(x, y);
+    this.rig.ground = (x, z) => this.groundAt(x, z);
     this.sky = new Sky(this.scene);
     this.buildClouds();
     this.portraits = new Portraits(this.renderer);
@@ -271,14 +273,14 @@ export class World {
       hit.position.y = 0.3;
       hit.userData.pick = { kind: 'gift', id: g.id };
       group.add(gem, sparkle, hit);
-      group.position.set(g.x, 0, g.z);
+      group.position.set(g.x, this.groundAt(g.x, g.z), g.z);
       group.userData.island = g.island ?? 'home';
       this.scene.add(group);
       this.gifts.set(g.id, group);
     }
     for (const [id, group] of this.gifts) {
       if (!giftAlive.has(id)) {
-        if (group.visible) this.burst(group.position.clone().setY(0.4), '#ffe58a', 10);
+        if (group.visible) this.burst(group.position.clone().setY(group.position.y + 0.4), '#ffe58a', 10);
         this.scene.remove(group);
         this.gifts.delete(id);
         this.hiddenGifts.delete(id);
@@ -294,7 +296,7 @@ export class World {
     for (const d of state.placedDecor) {
       if (this.decor.has(d.id)) continue;
       const g = buildDecor(d.decor);
-      g.position.set(d.x, 0, d.z);
+      g.position.set(d.x, this.groundAt(d.x, d.z), d.z);
       g.rotation.y = d.rot;
       const hit = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 0.8, 1.5, 6), new THREE.MeshBasicMaterial({ visible: false }));
       hit.position.y = 0.75;
@@ -332,10 +334,10 @@ export class World {
       const root = entry.model.root;
       if (e.nest !== null) {
         const n = NESTS[e.nest];
-        root.position.set(n.x, 0.42, n.z);
+        root.position.set(n.x, 0.42 + this.groundAt(n.x, n.z), n.z);
         entry.model.shell.userData.pick = { kind: 'nest', index: e.nest };
       } else {
-        root.position.set(BASKET.x + (basketIdx - 1) * 0.28, 0.12, BASKET.z);
+        root.position.set(BASKET.x + (basketIdx - 1) * 0.28, 0.12 + this.groundAt(BASKET.x, BASKET.z), BASKET.z);
         entry.model.shell.userData.pick = { kind: 'basket' };
         basketIdx++;
       }
@@ -466,6 +468,11 @@ export class World {
     if (id) this.actors.get(id)?.setSelected(true);
   }
 
+  /** Height of the (domed) ground at a world point. */
+  groundAt(x: number, z: number): number {
+    return groundAt(x, z, this.sizes);
+  }
+
   focus(p: { x: number; z: number }, distance?: number): void {
     this.rig.flyTo(p, distance);
   }
@@ -512,13 +519,13 @@ export class World {
         (o.material as THREE.Material).opacity = 0.55;
       }
     });
-    this.ghost.position.set(this.rig.focus.x, 0, this.rig.focus.z);
+    this.ghost.position.set(this.rig.focus.x, this.groundAt(this.rig.focus.x, this.rig.focus.z), this.rig.focus.z);
     this.scene.add(this.ghost);
   }
 
   moveGhost(x: number, z: number): boolean {
     if (!this.ghost) return false;
-    this.ghost.position.set(x, 0, z);
+    this.ghost.position.set(x, this.groundAt(x, z), z);
     return this.validPlacement(x, z);
   }
 

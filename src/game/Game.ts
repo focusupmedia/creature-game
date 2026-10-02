@@ -21,6 +21,7 @@ import { UI } from '../ui/UI';
 
 const SAVE_KEY = 'kindred-grove.save.v1';
 const SETTINGS_KEY = 'kindred-grove.settings';
+const SPIN_HINT_KEY = 'kindred-grove.hint.spin';
 const LIVE_TICK_S = 0.25;
 const AWAY_REPORT_MS = 90_000;
 
@@ -69,6 +70,10 @@ export class Game {
     if (away > AWAY_REPORT_MS) this.ui.showAwayReport(events, away);
     this.analytics.track('session_start', { creatures: this.state.creatures.length, away_min: Math.round(away / 60000) });
     this.world.start();
+    if (!this.storage.load(SPIN_HINT_KEY)) {
+      this.storage.save(SPIN_HINT_KEY, '1');
+      setTimeout(() => this.ui.toast('👆 Drag to spin your island. Pinch to zoom, two fingers to move around.', 'info', undefined, 6000), 4000);
+    }
   }
 
   now(): number {

@@ -927,7 +927,7 @@ export class UI {
 
   showIslands(highlight?: IslandId): void {
     const s = this.game.state;
-    this.openSheet('Islands', 'Swipe past the edge, or tap an island on the horizon, to hop between them.', (b) => {
+    this.openSheet('Islands', 'Tap an island on the horizon, or two-finger swipe past the edge, to hop between them.', (b) => {
       for (const id of ISLAND_ORDER) {
         const def = ISLANDS[id];
         const isl = s.islands[id] ?? { owned: false, size: 0 };

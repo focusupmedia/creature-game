@@ -151,7 +151,7 @@ export class WorldLabels {
 
     for (const p of this.pins) {
       const mode = p.when() ? p.mode() : 'hidden';
-      const sp = w.toScreen(...p.pos);
+      const sp = w.toScreen(p.pos[0], p.pos[1] + w.groundAt(p.pos[0], p.pos[2]), p.pos[2]);
       const farText = p.far && near < 0.5 && mode !== 'hidden' ? p.far() : undefined;
       let opacity = mode === 'hidden' || !sp.visible ? 0 : mode === 'always' ? 1 : near;
       if (p.far && near < 0.5) opacity = farText && sp.visible ? 1 : 0;

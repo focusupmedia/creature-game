@@ -14,21 +14,20 @@ Playable link (private artifact, republish to the same URL): https://claude.ai/a
 
 ## Code map
 - `src/core/`: pure, deterministic simulation (sim tick, actions, genetics, lures, world/events, shop, save + migrations; save version 2)
-- `src/content/`: data (species, world: lures/spots/events/mutations/egg tiers, islands, layout, tuning)
+- `src/content/`: data (species, world: lures/spots/events/mutations/egg tiers, islands, terrain (dome height), layout, tuning)
 - `src/platform/`: audio.ts (SFX + ambience), composer.ts + music.ts (generative music), services (storage, ads, IAP stubs)
 - `src/render/`: World (multi-island, only the current island's actors animate), CreatureActor (AI, personalities, digging), creatureModels (procedural, outlined), sanctuary (island builders), sky (5 events)
 - `src/ui/`: UI.ts (sheets, HUD, widget, islands), Labels.ts (world pins and name bubble), icons.ts (SVG incl. axolotl mascot), styles.css (chunky casual style)
 - `docs/`: GAME_DESIGN, MVP_SCOPE, ARCHITECTURE, ROADMAP, DECISIONS (approved decisions A1–A37)
 
 ## Built so far
-Lures, combining (trait-based hybrids), eggs and reveal, 6 mutations, 5 sky events (Storm, Eclipse, plus rare Starry Night, Full Moon, Blizzard), ad-summoned events (6 ads/day), generative cozy music (kalimba/marimba/bells; moods for day, night and each sky event; Music toggle in Settings), stacking mutation looks with rarity glow (rim, aura, sparkles), rotating shop with category tabs and Mango the monkey shopkeeper, egg tiers (coin eggs + premium gem Starry Egg), coins (8-bit) + Starshards, decor, journal, away report, tutorial with axolotl coach, growth to random size, personalities, squabbles, digging finds, first-3-eggs-always-new, 25 species including dragons and the legendary Axolotl, archipelago (Home, Ember Peak, Coral Lagoon; Beach and Desert "coming soon"), island sizes S/M/L, in-game widget.
+Lures, combining (trait-based hybrids), eggs and reveal, 6 mutations, 5 sky events (Storm, Eclipse, plus rare Starry Night, Full Moon, Blizzard), ad-summoned events (6 ads/day), generative cozy music (kalimba/marimba/bells; moods for day, night and each sky event; Music toggle in Settings), stacking mutation looks with rarity glow (rim, aura, sparkles), rotating shop with category tabs and Mango the monkey shopkeeper, egg tiers (coin eggs + premium gem Starry Egg), coins (8-bit) + Starshards, decor, journal, away report, tutorial with axolotl coach, growth to random size, personalities, squabbles, digging finds, first-3-eggs-always-new, 25 species including dragons and the legendary Axolotl, round dome islands you spin by dragging (`content/terrain.ts` groundY: everything standing on the ground must use it), archipelago (Home, Ember Peak, Coral Lagoon; Beach and Desert "coming soon"), island sizes S/M/L, in-game widget.
 
-## Next up (approved, not built; details in docs/DECISIONS.md A29–A37, build in this order; A29 and A30 are done)
-1. **Round dome islands you can spin** (A31).
-2. **Drag creatures:** drop on a creature to breed (parents stay), drop on dig spots to dig/fish/forage; auto-digging stays (A32).
-3. **New creatures, Sunny Shore + Dune Hollow, Mythical tier** (A34, A35). New islands start with only 1–2 starters to breed from.
-4. **Legendary events:** Angel first, then Infernal and Abyssal (A33).
-5. **Gentle hunger + Economy phase** (A36): storage (stored pets pause; extra slots cost coins), selling (quick-sell with an "Are you sure?" step, plus a traveling Collector who pays more; price = rarity × size × mutations), favorites can't be sold.
+## Next up (approved, not built; details in docs/DECISIONS.md A29–A37, build in this order; A29–A31 are done)
+1. **Drag creatures:** drop on a creature to breed (parents stay), drop on dig spots to dig/fish/forage; auto-digging stays (A32).
+2. **New creatures, Sunny Shore + Dune Hollow, Mythical tier** (A34, A35). New islands start with only 1–2 starters to breed from.
+3. **Legendary events:** Angel first, then Infernal and Abyssal (A33).
+4. **Gentle hunger + Economy phase** (A36): storage (stored pets pause; extra slots cost coins), selling (quick-sell with an "Are you sure?" step, plus a traveling Collector who pays more; price = rarity × size × mutations), favorites can't be sold.
 
 ## Open / later
 Real ads/IAP SDKs, native builds, real phone home-screen widgets, Beach and Desert islands, cloud save, final art and audio, final game name and bundle ID.

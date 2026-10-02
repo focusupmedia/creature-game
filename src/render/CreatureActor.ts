@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { species } from '../content/species';
 import { inWater, isBlocked, onLand, randomLand, randomWater, type Geo } from '../content/islands';
+import { groundY } from '../content/terrain';
 import { creatureTraits, currentScale, displayName } from '../core/creatures';
 import type { Creature, EventKind, Personality, Trait } from '../core/types';
 import { animateGlow, animatePrismatic, buildCreature, disposeCreature, type CreatureModel } from './creatureModels';
@@ -84,7 +85,7 @@ export class CreatureActor {
     this.ring.visible = false;
     this.root.add(this.ring);
     const start = this.isSwimmer ? randomWater(geo, Math.random) : randomLand(geo, Math.random);
-    this.root.position.set(start.x, 0, start.z);
+    this.root.position.set(start.x, groundY(geo, start.x, start.z), start.z);
     this.pickWander();
     scene.add(this.root);
   }
@@ -141,7 +142,7 @@ export class CreatureActor {
     } else {
       const a = Math.atan2(spot.z - g.oz, spot.x - g.ox) + (Math.random() - 0.5) * 1.2;
       this.root.position.set(g.ox + Math.cos(a) * (g.r - 0.6), 0, g.oz + Math.sin(a) * (g.r - 0.6));
-      const off = new THREE.Vector3(spot.x, 0, spot.z).sub(this.root.position).normalize().multiplyScalar(0.8);
+      const off = new THREE.Vector3(spot.x - this.root.position.x, 0, spot.z - this.root.position.z).normalize().multiplyScalar(0.8);
       this.target.set(spot.x - off.x, 0, spot.z - off.z);
     }
     this.state = 'arrive';
@@ -235,7 +236,7 @@ export class CreatureActor {
         this.fxTimer -= dt;
         if (this.fxTimer <= 0 && this.partner && this.creature.id < this.partner.creature.id) {
           this.fxTimer = 0.35;
-          ctx.fx('dust', this.root.position.clone().lerp(this.partner.position, 0.5).setY(0.25));
+          ctx.fx('dust', this.root.position.clone().lerp(this.partner.position, 0.5).setY(this.root.position.y + 0.25));
         }
         if (Math.random() < dt * 0.8) this.emote(Math.random() < 0.6 ? '💢' : '😤', 1);
         if (this.timer <= 0) {
@@ -264,8 +265,9 @@ export class CreatureActor {
 
     // ---- animate
     const mv = m.movement;
+    const ground = groundY(this.geo, this.root.position.x, this.root.position.z);
     const moving = (this.state === 'wander' || this.state === 'arrive' || this.state === 'shelter')
-      && this.root.position.distanceTo(this.target) > 0.15;
+      && Math.hypot(this.root.position.x - this.target.x, this.root.position.z - this.target.z) > 0.15;
     const body = m.body;
     body.position.y = 0;
     body.rotation.set(0, 0, 0);
@@ -293,17 +295,17 @@ export class CreatureActor {
       const flap = Math.sin(this.phase * (moving ? 16 : 6));
       m.wings.forEach((w, i) => (w.rotation.z = flap * 0.7 * (i % 2 ? -1 : 1)));
       const resting = this.state === 'sleep' || this.state === 'nap' || this.state === 'eat' || this.state === 'dig';
-      const targetY = resting ? 0.25 : this.flyHeight + Math.sin(this.phase * 1.7) * 0.15;
+      const targetY = ground + (resting ? 0.25 : this.flyHeight + Math.sin(this.phase * 1.7) * 0.15);
       this.root.position.y += (targetY - this.root.position.y) * Math.min(1, dt * 2);
       if (m.tail) m.tail.rotation.y = Math.sin(this.phase * 2.5) * 0.3;
     } else if (mv === 'float') {
-      const targetY = (this.state === 'sleep' || this.state === 'nap' ? 0.5 : this.flyHeight) + Math.sin(this.phase * 1.3) * 0.2;
+      const targetY = ground + (this.state === 'sleep' || this.state === 'nap' ? 0.5 : this.flyHeight) + Math.sin(this.phase * 1.3) * 0.2;
       this.root.position.y += (targetY - this.root.position.y) * Math.min(1, dt * 1.5);
       if (m.tail) m.tail.rotation.z = Math.sin(this.phase * 2) * 0.3;
       m.wings.forEach((w, i) => (w.rotation.z = Math.sin(this.phase * 2.5) * 0.4 * (i % 2 ? -1 : 1)));
       m.legs.forEach((l, i) => (l.rotation.x = Math.sin(this.phase * 2.2 + i) * 0.35));
     } else if (mv === 'swim') {
-      this.root.position.y = -0.1 + Math.sin(this.phase * 2) * 0.03;
+      this.root.position.y = ground - 0.1 + Math.sin(this.phase * 2) * 0.03;
       if (m.tail) m.tail.rotation.y = Math.sin(this.phase * (moving ? 10 : 4)) * 0.5;
       m.wings.forEach((w, i) => (w.rotation.y = Math.sin(this.phase * 8 + i * Math.PI) * 0.5));
     } else if (mv === 'slither') {
@@ -313,7 +315,7 @@ export class CreatureActor {
     }
     if (mv !== 'fly' && mv !== 'float' && mv !== 'swim') {
       // amphibians wade: sink a little in water
-      this.root.position.y = this.amphibious && inWater(this.geo, this.root.position.x, this.root.position.z, -0.3) ? -0.12 : 0;
+      this.root.position.y = ground + (this.amphibious && inWater(this.geo, this.root.position.x, this.root.position.z, -0.3) ? -0.12 : 0);
     }
     if (m.tail && mv === 'hop') m.tail.rotation.y = Math.sin(this.phase * 3) * 0.25;
 
@@ -423,7 +425,7 @@ export class CreatureActor {
     // meet a neighbour: say hello, or pick a playful squabble
     if (this.socialCooldown <= 0) {
       const near = ctx.actors.find((o) => o !== this && o.geo === this.geo && !['sleep', 'nap', 'arrive', 'dig', 'squabble', 'social'].includes(o.state)
-        && o.position.distanceTo(this.position) < 2.4 && o.isSwimmer === this.isSwimmer);
+        && Math.hypot(o.position.x - this.position.x, o.position.z - this.position.z) < 2.4 && o.isSwimmer === this.isSwimmer);
       if (near) {
         const r = Math.random();
         if (r < T.squabble && near.creature.personality !== 'shy') {

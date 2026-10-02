@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { BASKET, FONT, NESTS, POND, ROCKS, SHOP_STALL, TREES } from '../content/layout';
 import { ISLANDS, inWater, isBlocked, islandGeo, type Geo } from '../content/islands';
+import { groundNormal, groundY } from '../content/terrain';
 import { SPOTS } from '../content/world';
 import { mulberry32 } from '../core/rng';
 import type { IslandId } from '../core/types';
@@ -11,17 +12,46 @@ import { buildShopkeeper } from './creatureModels';
 // Island dioramas. Everything static is merged into one vertex-colored mesh per
 // island (one draw call, plus one for its outline); animated or tappable bits stay separate.
 
+const UP = new THREE.Vector3(0, 1, 0);
+
+/** Matrix that stands something on the domed ground: lifted to the surface and leaning with it. */
+function standMatrix(terrain: Geo, x: number, z: number): THREE.Matrix4 {
+  const n = groundNormal(terrain, x, z);
+  const q = new THREE.Quaternion().setFromUnitVectors(UP, new THREE.Vector3(n.x, n.y, n.z));
+  return new THREE.Matrix4().compose(new THREE.Vector3(x, groundY(terrain, x, z), z), q, new THREE.Vector3(1, 1, 1));
+}
+
+/** Lift and tilt an object placed at ground level (its position's y is its height above the ground). */
+function standOn(o: THREE.Object3D, terrain: Geo): void {
+  const local = new THREE.Matrix4().compose(new THREE.Vector3(0, o.position.y, 0), o.quaternion, o.scale);
+  standMatrix(terrain, o.position.x, o.position.z).multiply(local).decompose(o.position, o.quaternion, o.scale);
+}
+
+/**
+ * 'stand' (default) lifts a part onto the dome and leans it with the slope;
+ * 'drape' bends a flat part over the dome vertex by vertex; 'fixed' keeps raw coordinates.
+ */
+type Fit = 'stand' | 'drape' | 'fixed';
+
 class Merger {
   private parts: THREE.BufferGeometry[] = [];
+  /** The island whose dome parts stand on; null keeps everything flat. */
+  terrain: Geo | null = null;
 
-  add(geo: THREE.BufferGeometry, color: string, pos: THREE.Vector3Like, rot: THREE.Vector3Like = { x: 0, y: 0, z: 0 }, scale: THREE.Vector3Like = { x: 1, y: 1, z: 1 }): void {
+  add(geo: THREE.BufferGeometry, color: string, pos: THREE.Vector3Like, rot: THREE.Vector3Like = { x: 0, y: 0, z: 0 }, scale: THREE.Vector3Like = { x: 1, y: 1, z: 1 }, fit: Fit = 'stand'): void {
     const g = geo.index ? geo.toNonIndexed() : geo.clone();
     g.deleteAttribute('uv');
-    g.applyMatrix4(new THREE.Matrix4().compose(
-      new THREE.Vector3(pos.x, pos.y, pos.z),
+    const t = this.terrain && fit !== 'fixed' ? this.terrain : null;
+    const local = new THREE.Matrix4().compose(
+      new THREE.Vector3(fit === 'stand' && t ? 0 : pos.x, pos.y, fit === 'stand' && t ? 0 : pos.z),
       new THREE.Quaternion().setFromEuler(new THREE.Euler(rot.x, rot.y, rot.z)),
       new THREE.Vector3(scale.x, scale.y, scale.z),
-    ));
+    );
+    g.applyMatrix4(fit === 'stand' && t ? standMatrix(t, pos.x, pos.z).multiply(local) : local);
+    if (fit === 'drape' && t) {
+      const p = g.getAttribute('position');
+      for (let i = 0; i < p.count; i++) p.setY(i, p.getY(i) + groundY(t, p.getX(i), p.getZ(i)));
+    }
     const c = new THREE.Color(color);
     const n = g.getAttribute('position').count;
     const colors = new Float32Array(n * 3);
@@ -34,9 +64,10 @@ class Merger {
   addBlade(geo: THREE.BufferGeometry, root: string, tip: string, pos: THREE.Vector3Like, rot: THREE.Vector3Like): void {
     const g = geo.index ? geo.toNonIndexed() : geo.clone();
     g.deleteAttribute('uv');
-    g.applyMatrix4(new THREE.Matrix4().compose(
-      new THREE.Vector3(pos.x, pos.y, pos.z), new THREE.Quaternion().setFromEuler(new THREE.Euler(rot.x, rot.y, rot.z)), new THREE.Vector3(1, 1, 1),
-    ));
+    const local = new THREE.Matrix4().compose(
+      new THREE.Vector3(this.terrain ? 0 : pos.x, pos.y, this.terrain ? 0 : pos.z), new THREE.Quaternion().setFromEuler(new THREE.Euler(rot.x, rot.y, rot.z)), new THREE.Vector3(1, 1, 1),
+    );
+    g.applyMatrix4(this.terrain ? standMatrix(this.terrain, pos.x, pos.z).multiply(local) : local);
     const a = new THREE.Color(root);
     const b = new THREE.Color(tip);
     const p = g.getAttribute('position');
@@ -93,6 +124,8 @@ export interface IslandView {
   fireflies?: THREE.Points;
   pickables: THREE.Object3D[];
   ground: THREE.Mesh;
+  /** World geometry the island's dome follows. */
+  groundGeo: Geo;
 }
 
 const mix = (a: string, b: string, t: number) => `#${new THREE.Color(a).lerp(new THREE.Color(b), t).getHexString()}`;
@@ -100,8 +133,11 @@ const mix = (a: string, b: string, t: number) => `#${new THREE.Color(a).lerp(new
 /** Floating island body: grassy (or sandy, or ashy) top, cliff lip, rocky underside. */
 function islandBody(M: Merger, g: Geo, pal: (typeof ISLANDS)['home']['palette'], rand: () => number, soft: Merger = M): void {
   const R = g.r;
-  M.add(new THREE.CylinderGeometry(R, R * 0.97, 0.6, 64, 1), pal.top, { x: g.ox, y: -0.3, z: g.oz });
-  M.add(new THREE.CylinderGeometry(R * 0.985, R * 0.9, 0.7, 64, 1), pal.lip, { x: g.ox, y: -0.95, z: g.oz });
+  const fixed = 'fixed' as const;
+  const none = { x: 0, y: 0, z: 0 };
+  const one = { x: 1, y: 1, z: 1 };
+  M.add(new THREE.CylinderGeometry(R, R * 0.97, 0.6, 64, 1, true), pal.top, { x: g.ox, y: -0.3, z: g.oz }, none, one, fixed);
+  M.add(new THREE.CylinderGeometry(R * 0.985, R * 0.9, 0.7, 64, 1), pal.lip, { x: g.ox, y: -0.95, z: g.oz }, none, one, fixed);
   const under = new THREE.ConeGeometry(R * 0.9, 6.5 * Math.min(1.3, R / 9.5), 16, 3);
   const pos = under.getAttribute('position');
   for (let i = 0; i < pos.count; i++) {
@@ -110,11 +146,11 @@ function islandBody(M: Merger, g: Geo, pal: (typeof ISLANDS)['home']['palette'],
       pos.setZ(i, pos.getZ(i) * (0.85 + rand() * 0.3));
     }
   }
-  M.add(under, pal.under, { x: g.ox, y: -1.3 - 3.25 * Math.min(1.3, R / 9.5), z: g.oz }, { x: Math.PI, y: 0, z: 0 });
+  M.add(under, pal.under, { x: g.ox, y: -1.3 - 3.25 * Math.min(1.3, R / 9.5), z: g.oz }, { x: Math.PI, y: 0, z: 0 }, one, fixed);
   for (let i = 0; i < 9; i++) {
     const a = rand() * Math.PI * 2;
     const r = R * (0.3 + rand() * 0.4);
-    M.add(new THREE.DodecahedronGeometry(0.6 + rand() * 0.6, 0), pal.rock, { x: g.ox + Math.cos(a) * r, y: -1.6 - rand() * 2.5, z: g.oz + Math.sin(a) * r });
+    M.add(new THREE.DodecahedronGeometry(0.6 + rand() * 0.6, 0), pal.rock, { x: g.ox + Math.cos(a) * r, y: -1.6 - rand() * 2.5, z: g.oz + Math.sin(a) * r }, none, one, fixed);
   }
   // Soft colour patches on the ground give it shading and depth.
   for (let i = 0; i < 14; i++) {
@@ -122,10 +158,45 @@ function islandBody(M: Merger, g: Geo, pal: (typeof ISLANDS)['home']['palette'],
     const r = Math.sqrt(rand()) * (R - 1.8);
     const x = g.ox + Math.cos(a) * r;
     const z = g.oz + Math.sin(a) * r;
-    if (inWater(g, x, z, 1.2)) continue;
     const s = 1.2 + rand() * 1.8;
-    soft.add(new THREE.CylinderGeometry(s, s, 0.02, 18), i % 3 ? pal.patch : mix(pal.top, '#ffffff', 0.12), { x, y: 0.005 + i * 0.0004, z }, { x: 0, y: 0, z: 0 }, { x: 1, y: 1, z: 0.75 + rand() * 0.5 });
+    // keep patches clear of ponds and lava: they would show through on the dome's slope
+    if ([...g.water, ...g.lava].some((c) => Math.hypot(x - c.x, z - c.z) < c.r + s * 1.1)) continue;
+    soft.add(new THREE.RingGeometry(0.001, s, 18, 4), i % 3 ? pal.patch : mix(pal.top, '#ffffff', 0.12), { x, y: 0.025 + i * 0.0006, z }, { x: -Math.PI / 2, y: 0, z: 0 }, { x: 1, y: 0.75 + rand() * 0.5, z: 1 }, 'drape');
   }
+}
+
+/** The domed top of an island: a smooth polar grid following groundY. Also the tap target for the ground. */
+function domeCap(g: Geo, color: string, flat: boolean): THREE.Mesh {
+  const rings = 34;
+  const segs = 80;
+  const pos: number[] = [];
+  const idx: number[] = [];
+  pos.push(g.ox, flat ? 0 : groundY(g, g.ox, g.oz), g.oz);
+  for (let r = 1; r <= rings; r++) {
+    const rr = (r / rings) * g.r;
+    for (let s = 0; s < segs; s++) {
+      const a = (s / segs) * Math.PI * 2;
+      const x = g.ox + Math.cos(a) * rr;
+      const z = g.oz + Math.sin(a) * rr;
+      pos.push(x, flat ? 0 : groundY(g, x, z), z);
+    }
+  }
+  for (let s = 0; s < segs; s++) idx.push(0, 1 + ((s + 1) % segs), 1 + s);
+  for (let r = 1; r < rings; r++) {
+    const a0 = 1 + (r - 1) * segs;
+    const b0 = 1 + r * segs;
+    for (let s = 0; s < segs; s++) {
+      const s1 = (s + 1) % segs;
+      idx.push(a0 + s, a0 + s1, b0 + s, a0 + s1, b0 + s1, b0 + s);
+    }
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  geo.setIndex(idx);
+  geo.computeVertexNormals();
+  const mesh = new THREE.Mesh(geo, toon(color));
+  mesh.receiveShadow = true;
+  return mesh;
 }
 
 /** Sparse grass and flowers in a darker, shaded green, kept away from anything tappable. No outlines. */
@@ -218,6 +289,8 @@ function tree(view: IslandView, M: Merger, t: { x: number; z: number; s: number 
   M.add(new THREE.CylinderGeometry(0.2 * t.s, 0.32 * t.s, 2.2 * t.s, 7), trunk, { x: t.x, y: 1.1 * t.s, z: t.z });
   const canopy = new THREE.Group();
   canopy.position.set(t.x, 2.2 * t.s, t.z);
+  standOn(canopy, view.groundGeo);
+  canopy.userData.placed = true;
   for (let i = 0; i < 3; i++) {
     const blob = new THREE.Mesh(new THREE.IcosahedronGeometry((1.2 - i * 0.18) * t.s, 0), toon(greens[i]));
     blob.position.set((rand() - 0.5) * 0.6 * t.s, i * 0.65 * t.s, (rand() - 0.5) * 0.6 * t.s);
@@ -235,7 +308,10 @@ function palm(view: IslandView, M: Merger, x: number, z: number, s: number, rand
     M.add(new THREE.CylinderGeometry(0.13 * s, 0.16 * s, 0.5 * s, 7), i % 2 ? '#b07a44' : '#9a6638', { x: x + lean * i * 0.25, y: 0.25 * s + i * 0.48 * s, z });
   }
   const crown = new THREE.Group();
-  crown.position.set(x + lean * 1.2, 2.5 * s, z);
+  crown.position.set(x, 2.5 * s, z);
+  standOn(crown, view.groundGeo);
+  crown.translateX(lean * 1.2);
+  crown.userData.placed = true;
   for (let i = 0; i < 6; i++) {
     const leaf = new THREE.Mesh(new THREE.SphereGeometry(0.5 * s, 8, 4), toon(i % 2 ? '#3fbf4a' : '#5fd45a'));
     leaf.scale.set(1.5, 0.12, 0.45);
@@ -258,13 +334,13 @@ export function buildIsland(id: IslandId, size: number, owned: boolean): IslandV
   const M = new Merger();
   const G = new Merger();
   const view: IslandView = {
-    id, key: `${owned}:${size}`, group, water: [], lava: [], canopies: [], spotDishes: {}, pickables: [],
-    ground: new THREE.Mesh(new THREE.CircleGeometry(g.r, 40), new THREE.MeshBasicMaterial({ visible: false })),
+    id, key: `${owned}:${size}`, group, water: [], lava: [], canopies: [], spotDishes: {}, pickables: [], groundGeo: g,
+    ground: domeCap(g, owned ? def.palette.top : mix(def.palette.top, '#c8dcf0', def.status === 'soon' ? 0.6 : 0.4), false),
   };
-  view.ground.rotation.x = -Math.PI / 2;
-  view.ground.position.set(g.ox, 0.01, g.oz);
   view.ground.userData.pick = { kind: 'ground', island: id };
   group.add(view.ground);
+  M.terrain = g;
+  G.terrain = g;
 
   if (!owned) {
     // A hazy silhouette: you can see it's there, and what kind of place it is.
@@ -292,6 +368,8 @@ export function buildIsland(id: IslandId, size: number, owned: boolean): IslandV
   view.spotDishes = lureSpots(M, id, view.pickables, group, id === 'volcano' ? '#4a3a3a' : '#8d8f86');
 
   scatterGrass(G, g, def.palette, rand, clear, id === 'home' ? 46 : id === 'lagoon' ? 22 : 18, id !== 'volcano');
+  // Stand every separately-built piece (water, nests, font, shop, lure dishes...) on the dome.
+  for (const o of group.children) if (o !== view.ground && !o.userData.placed) standOn(o, g);
   const scenery = M.build();
   group.add(scenery);
   addOutlines(scenery, 2.6);
@@ -309,7 +387,9 @@ export function buildIsland(id: IslandId, size: number, owned: boolean): IslandV
   for (let i = 0; i < n; i++) {
     const a = rand() * Math.PI * 2;
     const r = Math.sqrt(rand()) * (g.r - 1);
-    fp.set([g.ox + Math.cos(a) * r, 0.4 + rand() * 1.8, g.oz + Math.sin(a) * r], i * 3);
+    const fx = g.ox + Math.cos(a) * r;
+    const fz = g.oz + Math.sin(a) * r;
+    fp.set([fx, groundY(g, fx, fz) + 0.4 + rand() * 1.8, fz], i * 3);
   }
   const fgeo = new THREE.BufferGeometry();
   fgeo.setAttribute('position', new THREE.BufferAttribute(fp, 3));

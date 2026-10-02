@@ -1,8 +1,9 @@
 import * as THREE from 'three';
 
-// Diorama camera: drag to pan, pinch / wheel to zoom, two-finger twist to
-// rotate, tap to select. Pan has inertia and is clamped to the island so the
-// player can never lose the sanctuary.
+// Diorama camera: drag to spin the island (and tilt), two fingers to pan,
+// pinch / wheel to zoom and twist to rotate, tap to select. On a mouse, right-
+// or middle-drag (or shift-drag) pans. Spin and pan have inertia; pan is
+// clamped to the island so the player can never lose the sanctuary.
 
 export class CameraRig {
   readonly camera: THREE.PerspectiveCamera;
@@ -18,6 +19,11 @@ export class CameraRig {
   /** How hard the player has been pushing past the island edge (for island hopping). */
   readonly overflow = new THREE.Vector2();
   onTap: (x: number, y: number) => void = () => {};
+  /** Ground height under the focus point, so the camera rides over the dome. */
+  ground: (x: number, z: number) => number = () => 0;
+  private focusY = 0;
+  private spin = 0;
+  private panMode = false;
 
   private pointers = new Map<number, { x: number; y: number }>();
   private vel = new THREE.Vector2();
@@ -37,6 +43,7 @@ export class CameraRig {
     el.addEventListener('pointerup', this.up);
     el.addEventListener('pointercancel', this.up);
     el.addEventListener('wheel', this.wheel, { passive: false });
+    el.addEventListener('contextmenu', (e) => e.preventDefault());
     // Taps open UI over the canvas; stop the browser's synthetic "ghost" click
     // from landing on that new UI (e.g. a sheet's backdrop) and closing it.
     el.addEventListener('touchend', (e) => e.preventDefault(), { passive: false });
@@ -63,11 +70,13 @@ export class CameraRig {
     this.el.setPointerCapture(e.pointerId);
     this.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
     this.vel.set(0, 0);
+    this.spin = 0;
     this.fly = null;
     if (this.pointers.size === 1) {
       this.downAt = performance.now();
       this.downPos = { x: e.clientX, y: e.clientY };
       this.moved = 0;
+      this.panMode = e.pointerType === 'mouse' && (e.button === 1 || e.button === 2 || e.shiftKey);
     } else if (this.pointers.size === 2) {
       const [a, b] = [...this.pointers.values()];
       this.pinchStart = Math.hypot(a.x - b.x, a.y - b.y);
@@ -87,10 +96,25 @@ export class CameraRig {
       const dx = cur.x - prev.x;
       const dy = cur.y - prev.y;
       this.moved += Math.abs(dx) + Math.abs(dy);
-      this.panPixels(dx, dy);
-      this.vel.set(dx, dy);
+      if (this.panMode) {
+        this.panPixels(dx, dy);
+        this.vel.set(dx, dy);
+      } else {
+        // spin the island around the point you're looking at, and tilt
+        this.spin = -dx * this.spinRate;
+        this.yaw += this.spin;
+        this.pitch = THREE.MathUtils.clamp(this.pitch + dy * 0.004, 0.55, 1.3);
+      }
     } else if (this.pointers.size === 2) {
       const [a, b] = [...this.pointers.values()];
+      // two-finger drag pans by the movement of the midpoint
+      const other = [...this.pointers.entries()].find(([id]) => id !== e.pointerId)?.[1];
+      if (other) {
+        const mdx = (cur.x - prev.x) / 2;
+        const mdy = (cur.y - prev.y) / 2;
+        this.panPixels(mdx, mdy);
+        this.vel.set(mdx, mdy);
+      }
       const d = Math.hypot(a.x - b.x, a.y - b.y);
       this.distance = THREE.MathUtils.clamp(this.distStart * (this.pinchStart / Math.max(1, d)), this.minDist, this.maxDist);
       const ang = Math.atan2(b.y - a.y, b.x - a.x);
@@ -98,9 +122,14 @@ export class CameraRig {
     }
   };
 
+  private get spinRate(): number {
+    return 2.4 / Math.max(320, this.el.clientWidth);
+  }
+
   private up = (e: PointerEvent) => {
     if (!this.pointers.has(e.pointerId)) return;
     this.pointers.delete(e.pointerId);
+    if (this.pointers.size > 0) this.spin = 0;
     if (this.pointers.size === 0 && this.moved < 10 && performance.now() - this.downAt < 450) {
       this.vel.set(0, 0);
       this.onTap(this.downPos.x, this.downPos.y);
@@ -136,6 +165,10 @@ export class CameraRig {
       this.panPixels(this.vel.x, this.vel.y);
       this.vel.multiplyScalar(Math.pow(0.02, dt));
     }
+    if (this.pointers.size === 0 && Math.abs(this.spin) > 0.0002) {
+      this.yaw += this.spin;
+      this.spin *= Math.pow(0.04, dt);
+    }
     if (this.fly) {
       this.fly.t = Math.min(1, this.fly.t + dt * 1.2);
       const k = 1 - Math.pow(1 - this.fly.t, 3);
@@ -151,11 +184,12 @@ export class CameraRig {
     const t = (this.distance - this.minDist) / (this.maxDist - this.minDist);
     const pitch = this.pitch * (0.7 + 0.3 * t) + 0.12;
     const c = this.camera;
+    this.focusY += (this.ground(this.focus.x, this.focus.z) - this.focusY) * 0.12;
     c.position.set(
       this.focus.x + Math.sin(this.yaw) * Math.cos(pitch) * this.distance,
-      this.focus.y + Math.sin(pitch) * this.distance,
+      this.focusY + Math.sin(pitch) * this.distance,
       this.focus.z + Math.cos(this.yaw) * Math.cos(pitch) * this.distance,
     );
-    c.lookAt(this.focus.x, this.focus.y + 0.5, this.focus.z);
+    c.lookAt(this.focus.x, this.focusY + 0.5, this.focus.z);
   }
 }
