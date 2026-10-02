@@ -1,4 +1,6 @@
 import { BASKET, FONT, NESTS, SHOP_STALL } from '../content/layout';
+import { ISLANDS, ISLAND_ORDER } from '../content/islands';
+import type { IslandId } from '../core/types';
 import { LURES, SPOTS } from '../content/world';
 import { remainingMs, nestPrice } from '../core/actions';
 import { displayName } from '../core/creatures';
@@ -22,6 +24,10 @@ interface Pin {
   mode: () => 'always' | 'zoomed' | 'hidden';
   render: () => string;
   last: string;
+  /** Only shown while this returns true (e.g. on the current island). */
+  when: () => boolean;
+  /** Zoomed-out variant: a compact marker, or null to hide. */
+  far?: () => string | null;
 }
 
 const SIGN_NEAR = 19;
@@ -34,6 +40,7 @@ export interface LabelActions {
   openShop(): void;
   openBasket(): void;
   openCreatureMenu(id: string): void;
+  openIsland(id: IslandId): void;
 }
 
 export class WorldLabels {
@@ -59,30 +66,47 @@ export class WorldLabels {
     this.buildPins();
   }
 
-  private pin(cls: string, pos: [number, number, number], mode: Pin['mode'], render: Pin['render'], onTap: () => void): void {
+  private pin(
+    cls: string, pos: [number, number, number], mode: Pin['mode'], render: Pin['render'], onTap: () => void,
+    when: () => boolean, far?: Pin['far'],
+  ): void {
     const text = h('span');
     const el = h('button', { class: `wl ${cls}`, onClick: (e: MouseEvent) => { e.stopPropagation(); this.game.audio.play('tap'); onTap(); } }, text);
     this.host.append(el);
-    this.pins.push({ el, text, pos, mode, render, last: '' });
+    this.pins.push({ el, text, pos, mode, render, last: '', when, far });
   }
 
   private buildPins(): void {
     const s = () => this.game.state;
     const now = () => this.game.now();
 
+    const on = (id: IslandId) => () => this.game.world.current === id;
+    const home = on('home');
+
+    // Lure spots: a full label up close; from afar just a small "!" when the spot is empty.
     for (const spot of Object.values(SPOTS)) {
-      this.pin('wl-spot', [spot.x, spot.water ? 1.1 : 0.9, spot.z], () => 'always', () => {
+      this.pin('wl-spot', [spot.x, spot.water ? 1.1 : 0.9, spot.z], () => 'zoomed', () => {
         const active = s().spots[spot.id];
         if (!active) return '＋ Lure';
         const dormant = arrivalWeights(active.lure, spot.id, isDark(s(), now()), activeEvent(s(), now())?.kind ?? null).length === 0;
         if (dormant) return '💤 Waiting';
         const ms = Math.max(0, active.expiresAt - now());
         return `${LURES[active.lure].name.split(' ')[0]} · ${Math.floor(ms / 60000)}:${String(Math.floor(ms / 1000) % 60).padStart(2, '0')}`;
-      }, () => this.act.openSpot(spot.id));
+      }, () => this.act.openSpot(spot.id), on(spot.island), () => (s().spots[spot.id] ? null : '!'));
     }
 
-    this.pin('wl-sign', [SHOP_STALL.x, 2.9, SHOP_STALL.z], () => 'zoomed', () => '🛍️ Shop', () => this.act.openShop());
-    this.pin('wl-sign', [FONT.x, 2.4, FONT.z], () => 'zoomed', () => '⛲ Kindred Font', () => this.act.openFont());
+    this.pin('wl-sign', [SHOP_STALL.x, 2.9, SHOP_STALL.z], () => 'zoomed', () => '🛍️ Shop', () => this.act.openShop(), home);
+    this.pin('wl-sign', [FONT.x, 2.4, FONT.z], () => 'zoomed', () => '⛲ Kindred Font', () => this.act.openFont(), home);
+
+    // Other islands on the horizon: name pins you can tap to visit (or unlock).
+    for (const id of ISLAND_ORDER) {
+      const def = ISLANDS[id];
+      this.pin('wl-island', [def.ox, 2.5, def.oz], () => 'always', () => {
+        const isl = s().islands[id];
+        if (isl?.owned) return `${def.icon} ${def.name}`;
+        return def.status === 'soon' ? `${def.icon} Coming soon` : `🔒 ${def.icon} ${def.name}`;
+      }, () => this.act.openIsland(id), () => this.game.world.current !== id);
+    }
 
     NESTS.forEach((n, i) => {
       this.pin('wl-nest', [n.x, 1.35, n.z], () => {
@@ -99,11 +123,11 @@ export class WorldLabels {
         if (egg.progressMs >= egg.incubationMs) return '🐣 Ready!';
         const ms = remainingMs(egg);
         return `🥚 ${Math.floor(ms / 60000)}:${String(Math.floor(ms / 1000) % 60).padStart(2, '0')}`;
-      }, () => this.act.openNest(i));
+      }, () => this.act.openNest(i), home);
     });
 
     this.pin('wl-nest', [BASKET.x, 0.9, BASKET.z], () => (s().eggs.some((e) => e.nest === null) ? 'zoomed' : 'hidden'),
-      () => `🧺 ${s().eggs.filter((e) => e.nest === null).length} waiting`, () => this.act.openBasket());
+      () => `🧺 ${s().eggs.filter((e) => e.nest === null).length} waiting`, () => this.act.openBasket(), home);
   }
 
   /** Show the name bubble for a creature (null hides it). */
@@ -126,14 +150,17 @@ export class WorldLabels {
     const near = Math.max(0, Math.min(1, (SIGN_FAR - zoom) / (SIGN_FAR - SIGN_NEAR)));
 
     for (const p of this.pins) {
-      const mode = p.mode();
+      const mode = p.when() ? p.mode() : 'hidden';
       const sp = w.toScreen(...p.pos);
-      const opacity = mode === 'hidden' || !sp.visible ? 0 : mode === 'always' ? 1 : near;
+      const farText = p.far && near < 0.5 && mode !== 'hidden' ? p.far() : undefined;
+      let opacity = mode === 'hidden' || !sp.visible ? 0 : mode === 'always' ? 1 : near;
+      if (p.far && near < 0.5) opacity = farText && sp.visible ? 1 : 0;
       p.el.style.opacity = String(opacity);
       p.el.style.pointerEvents = opacity > 0.4 ? 'auto' : 'none';
       if (opacity === 0) continue;
       p.el.style.transform = `translate(-50%, -100%) translate(${sp.x.toFixed(1)}px, ${sp.y.toFixed(1)}px)`;
-      const txt = p.render();
+      p.el.classList.toggle('mini', !!farText);
+      const txt = farText ?? p.render();
       if (txt !== p.last) {
         p.last = txt;
         p.text.textContent = txt;

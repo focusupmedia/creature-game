@@ -4,7 +4,7 @@
 // kindred creatures can try), surprising (outcomes are rolled, not fixed), and
 // hard to "solve" with a chart (mutations and the sky change what's possible).
 
-import { species } from '../content/species';
+import { WILD_SPECIES, species } from '../content/species';
 import { EVENTS, MUTATIONS, RESONANCES } from '../content/world';
 import { TUNING } from '../content/tuning';
 import { creatureTraits, hasMutation } from './creatures';
@@ -35,9 +35,33 @@ export interface CombineOutcome {
   /** Traits that came from the sky event rather than the parents. */
   skyLent?: Trait;
   purebred: boolean;
+  /** A "distant relative": a different species that shares a trait with a parent. */
+  relative?: boolean;
 }
 
-export function combine(a: Creature, b: Creature, rng: StateRng, sky: EventKind | null): CombineOutcome {
+export interface CombineOpts {
+  /** Species the keeper has already discovered. */
+  known?: Set<string>;
+  /** Early eggs: always hatch something new, so first-time players feel the discovery loop. */
+  forceNew?: boolean;
+}
+
+/** Wild, non-legendary species that share a trait with either parent (preferring both). */
+function relatives(a: Creature, b: Creature): [SpeciesId, number][] {
+  const ta = new Set(creatureTraits(a));
+  const tb = new Set(creatureTraits(b));
+  return WILD_SPECIES
+    .filter((s) => s.rarity !== 'legendary' && s.id !== a.species && s.id !== b.species)
+    .map((s): [SpeciesId, number] => {
+      const withA = s.traits.some((t) => ta.has(t));
+      const withB = s.traits.some((t) => tb.has(t));
+      const w = (TUNING.rarityWeight[s.rarity] ?? 1) * (withA && withB ? 3 : withA || withB ? 1 : 0);
+      return [s.id, w];
+    })
+    .filter(([, w]) => w > 0);
+}
+
+export function combine(a: Creature, b: Creature, rng: StateRng, sky: EventKind | null, opts: CombineOpts = {}): CombineOutcome {
   const parentTraits = new Set<Trait>([...creatureTraits(a), ...creatureTraits(b)]);
   const skyTrait = sky ? MUTATIONS[EVENTS[sky].mutation].trait : undefined;
 
@@ -59,7 +83,27 @@ export function combine(a: Creature, b: Creature, rng: StateRng, sky: EventKind 
   }
 
   const purebred = a.species === b.species;
-  const sp = chosen ? chosen.result : rng.chance(0.5) ? a.species : b.species;
+  let sp = chosen ? chosen.result : rng.chance(0.5) ? a.species : b.species;
+  let relative = false;
+  const known = opts.known;
+  if (opts.forceNew && known && known.has(sp)) {
+    // Prefer a hybrid the keeper qualifies for, then an undiscovered relative.
+    const hybrid = RESONANCES.find((r) => !known.has(r.result) && r.requires.every((t) => parentTraits.has(t)));
+    const fresh = relatives(a, b).filter(([id]) => !known.has(id));
+    if (hybrid) {
+      chosen = hybrid;
+      sp = hybrid.result;
+    } else if (fresh.length) {
+      sp = rng.weighted(fresh) ?? sp;
+      relative = true;
+    }
+  } else if (!chosen && rng.chance(TUNING.distantRelativeChance)) {
+    const rel = relatives(a, b);
+    if (rel.length) {
+      sp = rng.weighted(rel) ?? sp;
+      relative = true;
+    }
+  }
 
   // 2. Inheritance: each parent mutation may pass on.
   const muts: MutationId[] = [];
@@ -78,7 +122,7 @@ export function combine(a: Creature, b: Creature, rng: StateRng, sky: EventKind 
 
   const native = species(sp).traits;
   const mutations = [...new Set(muts)].filter((m) => !native.includes(MUTATIONS[m].trait));
-  return { species: sp, mutations, rule: chosen, skyLent, purebred };
+  return { species: sp, mutations, rule: chosen, skyLent, purebred, relative };
 }
 
 export function incubationMs(sp: SpeciesId, mutations: MutationId[]): number {

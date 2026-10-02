@@ -1,5 +1,7 @@
 import { species } from '../content/species';
-import { EVENTS, LURES, MUTATIONS, SPOTS } from '../content/world';
+import { EVENTS, ITEMS, LURES, MUTATIONS, SPOTS } from '../content/world';
+import { ISLANDS } from '../content/islands';
+import { refreshShop } from '../core/shop';
 import { NESTS } from '../content/layout';
 import { TUNING } from '../content/tuning';
 import * as A from '../core/actions';
@@ -7,7 +9,7 @@ import { displayName, speciesTitle } from '../core/creatures';
 import { deserialize, serialize } from '../core/save';
 import { tick } from '../core/sim';
 import { createGame } from '../core/state';
-import type { GameEvent, GameState } from '../core/types';
+import type { GameEvent, GameState, IslandId } from '../core/types';
 import { activeEvent, dayPhase, nextEvent } from '../core/world';
 import { Audio } from '../platform/audio';
 import {
@@ -45,6 +47,10 @@ export class Game {
     this.ui = new UI(this, container);
     this.ads = new StubAds((s) => this.ui.showAd(s));
     this.world.onTap = (p) => this.onTap(p);
+    this.world.onEdgePush = (id) => {
+      if (this.state.islands[id]?.owned) this.travel(id);
+      else this.ui.showIslands(id);
+    };
     this.world.onFrame = (dt) => this.frame(dt);
     this.world.onRevealTap = () => this.audio.play('crack');
     window.addEventListener('pointerdown', () => this.audio.unlock(), { once: false });
@@ -57,7 +63,7 @@ export class Game {
   start(): void {
     const away = this.now() - this.state.lastTick;
     const events = tick(this.state, this.now(), { maxStepMs: TUNING.offlineStepSec * 1000 });
-    this.world.sync(this.state, dayPhase(this.state, this.now()), activeEvent(this.state, this.now())?.kind ?? null);
+    this.world.sync(this.state, this.now(), activeEvent(this.state, this.now())?.kind ?? null);
     if (away > AWAY_REPORT_MS) this.ui.showAwayReport(events, away);
     this.analytics.track('session_start', { creatures: this.state.creatures.length, away_min: Math.round(away / 60000) });
     this.world.start();
@@ -136,7 +142,7 @@ export class Game {
     const t = this.now();
     const sky = activeEvent(this.state, t)?.kind ?? null;
     const phase = dayPhase(this.state, t);
-    this.world.sync(this.state, phase, sky);
+    this.world.sync(this.state, t, sky);
     this.world.sky.update(phase, sky, dt, performance.now() / 1000);
     this.audio.ambience(dt, this.world.sky.darkness, sky === 'storm');
     this.ui.update(dt);
@@ -237,12 +243,17 @@ export class Game {
       case 'shop': return this.ui.showShop();
       case 'basket': return this.ui.showBasket();
       case 'decor': return this.ui.showPlacedDecor(p.id);
+      case 'island':
+        if (this.state.islands[p.id]?.owned) return this.travel(p.id);
+        return this.ui.showIslands(p.id);
       case 'gift': {
-        const r = A.collectGift(this.state, p.id);
+        const r = A.collectGift(this.state, p.id, this.now());
         if (r.ok) {
           this.audio.play('coin');
-          this.ui.toast(`Picked up a little gift: {coin} ${r.glimmer}${r.shards ? ` and {gem} ${r.shards}` : ''}`, 'info', undefined, 1800);
-          this.analytics.track('gift_collected', { glimmer: r.glimmer, shards: r.shards });
+          const extra = r.item === 'egg' ? ' …and a whole egg! It\'s in your basket.'
+            : r.item ? ` …and a ${ITEMS[r.item]?.name ?? 'curiosity'}!` : '';
+          this.ui.toast(`Dug up: {coin} ${r.glimmer}${r.shards ? ` and {gem} ${r.shards}` : ''}${extra}`, r.item ? 'discovery' : 'info', undefined, r.item ? 4000 : 1800);
+          this.analytics.track('gift_collected', { glimmer: r.glimmer, shards: r.shards, item: r.item ?? '' });
           this.saveSoon();
         }
       }
@@ -250,6 +261,68 @@ export class Game {
   }
 
   // ------------------------------------------------------------------ actions
+
+  get pinned(): string | null {
+    return this.state.pinned && this.state.creatures.some((c) => c.id === this.state.pinned) ? this.state.pinned : null;
+  }
+
+  setPinned(id: string | null): void {
+    this.state.pinned = id ?? undefined;
+    if (id) this.ui.toast('Pinned to your widget. Tap it any time to jump to them.');
+    this.saveSoon();
+  }
+
+  /** Hop the camera to another island you own. */
+  travel(id: IslandId): void {
+    if (!this.state.islands[id]?.owned) return;
+    this.ui.closeSheet();
+    this.world.travelTo(id);
+    this.audio.play('place');
+    this.ui.toast(`${ISLANDS[id].icon} ${ISLANDS[id].name}`, 'info', undefined, 1600);
+    this.analytics.track('island_travel', { island: id });
+  }
+
+  buyIsland(id: IslandId, currency: 'glimmer' | 'shards'): void {
+    const r = A.buyIsland(this.state, id, currency);
+    if (!r.ok) {
+      this.audio.play('error');
+      return this.ui.toast(r.error);
+    }
+    this.audio.play('discover');
+    this.analytics.track('island_bought', { island: id, currency });
+    // the shop starts stocking the island's lure right away
+    refreshShop(this.state, this.now());
+    this.state.lures[id === 'volcano' ? 'emberpepper' : 'saltkelp'] = (this.state.lures[id === 'volcano' ? 'emberpepper' : 'saltkelp'] ?? 0) + 2;
+    this.saveSoon();
+    this.ui.closeSheet();
+    setTimeout(() => this.travel(id), 50);
+    this.ui.toast(`${ISLANDS[id].icon} ${ISLANDS[id].name} is yours! Here are 2 free lures to get started.`, 'discovery', undefined, 5000);
+  }
+
+  upgradeIsland(id: IslandId, currency: 'glimmer' | 'shards'): void {
+    const r = A.upgradeIsland(this.state, id, currency);
+    if (!r.ok) {
+      this.audio.play('error');
+      return this.ui.toast(r.error);
+    }
+    this.audio.play('discover');
+    this.analytics.track('island_upgraded', { island: id, size: this.state.islands[id].size, currency });
+    this.ui.toast(`${ISLANDS[id].name} grew! More room for creatures.`, 'discovery');
+    this.saveSoon();
+    this.ui.rerender();
+  }
+
+  moveCreature(creatureId: string, to: IslandId): void {
+    const r = A.moveCreature(this.state, creatureId, to, this.now());
+    if (!r.ok) {
+      this.audio.play('error');
+      return this.ui.toast(r.error);
+    }
+    this.audio.play('place');
+    this.ui.closeSheet();
+    this.ui.toast(`Off it goes to ${ISLANDS[to].name}!`);
+    this.saveSoon();
+  }
 
   setTutorial(step: number): void {
     if (step <= this.state.tutorial) return;
@@ -309,6 +382,7 @@ export class Game {
       this.world.endReveal();
       this.ui.hideHud(false);
       const n = NESTS[nestIdx];
+      if (this.world.current !== 'home') this.world.travelTo('home', true);
       this.world.focus(n, 11);
       setTimeout(() => {
         const pos = this.world.creaturePosition(r.creature.id);

@@ -2,7 +2,10 @@
 // show. Keeping these pure makes them testable and server-verifiable later.
 
 import { species } from '../content/species';
-import { DECOR, EVENTS, ITEMS, LURES, MUTATIONS, RESONANCES, SPOTS, SUMMON_WEIGHTS } from '../content/world';
+import { DECOR, EGG_TIERS, EVENTS, ITEMS, LURES, MUTATIONS, RESONANCES, SPOTS, SUMMON_WEIGHTS } from '../content/world';
+import { ISLANDS, SIZE_PRICE } from '../content/islands';
+import { WILD_SPECIES } from '../content/species';
+import { islandCapacity, islandPopulation } from './sim';
 import { TUNING } from '../content/tuning';
 import { addMutation, displayName, makeCreature, newId } from './creatures';
 import { compatibility, combine, incubationMs } from './genetics';
@@ -10,7 +13,7 @@ import { addNote, recordMutation, recordResonance, recordSpecies } from './journ
 import { StateRng } from './rng';
 import { refreshShop } from './shop';
 import { freeNest } from './state';
-import type { Creature, Egg, EventKind, GameState, MutationId, SpotId } from './types';
+import type { Creature, Egg, EventKind, GameState, IslandId, MutationId, SpeciesId, SpotId } from './types';
 import { activeEvent } from './world';
 
 export type Result<T = object> = ({ ok: true } & T) | { ok: false; error: string };
@@ -19,6 +22,7 @@ const fail = (error: string): { ok: false; error: string } => ({ ok: false, erro
 
 export function placeLure(state: GameState, spot: SpotId, lure: string, t: number): Result {
   if (!SPOTS[spot]) return fail('Unknown spot.');
+  if (!state.islands[SPOTS[spot].island]?.owned) return fail('You don\'t own that island yet.');
   if (state.spots[spot]) return fail('A lure is already here.');
   if (!state.lures[lure]) return fail(`You have no ${LURES[lure]?.name ?? 'lure'}.`);
   state.lures[lure] -= 1;
@@ -43,7 +47,9 @@ export function startCombine(state: GameState, aId: string, bId: string, t: numb
   if (nest === null) return fail('Every nest is full. Hatch an egg first, or add a nest.');
   const rng = new StateRng(state);
   const sky = activeEvent(state, t)?.kind ?? null;
-  const o = combine(a, b, rng, sky);
+  const known = new Set(Object.keys(state.journal.species));
+  const forceNew = state.stats.combines < TUNING.firstNewEggs;
+  const o = combine(a, b, rng, sky, { known, forceNew });
   const egg: Egg = {
     id: newId(state, 'e'),
     species: o.species,
@@ -56,6 +62,8 @@ export function startCombine(state: GameState, aId: string, bId: string, t: numb
     progressMs: 0,
     nest,
     witnessed: [],
+    relative: o.relative,
+    parentPersonalities: [a.personality, b.personality],
   };
   if (state.tutorial < 4) egg.incubationMs = Math.min(egg.incubationMs, 40_000);
   state.eggs.push(egg);
@@ -82,14 +90,18 @@ export function hatch(state: GameState, eggId: string, t: number): Result<HatchR
   const egg = state.eggs.find((e) => e.id === eggId);
   if (!egg) return fail('No such egg.');
   if (egg.progressMs < egg.incubationMs) return fail('Not ready yet.');
-  if (state.creatures.length >= TUNING.capacity) {
-    return fail('Your sanctuary is full. Say goodbye to a creature to make room.');
+  if (islandPopulation(state, 'home') >= islandCapacity(state, 'home')) {
+    return fail('Kindred Grove is full. Move a creature to another island, or say goodbye to one, to make room.');
   }
   state.eggs = state.eggs.filter((e) => e !== egg);
   const story = egg.parentNames
     ? `Hatched from an egg made by ${egg.parentNames[0]} and ${egg.parentNames[1]}.`
-    : egg.source === 'shop' ? 'Hatched from a traveler\'s egg.' : 'Hatched from a mysterious egg.';
-  const c = makeCreature(state, egg.species, egg.mutations, t, story, egg.seed);
+    : egg.source === 'shop' ? `Hatched from a ${egg.tier ? EGG_TIERS[egg.tier]?.name ?? 'shop egg' : 'traveler\'s egg'}.`
+      : egg.source === 'dug' ? 'Hatched from an egg a creature dug up.' : 'Hatched from a mysterious egg.';
+  const c = makeCreature(state, egg.species, egg.mutations, t, story, {
+    seed: egg.seed, island: 'home', hatchling: true, parents: egg.parentPersonalities,
+  });
+  if (egg.relative) c.history.push({ t, text: 'A distant relative! It looks nothing like its parents.' });
   for (const ev of new Set(egg.witnessed)) {
     c.history.push({ t, text: `As an egg, it felt a ${EVENTS[ev].name.toLowerCase()} pass overhead.` });
   }
@@ -137,13 +149,78 @@ export function rename(state: GameState, creatureId: string, name: string): Resu
   return { ok: true };
 }
 
-export function collectGift(state: GameState, giftId: string): Result<{ glimmer: number; shards: number }> {
+export function collectGift(state: GameState, giftId: string, t = Date.now()): Result<{ glimmer: number; shards: number; item?: string }> {
   const g = state.gifts.find((x) => x.id === giftId);
   if (!g) return fail('Gone.');
   state.gifts = state.gifts.filter((x) => x !== g);
   state.glimmer += g.glimmer;
   state.shards += g.shards;
-  return { ok: true, glimmer: g.glimmer, shards: g.shards };
+  if (g.item === 'egg') {
+    layEgg(state, rollEggTier(state, 'wild'), 'dug', t);
+  } else if (g.item) {
+    state.items[g.item] = (state.items[g.item] ?? 0) + 1;
+  }
+  return { ok: true, glimmer: g.glimmer, shards: g.shards, item: g.item };
+}
+
+/** Roll which species an egg from a shop tier holds. Decided now, revealed at hatching. */
+export function rollEggTier(state: GameState, tierId: string): SpeciesId {
+  const tier = EGG_TIERS[tierId] ?? EGG_TIERS.meadow;
+  const rng = new StateRng(state);
+  const pool = WILD_SPECIES
+    .filter((s) => !tier.habitats.length || s.traits.some((t) => tier.habitats.includes(t)))
+    .map((s) => [s.id, tier.weights[s.rarity] ?? 0] as [SpeciesId, number]);
+  return rng.weighted(pool) ?? 'mossfrog';
+}
+
+function layEgg(state: GameState, sp: SpeciesId, source: Egg['source'], t: number): Egg {
+  const rng = new StateRng(state);
+  const muts: MutationId[] = rng.chance(TUNING.prismaticChance) ? ['prismatic'] : [];
+  const egg: Egg = {
+    id: newId(state, 'e'), species: sp, mutations: muts, seed: rng.seed(), source, laidAt: t,
+    incubationMs: incubationMs(sp, muts), progressMs: 0, nest: freeNest(state), witnessed: [],
+  };
+  state.eggs.push(egg);
+  return egg;
+}
+
+// ---------------------------------------------------------------- islands
+
+export function buyIsland(state: GameState, id: IslandId, currency: 'glimmer' | 'shards'): Result {
+  const def = ISLANDS[id];
+  if (!def || def.status !== 'buyable') return fail('That island isn\'t available yet.');
+  if (state.islands[id]?.owned) return fail('You already own this island.');
+  const price = currency === 'glimmer' ? def.price.coins : def.price.gems;
+  const wallet = currency === 'glimmer' ? state.glimmer : state.shards;
+  if (wallet < price) return fail(currency === 'glimmer' ? 'Not enough coins.' : 'Not enough Starshards.');
+  if (currency === 'glimmer') state.glimmer -= price; else state.shards -= price;
+  state.islands[id] = { owned: true, size: 0 };
+  return { ok: true };
+}
+
+export function upgradeIsland(state: GameState, id: IslandId, currency: 'glimmer' | 'shards'): Result {
+  const isl = state.islands[id];
+  if (!isl?.owned) return fail('You don\'t own this island.');
+  const next = isl.size + 1;
+  const price = SIZE_PRICE[next];
+  if (!price) return fail('This island is already as big as it gets.');
+  const cost = currency === 'glimmer' ? price.coins : price.gems;
+  const wallet = currency === 'glimmer' ? state.glimmer : state.shards;
+  if (wallet < cost) return fail(currency === 'glimmer' ? 'Not enough coins.' : 'Not enough Starshards.');
+  if (currency === 'glimmer') state.glimmer -= cost; else state.shards -= cost;
+  isl.size = next;
+  return { ok: true };
+}
+
+export function moveCreature(state: GameState, creatureId: string, to: IslandId, t: number): Result {
+  const c = state.creatures.find((x) => x.id === creatureId);
+  if (!c) return fail('No such creature.');
+  if (!state.islands[to]?.owned) return fail('You don\'t own that island yet.');
+  if (c.island === to) return fail('It already lives there.');
+  if (islandPopulation(state, to) >= islandCapacity(state, to)) return fail(`${ISLANDS[to].name} is full.`);
+  c.island = to;
+  c.history.push({ t, text: `Moved to ${ISLANDS[to].name}.` });
+  return { ok: true };
 }
 
 export function buyOffer(state: GameState, offerId: string, t: number): Result<{ message: string }> {
@@ -172,13 +249,9 @@ export function buyOffer(state: GameState, offerId: string, t: number): Result<{
       message = `${DECOR[o.ref].name} is ready to place.`;
       break;
     case 'egg': {
-      const rng = new StateRng(state);
-      const muts: MutationId[] = rng.chance(TUNING.prismaticChance) ? ['prismatic'] : [];
-      state.eggs.push({
-        id: newId(state, 'e'), species: o.ref, mutations: muts, seed: rng.seed(), source: 'shop', laidAt: t,
-        incubationMs: incubationMs(o.ref, muts), progressMs: 0, nest: freeNest(state), witnessed: [],
-      });
-      message = 'A traveler\'s egg. The merchant would only say it came from far away.';
+      const egg = layEgg(state, rollEggTier(state, o.ref), 'shop', t);
+      egg.tier = o.ref;
+      message = `${EGG_TIERS[o.ref]?.name ?? 'An egg'} is waiting ${egg.nest === null ? 'in your basket' : 'in a nest'}. What could be inside?`;
       break;
     }
   }
@@ -319,7 +392,7 @@ export function devMutate(state: GameState, creatureId: string, m: MutationId, t
 }
 
 export function devSpawn(state: GameState, sp: string, t: number): Creature {
-  const c = makeCreature(state, sp, [], t, 'Appeared out of nowhere.');
+  const c = makeCreature(state, sp, [], t, 'Appeared out of nowhere.', { island: 'home' });
   state.creatures.push(c);
   recordSpecies(state, sp, t);
   return c;

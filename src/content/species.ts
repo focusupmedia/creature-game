@@ -87,6 +87,48 @@ export const SPECIES: SpeciesDef[] = [
     hint: 'Only the most mystical scents reach it, and only in the dark.',
     eggColors: ['#bfe9ff', '#ffffff'],
   },
+  {
+    id: 'sunscale', name: 'Sunscale', traits: ['Reptile', 'Grove', 'Sand'], rarity: 'common',
+    activity: 'day', movement: 'walk', origin: 'wild',
+    blurb: 'Basks on warm stones. Its frill pops open when it gets excited.',
+    hint: 'A sun-loving lizard that wanders in from the forest edge.',
+    eggColors: ['#ffd36a', '#4fb34a'],
+  },
+  {
+    id: 'cinderskink', name: 'Cinderskink', traits: ['Reptile', 'Ember'], rarity: 'common',
+    activity: 'any', movement: 'walk', origin: 'wild',
+    blurb: 'Its scales glow like coals. Very warm to hug, if it lets you.',
+    hint: 'A lizard that loves heat. Look somewhere volcanic.',
+    eggColors: ['#3a2e2e', '#ff7a2a'],
+  },
+  {
+    id: 'emberdrake', name: 'Emberdrake', traits: ['Dragon', 'Reptile', 'Ember'], rarity: 'rare',
+    activity: 'night', movement: 'fly', origin: 'wild',
+    blurb: 'A pocket-sized dragon. Hoards shiny pebbles and sneezes sparks.',
+    hint: 'Something with wings nests in the volcano. It only comes out after dark.',
+    eggColors: ['#c8402a', '#ffc83d'],
+  },
+  {
+    id: 'coralpuff', name: 'Coralpuff', traits: ['Fish', 'Reef'], rarity: 'common',
+    activity: 'any', movement: 'swim', origin: 'wild',
+    blurb: 'Puffs up into a perfect ball when startled. It is startled often.',
+    hint: 'A round little fish that lives among coral.',
+    eggColors: ['#ffb36a', '#ffffff'],
+  },
+  {
+    id: 'driftjelly', name: 'Driftjelly', traits: ['Spirit', 'Reef'], rarity: 'uncommon',
+    activity: 'night', movement: 'float', origin: 'wild',
+    blurb: 'Floats through the air as if it were water, glowing softly.',
+    hint: 'Something glows over the lagoon at night.',
+    eggColors: ['#c9a6ff', '#7fe8ff'],
+  },
+  {
+    id: 'axolotl', name: 'Axolotl', traits: ['Amphibian', 'Reef', 'Tide'], rarity: 'legendary',
+    activity: 'any', movement: 'waddle', origin: 'wild',
+    blurb: 'Always smiling. Nobody knows what it knows. The keeper of every sanctuary.',
+    hint: 'A legendary smile lives somewhere in the water. Very, very rarely seen.',
+    eggColors: ['#ffb3d0', '#ff6fa8'],
+  },
   // ---- hybrids: only from eggs
   {
     id: 'lilyhop', name: 'Lilyhop', traits: ['Amphibian', 'Bloom', 'Tide'], rarity: 'uncommon',
@@ -129,6 +171,13 @@ export const SPECIES: SpeciesDef[] = [
     blurb: 'A tiny whale that swims through the air, trailing weather.',
     hint: 'Spirit, water and storm, all at once. Has anyone seen one?',
     eggColors: ['#eef4ff', '#9bb6e8'],
+  },
+  {
+    id: 'starwyrm', name: 'Starwyrm', traits: ['Dragon', 'Mystic', 'Starlit'], rarity: 'legendary',
+    activity: 'night', movement: 'fly', origin: 'hybrid',
+    blurb: 'A dragon made of the night sky. Every scale holds a star.',
+    hint: 'What would a dragon become if a falling star touched it?',
+    eggColors: ['#1e2468', '#fff1a8'],
   },
 ];
 

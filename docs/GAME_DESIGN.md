@@ -169,6 +169,16 @@ The stock rotates every 20 minutes in the prototype (production: about 4 hours).
 
 ---
 
+## Update: islands, growth and personalities (approved)
+
+- **Archipelago.** Kindred Grove is the home island (Font, nests, shop). Ember Peak (volcanic, Ember lures, lizards and dragons) and Coral Lagoon (aquatic, Reef lures, Coralpuff, Driftjelly, the legendary Axolotl) can be unlocked for coins, or gems to skip ahead. Islands float near each other; tap one on the horizon or swipe past the edge to hop over. Only the current island's creatures are animated, so performance stays flat as the archipelago grows.
+- **Island sizes.** Small (20 pets) → Medium (28) → Large (36); the island physically grows.
+- **Growth.** Hatchlings start small and grow into a random grown size. Size is shown as Tiny / Small / Average / Big / Huge, and will feed the selling price in the economy phase.
+- **Personalities.** Each pet has one, partly inherited from its parents. It changes how it moves, naps, socialises, squabbles and digs.
+- **Digging.** Coins and gems come from pets visibly digging things up (curious pets find better things, sometimes a whole egg).
+- **First eggs.** The first three eggs always hatch something new; afterwards a 6% "distant relative" chance keeps eggs surprising.
+- **Egg shop.** Coin eggs rotate by habitat; the premium Starry Egg (gems) has better rare and legendary odds. Wild species only.
+
 ## E. UX / UI
 
 ### Principles

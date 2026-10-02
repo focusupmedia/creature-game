@@ -2,12 +2,38 @@
 // save backend unchanged. Migrations run in order on load.
 
 import { SAVE_VERSION } from './state';
+import { generateShop } from './shop';
 import type { GameState } from './types';
 
 type Migration = (raw: Record<string, unknown>) => void;
 
 /** migrations[n] upgrades a save from version n to n+1. */
-const MIGRATIONS: Record<number, Migration> = {};
+const MIGRATIONS: Record<number, Migration> = {
+  // v1 → v2: islands, growth, personalities, dig finds, tiered egg shop.
+  1: (raw) => {
+    const personalities = ['energetic', 'lazy', 'shy', 'curious', 'grumpy', 'friendly'];
+    raw.islands = {
+      home: { owned: true, size: 0 }, volcano: { owned: false, size: 0 }, lagoon: { owned: false, size: 0 },
+      beach: { owned: false, size: 0 }, desert: { owned: false, size: 0 },
+    };
+    for (const c of (raw.creatures as Record<string, unknown>[]) ?? []) {
+      const seed = Number(c.seed) || 0;
+      c.island = 'home';
+      // Existing creatures keep roughly the size they always had, and are fully grown.
+      c.size = 0.94 + ((seed >>> 3) % 100) / 100 * 0.12;
+      c.growMs = 0;
+      c.personality = personalities[seed % personalities.length];
+    }
+    for (const g of (raw.gifts as Record<string, unknown>[]) ?? []) g.island = 'home';
+    const spots = (raw.spots ?? {}) as Record<string, unknown>;
+    for (const k of ['vent', 'ash', 'reef', 'shallows']) spots[k] ??= null;
+    raw.spots = spots;
+    // Old shop egg offers referenced species directly; start a fresh rotation.
+    const shop = raw.shop as { rotation: number; nextRefreshAt: number };
+    const fresh = generateShop(Number(raw.seed), (shop?.rotation ?? 0) + 1, Number(raw.lastTick));
+    raw.shop = fresh;
+  },
+};
 
 export function serialize(state: GameState, t: number): string {
   state.savedAt = t;

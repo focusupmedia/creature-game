@@ -30,6 +30,13 @@ export interface CreatureModel {
 interface Palette { main: string; second: string; accent: string; belly: string }
 
 const PALETTES: Record<string, Palette> = {
+  sunscale: { main: '#ffc83d', second: '#4fb34a', accent: '#ff7a2a', belly: '#fff2b8' },
+  cinderskink: { main: '#3a2e34', second: '#ff7a2a', accent: '#ffd23d', belly: '#5a4448' },
+  emberdrake: { main: '#e2483e', second: '#ffc83d', accent: '#ffe14d', belly: '#ffd8a0' },
+  starwyrm: { main: '#2a2f8a', second: '#7c4dff', accent: '#fff1a8', belly: '#6a7ad8' },
+  coralpuff: { main: '#ff9f4a', second: '#ffffff', accent: '#ff5f7a', belly: '#fff0d6' },
+  driftjelly: { main: '#c9a6ff', second: '#7fe8ff', accent: '#ffffff', belly: '#efe0ff' },
+  axolotl: { main: '#ffb3d0', second: '#ff5f9a', accent: '#ff7ab0', belly: '#ffe0ec' },
   mossfrog: { main: '#6cbf4f', second: '#3f8a3a', accent: '#f39bb0', belly: '#dff3b8' },
   pebbleback: { main: '#b8c98a', second: '#6f8f86', accent: '#a7aaa6', belly: '#f0e8c8' },
   glowbeetle: { main: '#2c4573', second: '#1b2a46', accent: '#d4ff6a', belly: '#3d5b8e' },
@@ -121,6 +128,117 @@ function pivot(x: number, y: number, z: number, child: THREE.Object3D): THREE.Gr
 type Builder = (k: Kit, P: Palette, m: Omit<CreatureModel, 'root' | 'materials' | 'movement' | 'baseScale'>) => void;
 
 const BUILDERS: Record<string, Builder> = {
+  sunscale: (k, P, m) => lizard(k, P, m, 'sun'),
+  cinderskink: (k, P, m) => lizard(k, P, m, 'cinder'),
+  emberdrake: (k, P, m) => dragon(k, P, m, false),
+  starwyrm: (k, P, m) => dragon(k, P, m, true),
+
+  coralpuff: (k, P, m) => {
+    const b = m.body;
+    b.add(k.ball(0.3, P.main, [0, 0.12, 0], [1, 0.95, 1.05]));
+    b.add(k.ball(0.22, P.belly, [0, 0.04, 0.08], [0.95, 0.7, 0.9]));
+    for (let i = 0; i < 14; i++) {
+      const a = i * 2.39996;
+      const y = Math.cos(i * 1.3) * 0.8;
+      const r = Math.sqrt(1 - y * y);
+      const spike = k.mesh(G.cone, P.second, [0.03, 0.09, 0.03], [Math.cos(a) * r * 0.3, 0.12 + y * 0.28, Math.sin(a) * r * 0.3]);
+      spike.lookAt(new THREE.Vector3(Math.cos(a) * r * 2, 0.12 + y * 2, Math.sin(a) * r * 2));
+      spike.rotateX(Math.PI / 2);
+      spike.userData.noOutline = true;
+      b.add(spike);
+    }
+    k.eye(b, 0.13, 0.2, 0.22, 0.075, new THREE.Vector3(0.4, 0, 0.9));
+    k.eye(b, -0.13, 0.2, 0.22, 0.075, new THREE.Vector3(-0.4, 0, 0.9));
+    b.add(k.ball(0.04, P.accent, [0, 0.08, 0.31], [1.4, 0.8, 0.6]));
+    const tail = new THREE.Group();
+    tail.position.set(0, 0.12, -0.3);
+    const fin = k.ball(0.11, P.accent, [0, 0, -0.06], [0.3, 1, 0.9]);
+    tail.add(fin);
+    b.add(tail);
+    m.tail = tail;
+    for (const s of [1, -1]) {
+      const f = pivot(0.28 * s, 0.1, 0.02, k.ball(0.07, P.accent, [0.04 * s, 0, 0], [1, 0.3, 0.8]));
+      b.add(f);
+      m.wings.push(f);
+    }
+    m.height = 0.55;
+  },
+
+  driftjelly: (k, P, m) => {
+    const b = m.body;
+    const domeMat = new THREE.MeshToonMaterial({ color: P.main, transparent: true, opacity: 0.85, emissive: P.second, emissiveIntensity: 0.35 });
+    const dome = new THREE.Mesh(G.hemi, domeMat);
+    dome.scale.set(0.34, 0.3, 0.34);
+    dome.position.y = 0.1;
+    b.add(dome);
+    k.mats.push(domeMat);
+    b.add(k.ball(0.18, P.belly, [0, 0.12, 0], [1, 0.4, 1], P.second));
+    k.eye(b, 0.09, 0.2, 0.27, 0.045);
+    k.eye(b, -0.09, 0.2, 0.27, 0.045);
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * Math.PI * 2;
+      const tent = pivot(Math.cos(a) * 0.2, 0.1, Math.sin(a) * 0.2, k.mesh(G.cyl, P.second, [0.025, 0.42, 0.025], [0, -0.21, 0], P.second));
+      b.add(tent);
+      m.legs.push(tent);
+    }
+    const glow = glowSprite(P.second, 1.4, 0.6);
+    glow.position.y = 0.1;
+    b.add(glow);
+    m.glows.push(glow);
+    m.height = 0.55;
+  },
+
+  axolotl: (k, P, m) => {
+    const b = m.body;
+    b.add(k.ball(0.26, P.main, [0, 0.24, -0.12], [0.9, 0.7, 1.35]));
+    b.add(k.ball(0.2, P.belly, [0, 0.18, -0.08], [0.8, 0.55, 1.2]));
+    const head = new THREE.Group();
+    head.position.set(0, 0.33, 0.22);
+    head.add(k.ball(0.26, P.main, [0, 0, 0], [1.3, 0.8, 1]));
+    k.eye(head, 0.15, 0.1, 0.19, 0.065, new THREE.Vector3(0.2, 0.1, 1));
+    k.eye(head, -0.15, 0.1, 0.19, 0.065, new THREE.Vector3(-0.2, 0.1, 1));
+    // the smile
+    const smile = new THREE.Mesh(new THREE.TorusGeometry(0.11, 0.022, 6, 16, Math.PI), k.mat('#7a2a4a'));
+    smile.position.set(0, -0.05, 0.25);
+    smile.rotation.set(0, 0, Math.PI);
+    smile.userData.noOutline = true;
+    head.add(smile);
+    for (const s of [1, -1]) {
+      head.add(k.ball(0.045, '#ff8fb8', [0.2 * s, -0.04, 0.17], [1, 0.6, 0.5]));
+      // three big feathery gill fronds on each side, fanned out like a crown
+      for (let i = 0; i < 3; i++) {
+        const frond = pivot(0.25 * s, 0.12 - i * 0.09, -0.06, k.ball(0.1, P.second, [0.17 * s, 0, 0], [2, 0.42, 0.55]));
+        frond.rotation.z = s * (0.85 - i * 0.6);
+        for (let j = 0; j < 3; j++) {
+          const nub = k.ball(0.035, P.accent, [(0.1 + j * 0.08) * s, 0.04, 0], [1, 1, 1]);
+          nub.userData.noOutline = true;
+          frond.add(nub);
+        }
+        head.add(frond);
+        m.wings.push(frond);
+      }
+    }
+    b.add(head);
+    for (const sx of [1, -1]) {
+      for (const sz of [0.12, -0.32]) {
+        const leg = pivot(0.2 * sx, 0.1, sz, k.ball(0.06, P.main, [0.02 * sx, -0.04, 0], [1, 0.7, 1.4]));
+        b.add(leg);
+        m.legs.push(leg);
+      }
+    }
+    const tail = new THREE.Group();
+    tail.position.set(0, 0.24, -0.42);
+    tail.add(k.ball(0.18, P.main, [0, 0, -0.16], [0.35, 0.7, 1.3]));
+    tail.add(k.ball(0.16, P.second, [0, 0.04, -0.2], [0.12, 0.85, 1.25]));
+    b.add(tail);
+    m.tail = tail;
+    const glow = glowSprite('#ffc8e0', 1.2, 0.25);
+    glow.position.y = 0.4;
+    b.add(glow);
+    m.glows.push(glow);
+    m.height = 0.75;
+  },
+
   mossfrog: (k, P, m) => frog(k, P, m, false),
   lilyhop: (k, P, m) => frog(k, P, m, true),
 
@@ -319,6 +437,118 @@ const BUILDERS: Record<string, Builder> = {
     m.height = 0.8;
   },
 };
+
+function lizard(k: Kit, P: Palette, m: Parameters<Builder>[2], kind: 'sun' | 'cinder') {
+  const b = m.body;
+  b.add(k.ball(0.24, P.main, [0, 0.18, -0.02], [0.85, 0.55, 1.5]));
+  if (kind === 'sun') {
+    for (const z of [0.15, -0.05, -0.25]) b.add(k.ball(0.07, P.second, [0, 0.29, z], [1.4, 0.4, 0.6]));
+  } else {
+    for (let i = 0; i < 7; i++) {
+      const glowSpot = k.ball(0.035, P.second, [Math.sin(i * 2.3) * 0.14, 0.27, 0.25 - i * 0.08], [1, 0.5, 1], P.second);
+      glowSpot.userData.noOutline = true;
+      b.add(glowSpot);
+    }
+    const glow = glowSprite('#ff8a3a', 1.3, 0.45);
+    glow.position.y = 0.2;
+    b.add(glow);
+    m.glows.push(glow);
+  }
+  const head = new THREE.Group();
+  head.position.set(0, 0.24, 0.36);
+  head.add(k.ball(0.15, P.main, [0, 0, 0.04], [1, 0.75, 1.3]));
+  k.eye(head, 0.1, 0.06, 0.06, 0.05, new THREE.Vector3(0.7, 0, 0.7));
+  k.eye(head, -0.1, 0.06, 0.06, 0.05, new THREE.Vector3(-0.7, 0, 0.7));
+  if (kind === 'sun') {
+    // the frill: folded normally, pops open when excited (animated through wings[])
+    const frill = pivot(0, 0.02, -0.08, k.ball(0.22, P.accent, [0, 0, 0], [1.25, 1, 0.12]));
+    frill.scale.setScalar(0.45);
+    head.add(frill);
+    m.wings.push(frill);
+  }
+  b.add(head);
+  const tail = new THREE.Group();
+  tail.position.set(0, 0.16, -0.36);
+  const t1 = k.mesh(G.cone, P.main, [0.11, 0.55, 0.08], [0, 0, -0.26]);
+  t1.rotation.x = -Math.PI / 2;
+  tail.add(t1);
+  b.add(tail);
+  m.tail = tail;
+  for (const sx of [1, -1]) {
+    for (const sz of [0.18, -0.2]) {
+      const leg = pivot(0.18 * sx, 0.12, sz, k.ball(0.055, P.main, [0.08 * sx, -0.06, 0], [1.6, 0.6, 0.8]));
+      b.add(leg);
+      m.legs.push(leg);
+    }
+  }
+  m.height = 0.55;
+}
+
+function dragon(k: Kit, P: Palette, m: Parameters<Builder>[2], star: boolean) {
+  const b = m.body;
+  b.add(k.ball(0.3, P.main, [0, 0, 0], [0.9, 0.85, 1.15]));
+  b.add(k.ball(0.24, P.belly, [0, -0.04, 0.1], [0.8, 0.75, 0.95]));
+  const head = new THREE.Group();
+  head.position.set(0, 0.26, 0.28);
+  head.add(k.ball(0.2, P.main, [0, 0, 0], [1, 0.9, 1.05]));
+  head.add(k.ball(0.12, P.main, [0, -0.04, 0.17], [1, 0.75, 1]));
+  head.add(k.ball(0.025, '#3a1a1a', [0.05, 0, 0.28]));
+  head.add(k.ball(0.025, '#3a1a1a', [-0.05, 0, 0.28]));
+  k.eye(head, 0.1, 0.07, 0.13, 0.055);
+  k.eye(head, -0.1, 0.07, 0.13, 0.055);
+  for (const s of [1, -1]) {
+    const horn = k.mesh(G.cone, P.accent, [0.04, 0.16, 0.04], [0.09 * s, 0.2, -0.04]);
+    horn.rotation.set(-0.5, 0, -0.25 * s);
+    head.add(horn);
+  }
+  b.add(head);
+  for (const s of [1, -1]) {
+    const wing = new THREE.Group();
+    wing.position.set(0.22 * s, 0.14, -0.04);
+    const bone = k.mesh(G.cyl, P.main, [0.025, 0.42, 0.025], [0.2 * s, 0.1, 0]);
+    bone.rotation.z = -1.1 * s;
+    wing.add(bone);
+    const membrane = k.ball(0.3, P.second, [0.26 * s, 0.02, -0.06], [1, 0.06, 0.75]);
+    membrane.rotation.z = -0.25 * s;
+    wing.add(membrane);
+    b.add(wing);
+    m.wings.push(wing);
+    const leg = pivot(0.14 * s, -0.18, 0.04, k.ball(0.07, P.main, [0, -0.04, 0], [0.9, 1, 1.1]));
+    b.add(leg);
+    m.legs.push(leg);
+  }
+  const tail = new THREE.Group();
+  tail.position.set(0, -0.02, -0.3);
+  const t1 = k.mesh(G.cone, P.main, [0.12, 0.5, 0.1], [0, 0, -0.24]);
+  t1.rotation.x = -Math.PI / 2;
+  tail.add(t1);
+  const tip = k.mesh(G.tetra, P.accent, [0.09, 0.09, 0.09], [0, 0, -0.5]);
+  tail.add(tip);
+  b.add(tail);
+  m.tail = tail;
+  for (let i = 0; i < 3; i++) {
+    const spike = k.mesh(G.cone, P.accent, [0.04, 0.1, 0.04], [0, 0.26 - i * 0.03, 0.05 - i * 0.16]);
+    spike.rotation.x = -0.3;
+    b.add(spike);
+  }
+  if (star) {
+    for (let i = 0; i < 12; i++) {
+      const a = i * 2.39996;
+      const s = k.ball(0.022, P.accent, [Math.cos(a) * 0.26, Math.sin(i * 1.7) * 0.18, Math.sin(a) * 0.3], [1, 1, 1], P.accent);
+      s.userData.noOutline = true;
+      b.add(s);
+    }
+    const glow = glowSprite('#b9a6ff', 1.8, 0.5);
+    b.add(glow);
+    m.glows.push(glow);
+  } else {
+    const glow = glowSprite('#ffb84d', 1.2, 0.3);
+    glow.position.set(0, 0.2, 0.5);
+    b.add(glow);
+    m.glows.push(glow);
+  }
+  m.height = 0.7;
+}
 
 function frog(k: Kit, P: Palette, m: Parameters<Builder>[2], lily: boolean) {
   const b = m.body;
@@ -605,8 +835,8 @@ export function buildCreature(speciesId: SpeciesId, mutations: MutationId[], see
     m.glows.push(chill);
   }
   addOutlines(body, 2.6);
-  const size = 0.94 + ((seed >>> 3) % 100) / 100 * 0.12;
-  m.baseScale = size * (muts.includes('giant') ? 1.6 : 1) * (sp.rarity === 'legendary' ? 1.2 : 1);
+  // The creature's own rolled size and growth are applied on top by the actor.
+  m.baseScale = (muts.includes('giant') ? 1.6 : 1) * (sp.rarity === 'legendary' ? 1.2 : 1);
   root.scale.setScalar(m.baseScale);
   root.userData.prismatic = muts.includes('prismatic');
   return m;

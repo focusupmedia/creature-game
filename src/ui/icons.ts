@@ -96,3 +96,26 @@ export function icon(markup: string, cls = 'icon'): HTMLSpanElement {
   s.innerHTML = markup;
   return s;
 }
+
+export const ISLANDS = svg(`
+  <ellipse cx="32" cy="50" rx="26" ry="7" fill="#3aa0ff" stroke="${INK}" stroke-width="4"/>
+  <path d="M10 44c4-10 12-14 22-14s18 4 22 14z" fill="#7ed321" stroke="${INK}" stroke-width="4" stroke-linejoin="round"/>
+  <path d="M22 40l-4-14 4-2 4 14z" fill="#9a5a32" stroke="${INK}" stroke-width="3" stroke-linejoin="round"/>
+  <circle cx="20" cy="22" r="8" fill="#5fc21a" stroke="${INK}" stroke-width="3.5"/>
+  <path d="M38 36l8-16 8 16z" fill="#ff7a2a" stroke="${INK}" stroke-width="3.5" stroke-linejoin="round"/>
+  <path d="M43 26h6l-3-6z" fill="#ffd21a"/>
+  <path d="M14 46h8" stroke="#fff" stroke-width="3" stroke-linecap="round" opacity=".7"/>`);
+
+/** The mascot: a smiling axolotl face. */
+export const AXOLOTL = svg(`
+  <g stroke="${INK}" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M12 26c-6-4-9-2-10 1 3 0 6 2 9 4zM10 34c-7-1-9 2-9 5 3-1 7-1 10-1zM13 41c-5 2-6 6-5 8 2-2 5-4 8-5z" fill="#ff5f9a"/>
+    <path d="M52 26c6-4 9-2 10 1-3 0-6 2-9 4zM54 34c7-1 9 2 9 5-3-1-7-1-10-1zM51 41c5 2 6 6 5 8-2-2-5-4-8-5z" fill="#ff5f9a"/>
+    <ellipse cx="32" cy="36" rx="22" ry="17" fill="#ffb3d0"/>
+  </g>
+  <ellipse cx="32" cy="42" rx="14" ry="8" fill="#ffe0ec"/>
+  <circle cx="22" cy="32" r="4.2" fill="${INK}"/><circle cx="42" cy="32" r="4.2" fill="${INK}"/>
+  <circle cx="23.4" cy="30.6" r="1.5" fill="#fff"/><circle cx="43.4" cy="30.6" r="1.5" fill="#fff"/>
+  <ellipse cx="17" cy="39" rx="3.6" ry="2.2" fill="#ff7ab0" opacity=".8"/><ellipse cx="47" cy="39" rx="3.6" ry="2.2" fill="#ff7ab0" opacity=".8"/>
+  <path d="M25 39q7 7 14 0" fill="none" stroke="${INK}" stroke-width="3" stroke-linecap="round"/>
+  <path d="M20 23q6-4 12-4" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" opacity=".8"/>`);

@@ -38,6 +38,16 @@
 | A15 | **Ads summon events** (replaces the mutation-boost ad idea): watching an ad starts a random sky event, any time, within the 6-ads-a-day cap | ✅ Built |
 | A16 | **New events:** Starry Night (new Starlit mutation), Full Moon (stronger Lunar, wakes night creatures), Blizzard (new Frost mutation). They can also happen naturally, but rarely | ✅ Built |
 | A17 | **Storm clouds** sit on the horizon behind the island instead of covering the screen | ✅ Built |
+| A18 | **Growth:** hatchlings start at 45% size and grow up over time (15 min in the prototype) to a random grown size (Tiny to Huge) | ✅ Built |
+| A19 | **Personalities:** energetic, lazy, shy, curious, grumpy, friendly. They change wandering, napping, squabbling and how often a pet digs | ✅ Built |
+| A20 | **Digging** replaces random ground gifts: pets walk over and dig up coins, sometimes gems, items, or even an egg | ✅ Built |
+| A21 | **First 3 eggs** always hold an undiscovered creature; later eggs have a 6% "distant relative" chance | ✅ Built |
+| A22 | **New creatures:** Sunscale and Cinderskink (lizards), Emberdrake (rare dragon), Starwyrm (legendary dragon, Dragon + Starlit), Coralpuff, Driftjelly, and the legendary **Axolotl** | ✅ Built |
+| A23 | **Axolotl is the mascot**: it replaces the owl in the coach and on notifications | ✅ Built |
+| A24 | **Archipelago, island hopping:** Ember Peak and Coral Lagoon to unlock (coins, or gems to skip ahead); Sunny Shore and Dune Hollow shown as "coming soon". Only the island you're on is fully simulated | ✅ Built |
+| A25 | **Island sizes:** Small → Medium → Large (more room and capacity), coins or gems | ✅ Built |
+| A26 | **Egg shop:** coin eggs (Meadow, Wanderer, Ember, Reef) plus a premium gem **Starry Egg** with better rare odds. Wild species only; hybrids must be made | ✅ Built |
+| A27 | **Widgets:** in-game widget (next egg + pinned pet) now; real phone home-screen widgets come with the store build | ✅ In-game built |
 
 ## Where I'm challenging the brief
 

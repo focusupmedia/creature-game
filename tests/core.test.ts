@@ -2,8 +2,12 @@ import { describe, expect, it } from 'vitest';
 import { createGame } from '../src/core/state';
 import { tick } from '../src/core/sim';
 import {
-  adHatch, buyOffer, canAdHatch, collectGift, hatch, placeLure, startCombine, summonEvent, useItem,
+  adHatch, buyIsland, buyOffer, canAdHatch, collectGift, hatch, moveCreature, placeLure, rollEggTier, startCombine,
+  summonEvent, upgradeIsland, useItem,
 } from '../src/core/actions';
+import { currentScale, growth } from '../src/core/creatures';
+import { SPECIES_BY_ID } from '../src/content/species';
+import { islandCapacity } from '../src/core/sim';
 import { compatibility, combine } from '../src/core/genetics';
 import { StateRng } from '../src/core/rng';
 import { activeEvent, eventInWindow, isDark, nextEvent } from '../src/core/world';
@@ -21,7 +25,10 @@ function fresh(seed = 42): GameState {
 }
 
 function spawn(state: GameState, species: string, mutations: Creature['mutations'] = []): Creature {
-  const c: Creature = { id: `t${state.creatures.length}${species}`, species, mutations, bornAt: T0, seed: 1, history: [] };
+  const c: Creature = {
+    id: `t${state.creatures.length}${species}`, species, mutations, bornAt: T0, seed: 1, history: [],
+    island: 'home', size: 1, growMs: 0, personality: 'friendly',
+  };
   state.creatures.push(c);
   return c;
 }
@@ -278,6 +285,25 @@ describe('economy', () => {
     expect(s.glimmer).toBeGreaterThan(before);
   });
 
+  it('the egg shop sells coin eggs and a premium Starry Egg, all wild', () => {
+    const s = fresh();
+    const eggs = s.shop.offers.filter((o) => o.kind === 'egg');
+    expect(eggs.map((o) => o.ref)).toContain('meadow');
+    expect(eggs.find((o) => o.ref === 'starry')?.currency).toBe('shards');
+    const counts: Record<string, number> = {};
+    for (let i = 0; i < 2000; i++) {
+      const sp = rollEggTier(s, 'starry');
+      counts[SPECIES_BY_ID[sp].rarity] = (counts[SPECIES_BY_ID[sp].rarity] ?? 0) + 1;
+      expect(SPECIES_BY_ID[sp].origin).toBe('wild');
+    }
+    expect(counts.common ?? 0).toBe(0);
+    expect(counts.legendary).toBeGreaterThan(20);
+    for (let i = 0; i < 300; i++) expect(SPECIES_BY_ID[rollEggTier(s, 'ember')].traits).toContain('Ember');
+    const meadow = eggs.find((o) => o.ref === 'meadow')!;
+    expect(buyOffer(s, meadow.id, T0).ok).toBe(true);
+    expect(s.eggs.at(-1)?.tier).toBe('meadow');
+  });
+
   it('shop rotates and purchases deliver', () => {
     const s = fresh();
     const lure = s.shop.offers.find((o) => o.ref === 'moonpetal')!;
@@ -296,7 +322,130 @@ describe('economy', () => {
   });
 });
 
+describe('growth, personalities and first eggs', () => {
+  it('hatchlings start small and grow into a random grown size', () => {
+    const s = fresh();
+    const [a, b] = s.creatures;
+    const r = startCombine(s, a.id, b.id, T0);
+    if (!r.ok) throw new Error(r.error);
+    tick(s, T0 + r.egg.incubationMs + 1000);
+    const h = hatch(s, r.egg.id, T0 + r.egg.incubationMs + 1000);
+    if (!h.ok) throw new Error(h.error);
+    const c = h.creature;
+    const born = c.bornAt;
+    expect(growth(c, born)).toBe(0);
+    expect(currentScale(c, born)).toBeCloseTo(c.size * TUNING.hatchlingScale, 5);
+    expect(growth(c, born + TUNING.growMin * MIN)).toBe(1);
+    expect(currentScale(c, born + TUNING.growMin * MIN)).toBeCloseTo(c.size, 5);
+    const sizes = new Set(Array.from({ length: 40 }, (_, i) => createGame(T0, i + 1).creatures[0].size.toFixed(3)));
+    expect(sizes.size).toBeGreaterThan(30);
+  });
+
+  it('the first eggs always hold a creature the keeper has never seen', () => {
+    for (let seed = 1; seed <= 25; seed++) {
+      const s = fresh(seed);
+      s.tutorial = 9;
+      const [frog, wing, bun] = s.creatures;
+      for (const [x, y] of [[frog, wing], [wing, bun], [frog, bun]]) {
+        const known = new Set(Object.keys(s.journal.species));
+        const r = startCombine(s, x.id, y.id, T0);
+        if (!r.ok) throw new Error(r.error);
+        expect(known.has(r.egg.species)).toBe(false);
+        r.egg.progressMs = r.egg.incubationMs;
+        expect(hatch(s, r.egg.id, T0).ok).toBe(true);
+      }
+    }
+  });
+
+  it('every creature has a personality, and energetic ones dig more than lazy ones', () => {
+    const s = fresh();
+    expect(s.creatures.every((c) => !!c.personality)).toBe(true);
+    s.creatures.forEach((c, i) => (c.personality = i === 0 ? 'energetic' : 'lazy'));
+    s.creatures[0].personality = 'energetic';
+    const by: Record<string, number> = {};
+    for (let i = 0; i < 40; i++) {
+      s.gifts = [];
+      const ev = tick(s, s.lastTick + 30 * MIN, { maxStepMs: 10_000 });
+      for (const e of ev) if (e.type === 'gift') by[e.gift.from!] = (by[e.gift.from!] ?? 0) + 1;
+    }
+    const energetic = by[s.creatures[0].id] ?? 0;
+    const lazy = (by[s.creatures[1].id] ?? 0);
+    expect(energetic).toBeGreaterThan(lazy * 2);
+  });
+
+  it('digging can turn up items and eggs', () => {
+    const s = fresh();
+    s.gifts = [{ id: 'g1', x: 0, z: 0, glimmer: 3, shards: 0, island: 'home', item: 'warmstone' },
+      { id: 'g2', x: 0, z: 0, glimmer: 3, shards: 0, island: 'home', item: 'egg' }];
+    expect(collectGift(s, 'g1', T0).ok).toBe(true);
+    expect(s.items.warmstone).toBe(1);
+    const before = s.eggs.length;
+    expect(collectGift(s, 'g2', T0).ok).toBe(true);
+    expect(s.eggs.length).toBe(before + 1);
+    expect(s.eggs.at(-1)?.source).toBe('dug');
+  });
+});
+
+describe('islands', () => {
+  it('can be bought with coins or gems, and upgraded in size', () => {
+    const s = fresh();
+    expect(buyIsland(s, 'volcano', 'glimmer').ok).toBe(false);
+    s.glimmer = 5000;
+    expect(buyIsland(s, 'volcano', 'glimmer').ok).toBe(true);
+    expect(s.islands.volcano.owned).toBe(true);
+    s.shards = 500;
+    expect(buyIsland(s, 'lagoon', 'shards').ok).toBe(true);
+    expect(buyIsland(s, 'beach', 'glimmer').ok).toBe(false);
+    const cap = islandCapacity(s, 'home');
+    expect(upgradeIsland(s, 'home', 'glimmer').ok).toBe(true);
+    expect(islandCapacity(s, 'home')).toBeGreaterThan(cap);
+  });
+
+  it('island lures bring island creatures, who live on that island', () => {
+    const s = fresh(9);
+    s.glimmer = 5000;
+    buyIsland(s, 'volcano', 'glimmer');
+    s.lures.emberpepper = 2;
+    expect(placeLure(s, 'vent', 'emberpepper', T0).ok).toBe(true);
+    s.stats.arrivals = 5;
+    const ev = tick(s, T0 + 12 * MIN, { maxStepMs: 2000 });
+    const arrivals = ev.filter((e) => e.type === 'arrival');
+    expect(arrivals.length).toBeGreaterThan(0);
+    for (const a of arrivals) {
+      if (a.type !== 'arrival') continue;
+      expect(SPECIES_BY_ID[a.creature.species].traits).toContain('Ember');
+      expect(a.creature.island).toBe('volcano');
+    }
+  });
+
+  it('lures cannot be placed on islands you do not own; creatures can move between owned islands', () => {
+    const s = fresh();
+    s.lures.saltkelp = 1;
+    expect(placeLure(s, 'reef', 'saltkelp', T0).ok).toBe(false);
+    s.shards = 999;
+    buyIsland(s, 'lagoon', 'shards');
+    expect(placeLure(s, 'reef', 'saltkelp', T0).ok).toBe(true);
+    expect(moveCreature(s, s.creatures[0].id, 'lagoon', T0).ok).toBe(true);
+    expect(s.creatures[0].island).toBe('lagoon');
+    expect(moveCreature(s, s.creatures[0].id, 'volcano', T0).ok).toBe(false);
+  });
+});
+
 describe('save', () => {
+  it('migrates version 1 saves (islands, sizes, personalities)', () => {
+    const v1 = JSON.parse(serialize(fresh(), T0));
+    v1.version = 1;
+    delete v1.islands;
+    for (const c of v1.creatures) { delete c.island; delete c.size; delete c.growMs; delete c.personality; }
+    for (const k of ['vent', 'ash', 'reef', 'shallows']) delete v1.spots[k];
+    const s = deserialize(JSON.stringify(v1));
+    expect(s.version).toBe(2);
+    expect(s.islands.home.owned).toBe(true);
+    expect(s.creatures.every((c) => c.island === 'home' && c.size > 0.9 && c.growMs === 0 && !!c.personality)).toBe(true);
+    expect(s.spots.vent).toBeNull();
+    tick(s, T0 + 5 * MIN);
+  });
+
   it('round-trips without loss', () => {
     const s = fresh();
     placeLure(s, 'glade', 'mossberry', T0);

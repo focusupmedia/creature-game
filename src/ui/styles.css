@@ -343,3 +343,46 @@ input.rename { font-family: var(--display); font-size: 22px; border: var(--outli
   background: linear-gradient(180deg, var(--blue-1), var(--blue-2)); box-shadow: inset 0 -4px 0 rgba(0,0,0,.18); display: grid; place-items: center;
 }
 .wl-cog .icon { width: 24px; height: 24px; }
+
+/* zoomed-out lure marker: a small bouncing "!" */
+.wl-spot.mini {
+  width: 30px; height: 30px; padding: 0; border-radius: 50%; display: grid; place-items: center;
+  font-size: 18px; background: linear-gradient(180deg, var(--orange-1), var(--orange-2)); animation: wl-bob 1.6s ease-in-out infinite;
+}
+.wl-spot.mini::after { border-top-color: var(--ink); bottom: -8px; border-width: 6px; }
+.wl-spot { font-size: 14px; padding: 3px 10px; }
+.wl-island {
+  background: rgba(27, 42, 74, .78); color: var(--white); border: 2px solid rgba(255,255,255,.5); border-radius: 12px;
+  padding: 4px 10px; font-family: var(--display); font-size: 14px;
+}
+
+/* islands sheet */
+.island-card { background: linear-gradient(180deg, var(--white), var(--sky-1)); border: 3px solid var(--sky-3); border-radius: 18px; padding: 10px; margin-bottom: 10px; }
+.island-card.hl { border-color: var(--orange-2); box-shadow: 0 0 0 3px var(--orange-1); }
+.island-card.soon { opacity: .7; }
+.island-card .name { font-family: var(--display); font-size: 18px; display: flex; align-items: center; flex-wrap: wrap; }
+.island-card .desc { color: var(--ink-soft); font-size: 13px; line-height: 1.3; }
+.swatch.big { width: 58px; height: 58px; font-size: 30px; border: var(--outline); }
+.hud-tile.islands { background: linear-gradient(180deg, #5fd6ff, var(--blue-2)); }
+
+/* creature stats */
+.stats { display: grid; gap: 8px; margin-top: 12px; }
+.stat { background: var(--white); border: 3px solid var(--sky-3); border-radius: 14px; padding: 8px 10px; display: flex; flex-direction: column; gap: 2px; }
+.stat .k { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--ink-soft); }
+.stat .v { font-family: var(--display); font-size: 17px; }
+.progress.small { height: 12px; border-width: 2px; margin: 4px 0 2px; }
+
+/* the widget: next egg + pinned creature */
+.widget { pointer-events: auto; display: flex; flex-direction: column; gap: 6px; margin-top: 2px; }
+.w-row {
+  display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,.94); border: var(--outline); border-radius: 14px;
+  padding: 4px 10px 4px 4px; box-shadow: 0 3px 0 var(--ink); text-align: left; max-width: 190px;
+}
+.w-row.ready { background: linear-gradient(180deg, #fff3a0, var(--orange-1)); animation: wl-bob 1.4s ease-in-out infinite; }
+.w-row b { font-family: var(--display); font-weight: 400; font-size: 15px; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 130px; }
+.w-row small { font-size: 11px; color: var(--ink-soft); display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 130px; }
+.w-ico { width: 34px; height: 34px; display: grid; place-items: center; font-size: 22px; background: var(--sky-2); border-radius: 10px; flex: none; }
+.w-pic { width: 36px; height: 36px; border-radius: 10px; background: var(--sky-2); flex: none; }
+.coach .icon.who { width: 44px; height: 44px; flex: none; }
+
+.toast .icon.toast-mascot { width: 32px; height: 32px; flex: none; }

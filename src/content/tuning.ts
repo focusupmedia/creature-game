@@ -37,6 +37,22 @@ export const TUNING = {
   basketSize: 3,
 
   capacity: 20,
+  /** Hatchlings start at this fraction of their grown size... */
+  hatchlingScale: 0.45,
+  /** ...and take this long to grow up. */
+  growMin: 15,
+  /** Grown size range (before Giant). */
+  sizeRange: [0.8, 1.3] as [number, number],
+  /** Rare outliers outside the normal range. */
+  sizeOutlierChance: 0.06,
+  /** The first N eggs a keeper makes always hold a creature they haven't discovered. */
+  firstNewEggs: 3,
+  /** After that, chance an egg holds a "distant relative" that shares a trait with a parent. */
+  distantRelativeChance: 0.06,
+  /** Digging: relative dig rate by personality. */
+  digRate: { energetic: 1.8, lazy: 0.4, shy: 0.8, curious: 1.4, grumpy: 1, friendly: 1 } as Record<string, number>,
+  digItemChance: 0.03,
+  digEggChance: 0.006,
   /** Gifts: each resident leaves one every N minutes on average... */
   giftEveryMin: 5,
   /** ...but only this many residents count, so hoarding creatures isn't an income strategy. */

@@ -4,9 +4,9 @@
 
 export type Trait =
   // Habitats — what lures and places attract
-  | 'Grove' | 'Tide' | 'Bloom' | 'Mystic'
+  | 'Grove' | 'Tide' | 'Bloom' | 'Mystic' | 'Ember' | 'Reef' | 'Sand'
   // Kinds — body plans
-  | 'Amphibian' | 'Reptile' | 'Insect' | 'Bird' | 'Fish' | 'Mammal' | 'Fungus' | 'Spirit'
+  | 'Amphibian' | 'Reptile' | 'Insect' | 'Bird' | 'Fish' | 'Mammal' | 'Fungus' | 'Spirit' | 'Dragon'
   // Mutation traits — acquired, never native
   | 'Lunar' | 'Storm' | 'Giant' | 'Prismatic' | 'Starlit' | 'Frost';
 
@@ -16,6 +16,8 @@ export type LureId = string;
 export type ItemId = string;
 export type DecorId = string;
 export type SpotId = string;
+export type IslandId = 'home' | 'volcano' | 'lagoon' | 'beach' | 'desert';
+export type Personality = 'energetic' | 'lazy' | 'shy' | 'curious' | 'grumpy' | 'friendly';
 export type EventKind = 'storm' | 'eclipse' | 'starry' | 'fullmoon' | 'blizzard';
 
 export type Rarity = 'common' | 'uncommon' | 'rare' | 'legendary';
@@ -62,6 +64,7 @@ export interface LureDef {
 
 export interface SpotDef {
   id: SpotId;
+  island: IslandId;
   name: string;
   x: number;
   z: number;
@@ -157,6 +160,13 @@ export interface Creature {
   history: HistoryEntry[];
   /** Arrived but still walking in / eating at a lure. Purely presentational. */
   arrivingAt?: SpotId;
+  /** Which island it lives on. */
+  island: IslandId;
+  /** Grown-up size, rolled at birth (1 = typical). Giant multiplies on top. */
+  size: number;
+  /** How long it takes to grow up (0 = already grown). Hatchlings start small. */
+  growMs: number;
+  personality: Personality;
 }
 
 export interface Egg {
@@ -164,7 +174,7 @@ export interface Egg {
   species: SpeciesId;
   mutations: MutationId[];
   seed: number;
-  source: 'combine' | 'shop' | 'gift';
+  source: 'combine' | 'shop' | 'gift' | 'dug';
   parentNames?: [string, string];
   laidAt: number;
   incubationMs: number;
@@ -176,6 +186,11 @@ export interface Egg {
   warmed?: boolean;
   /** Events that touched the egg during incubation. */
   witnessed: EventKind[];
+  /** A different species than either parent. */
+  relative?: boolean;
+  parentPersonalities?: Personality[];
+  /** Egg shop tier it came from, if bought. */
+  tier?: string;
 }
 
 export interface ActiveLure {
@@ -192,6 +207,9 @@ export interface Gift {
   glimmer: number;
   shards: number;
   from?: string; // creature id
+  island: IslandId;
+  /** Rare finds when digging. */
+  item?: string;
 }
 
 export interface ShopOffer {
@@ -242,6 +260,7 @@ export interface GameState {
   decorOwned: Record<DecorId, number>;
   placedDecor: PlacedDecor[];
   creatures: Creature[];
+  islands: Record<IslandId, { owned: boolean; size: number }>;
   eggs: Egg[];
   nests: number;
   spots: Record<SpotId, ActiveLure | null>;
@@ -256,6 +275,8 @@ export interface GameState {
   ads: { day: string; count: number };
   stats: { combines: number; hatches: number; arrivals: number; lures: number };
   nextId: number;
+  /** Creature shown in the on-screen widget. */
+  pinned?: string;
   savedAt: number;
 }
 

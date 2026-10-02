@@ -6,14 +6,14 @@
 import { species } from '../content/species';
 import { EVENTS, LURES, MUTATIONS, SPOTS } from '../content/world';
 import { TUNING } from '../content/tuning';
-import { randomLandPoint } from '../content/layout';
-import { addMutation, creatureTraits, displayName, makeCreature, newId } from './creatures';
+import { SIZE_CAPACITY, islandGeo, randomLand } from '../content/islands';
+import { addMutation, creatureTraits, displayName, growth, makeCreature, newId } from './creatures';
 import { addNote, recordMutation, recordSpecies } from './journal';
 import { arrivalChance, arrivalMutations, arrivalWeights } from './lures';
 import { StateRng } from './rng';
 import { refreshShop } from './shop';
 import { freeNest } from './state';
-import type { EventKind, GameEvent, GameState } from './types';
+import type { EventKind, GameEvent, GameState, Gift, IslandId } from './types';
 import { activeEvent, isDark } from './world';
 
 const MIN = 60_000;
@@ -74,6 +74,7 @@ function step(state: GameState, t: number, dt: number, out: GameEvent[]): void {
   for (const spotId of Object.keys(SPOTS)) {
     const active = state.spots[spotId];
     if (!active) continue;
+    if (!state.islands[SPOTS[spotId].island]?.owned) continue;
     const weights = arrivalWeights(active.lure, spotId, dark, sky);
     if (weights.length === 0) {
       // Nothing that answers this scent is about: the lure waits instead of wasting.
@@ -94,9 +95,10 @@ function step(state: GameState, t: number, dt: number, out: GameEvent[]): void {
     const muts = arrivalMutations(active.lure, sky, rng);
     const lure = LURES[active.lure];
     const where = SPOTS[spotId].name;
-    const when = sky ? ` during ${sky === 'eclipse' ? 'an eclipse' : 'a thunderstorm'}` : dark ? ' in the dark of night' : '';
+    const when = sky ? ` during ${/^[aeiou]/i.test(EVENTS[sky].name) ? 'an' : 'a'} ${EVENTS[sky].name.toLowerCase()}` : dark ? ' in the dark of night' : '';
     const story = `Followed the scent of a ${lure.name} to the ${where}${when}.`;
-    const c = makeCreature(state, sp, muts, t, story);
+    const island = SPOTS[spotId].island;
+    const c = makeCreature(state, sp, muts, t, story, { island });
     c.arrivingAt = spotId;
     active.visitors += 1;
     state.stats.arrivals += 1;
@@ -111,7 +113,7 @@ function step(state: GameState, t: number, dt: number, out: GameEvent[]): void {
     if (dark && species(sp).activity === 'night') {
       note(state, out, t, `night-${active.lure}`, `${lure.name} attracts different visitors after dark.`);
     }
-    if (state.creatures.length >= TUNING.capacity) {
+    if (islandPopulation(state, island) >= islandCapacity(state, island)) {
       // Full sanctuary: the visitor is seen (journal) but moves on.
       out.push({ type: 'arrival', creature: c, spot: spotId, discovered, t });
       note(state, out, t, 'full', 'Your sanctuary is full. Visitors look around, then wander off.');
@@ -138,17 +140,26 @@ function step(state: GameState, t: number, dt: number, out: GameEvent[]): void {
     egg.nest = n;
   }
 
-  // ---- gifts: residents leave small things behind
+  // ---- digging: residents dig things up, more or less often depending on personality
   if (state.gifts.length < TUNING.maxGiftsOnGround && state.creatures.length) {
-    const rate = Math.min(state.creatures.length, TUNING.giftResidentsCap) / (TUNING.giftEveryMin * MIN);
-    if (rng.chance(1 - Math.exp(-rate * dt))) {
-      const from = rng.pick(state.creatures);
-      const p = randomLandPoint(() => rng.next());
+    const diggers = state.creatures.filter((c) => growth(c, t) >= 0.5);
+    const total = diggers.reduce((s, c) => s + (TUNING.digRate[c.personality] ?? 1), 0);
+    // Capped so hoarding creatures isn't an income strategy.
+    const rate = Math.min(total, TUNING.giftResidentsCap) / (TUNING.giftEveryMin * MIN);
+    if (diggers.length && rng.chance(1 - Math.exp(-rate * dt))) {
+      const from = rng.weighted(diggers.map((c) => [c, TUNING.digRate[c.personality] ?? 1] as [typeof c, number]))!;
+      const g = islandGeo(from.island, state.islands[from.island]?.size ?? 0);
+      const p = randomLand(g, () => rng.next());
       const [g0, g1] = TUNING.giftGlimmer;
-      const gift = {
+      const curious = from.personality === 'curious' ? 2 : 1;
+      const gift: Gift = {
         id: newId(state, 'g'), x: p.x, z: p.z, glimmer: rng.int(g0, g1),
-        shards: rng.chance(TUNING.giftShardChance) ? 1 : 0, from: from.id,
+        shards: rng.chance(TUNING.giftShardChance * curious) ? 1 : 0, from: from.id, island: from.island,
       };
+      if (rng.chance(TUNING.digItemChance * curious)) gift.item = rng.chance(0.75) ? 'warmstone' : 'rootswell';
+      else if (rng.chance(TUNING.digEggChance * curious) && state.eggs.filter((e) => e.nest === null).length < TUNING.basketSize) {
+        gift.item = 'egg';
+      }
       state.gifts.push(gift);
       out.push({ type: 'gift', gift, t });
     }
@@ -188,6 +199,14 @@ function skyTouch(
   const discovered = recordMutation(state, def.mutation, t);
   out.push({ type: 'mutation', creature: target, mutation: def.mutation, cause: kind, t, discovered });
   note(state, out, t, `${kind}-hit`, touch.lesson);
+}
+
+export function islandPopulation(state: GameState, island: IslandId): number {
+  return state.creatures.reduce((n, c) => n + (c.island === island ? 1 : 0), 0);
+}
+
+export function islandCapacity(state: GameState, island: IslandId): number {
+  return SIZE_CAPACITY[state.islands[island]?.size ?? 0] ?? TUNING.capacity;
 }
 
 function note(state: GameState, out: GameEvent[], t: number, key: string, text: string): void {

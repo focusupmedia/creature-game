@@ -1,3 +1,4 @@
+import { ISLANDS } from './islands';
 import type {
   DecorDef, EventDef, EventKind, ItemDef, LureDef, MutationDef, MutationId, ResonanceRule, SpotDef,
 } from '../core/types';
@@ -47,6 +48,14 @@ export const LURES: Record<string, LureDef> = {
     id: 'honeydew', name: 'Honeydew Lure', attracts: 'Bloom', durationMin: 6, expectedVisitors: 2.4,
     price: 35, scent: 'Sticky-sweet nectar. Wings start to hum nearby.', color: '#f2b94b',
   },
+  emberpepper: {
+    id: 'emberpepper', name: 'Emberpepper Lure', attracts: 'Ember', durationMin: 6, expectedVisitors: 2.2,
+    price: 45, scent: 'Smoky and spicy. Your eyes water a little.', color: '#ff6a2a',
+  },
+  saltkelp: {
+    id: 'saltkelp', name: 'Saltkelp Lure', attracts: 'Reef', durationMin: 6, expectedVisitors: 2.4,
+    price: 45, scent: 'Briny and fresh, like a wave breaking on coral.', color: '#2ad0c8',
+  },
   moonpetal: {
     id: 'moonpetal', name: 'Moonpetal Lure', attracts: 'Mystic', durationMin: 8, expectedVisitors: 1.8,
     price: 60, scent: 'Faintly silver, faintly cold. It smells like a secret.', color: '#b9a6ff',
@@ -54,9 +63,15 @@ export const LURES: Record<string, LureDef> = {
 };
 
 // ---------------------------------------------------------------- lure spots
+const V = ISLANDS.volcano;
+const L = ISLANDS.lagoon;
 export const SPOTS: Record<string, SpotDef> = {
-  glade: { id: 'glade', name: 'Mossy Glade', x: -3.6, z: 2.4, affinity: { Grove: 1.5, Mystic: 1.3 }, water: false },
-  pond: { id: 'pond', name: 'Pond Edge', x: 3.3, z: 0.6, affinity: { Tide: 2, Amphibian: 1.5 }, water: true },
+  glade: { id: 'glade', island: 'home', name: 'Mossy Glade', x: -3.6, z: 2.4, affinity: { Grove: 1.5, Mystic: 1.3 }, water: false },
+  pond: { id: 'pond', island: 'home', name: 'Pond Edge', x: 3.3, z: 0.6, affinity: { Tide: 2, Amphibian: 1.5 }, water: true },
+  vent: { id: 'vent', island: 'volcano', name: 'Lava Vent', x: V.ox + 0.6, z: V.oz + 1.4, affinity: { Ember: 2, Dragon: 1.5 }, water: false },
+  ash: { id: 'ash', island: 'volcano', name: 'Ash Field', x: V.ox - 4.2, z: V.oz + 0.2, affinity: { Ember: 1.3, Reptile: 1.5 }, water: false },
+  reef: { id: 'reef', island: 'lagoon', name: 'Coral Reef', x: L.ox - 2.2, z: L.oz + 1.2, affinity: { Reef: 2, Fish: 1.5 }, water: true },
+  shallows: { id: 'shallows', island: 'lagoon', name: 'Shallows', x: L.ox + 2.6, z: L.oz - 1.4, affinity: { Reef: 1.3, Amphibian: 2, Spirit: 1.5 }, water: true },
 };
 
 // ---------------------------------------------------------------- events
@@ -148,6 +163,7 @@ export const RESONANCES: ResonanceRule[] = [
   { id: 'r-starkoi', requires: ['Fish', 'Mystic'], result: 'starkoi', chance: 0.35 },
   { id: 'r-lilyhop', requires: ['Amphibian', 'Bloom'], result: 'lilyhop', chance: 0.35 },
   { id: 'r-shellshroom', requires: ['Reptile', 'Fungus'], result: 'shellshroom', chance: 0.4 },
+  { id: 'r-starwyrm', requires: ['Dragon', 'Starlit'], result: 'starwyrm', chance: 0.25 },
 ];
 
 // ---------------------------------------------------------------- items
@@ -171,4 +187,46 @@ export const DECOR: Record<string, DecorDef> = {
   crystal: { id: 'crystal', name: 'Dreaming Crystal', blurb: 'Hums a note just below hearing. Glows at night.', price: 40, currency: 'shards', rotating: true },
   windchime: { id: 'windchime', name: 'Moonbell Chime', blurb: 'Rings by itself before an eclipse.', price: 35, currency: 'shards', rotating: true },
   sakura: { id: 'sakura', name: 'Blossom Tree', blurb: 'Petals drift across the sanctuary.', price: 55, currency: 'shards', rotating: true },
+};
+
+// ---------------------------------------------------------------- egg shop
+export interface EggTier {
+  id: string;
+  name: string;
+  blurb: string;
+  price: number;
+  currency: 'glimmer' | 'shards';
+  /** Habitat filter; empty = any wild species. */
+  habitats: string[];
+  /** Rarity weights for this tier. */
+  weights: Record<string, number>;
+  colors: [string, string];
+}
+
+export const EGG_TIERS: Record<string, EggTier> = {
+  meadow: {
+    id: 'meadow', name: 'Meadow Egg', price: 120, currency: 'glimmer', habitats: ['Grove', 'Bloom', 'Tide'],
+    weights: { common: 10, uncommon: 4, rare: 1, legendary: 0 }, colors: ['#9fe06a', '#ffffff'],
+    blurb: 'Something from the forest and the pond. Usually familiar… usually.',
+  },
+  wild: {
+    id: 'wild', name: 'Wanderer Egg', price: 260, currency: 'glimmer', habitats: [],
+    weights: { common: 4, uncommon: 6, rare: 3, legendary: 0 }, colors: ['#ffb84d', '#6a3ce0'],
+    blurb: 'Found far away. It could be anything wild.',
+  },
+  ember: {
+    id: 'ember', name: 'Ember Egg', price: 300, currency: 'glimmer', habitats: ['Ember'],
+    weights: { common: 10, uncommon: 4, rare: 2, legendary: 0 }, colors: ['#3a2e2e', '#ff7a2a'],
+    blurb: 'Warm to the touch. Smells a bit like smoke.',
+  },
+  reef: {
+    id: 'reef', name: 'Reef Egg', price: 300, currency: 'glimmer', habitats: ['Reef'],
+    weights: { common: 10, uncommon: 5, rare: 2, legendary: 0 }, colors: ['#2ad0c8', '#ffb36a'],
+    blurb: 'Wet and salty. Something inside is swimming in circles.',
+  },
+  starry: {
+    id: 'starry', name: 'Starry Egg', price: 60, currency: 'shards', habitats: [],
+    weights: { common: 0, uncommon: 6, rare: 4, legendary: 0.6 }, colors: ['#1e2468', '#fff1a8'],
+    blurb: 'Always uncommon or rarer, with a small chance of something legendary.',
+  },
 };

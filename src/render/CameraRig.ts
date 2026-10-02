@@ -13,6 +13,10 @@ export class CameraRig {
   minDist = 7;
   maxDist = 30;
   bound = 8;
+  /** Centre of the island the camera is exploring; panning is clamped around it. */
+  readonly center = new THREE.Vector3();
+  /** How hard the player has been pushing past the island edge (for island hopping). */
+  readonly overflow = new THREE.Vector2();
   onTap: (x: number, y: number) => void = () => {};
 
   private pointers = new Map<number, { x: number; y: number }>();
@@ -114,11 +118,20 @@ export class CameraRig {
     const fwd = new THREE.Vector3(Math.sin(this.yaw), 0, Math.cos(this.yaw));
     this.focus.addScaledVector(right, -dx * scale);
     this.focus.addScaledVector(fwd, -dy * scale);
-    const len = Math.hypot(this.focus.x, this.focus.z);
-    if (len > this.bound) this.focus.multiplyScalar(this.bound / len);
+    const ox = this.focus.x - this.center.x;
+    const oz = this.focus.z - this.center.z;
+    const len = Math.hypot(ox, oz);
+    if (len > this.bound) {
+      const k = this.bound / len;
+      this.overflow.x += ox - ox * k;
+      this.overflow.y += oz - oz * k;
+      this.focus.x = this.center.x + ox * k;
+      this.focus.z = this.center.z + oz * k;
+    }
   }
 
   update(dt: number): void {
+    this.overflow.multiplyScalar(Math.pow(0.15, dt));
     if (this.pointers.size === 0 && this.vel.lengthSq() > 0.01) {
       this.panPixels(this.vel.x, this.vel.y);
       this.vel.multiplyScalar(Math.pow(0.02, dt));

@@ -1,13 +1,14 @@
 import { SPECIES, species } from '../content/species';
-import { DECOR, EVENTS, ITEMS, LURES, MUTATIONS, SPOTS } from '../content/world';
+import { DECOR, EGG_TIERS, EVENTS, ITEMS, LURES, MUTATIONS, SPOTS } from '../content/world';
+import { ISLANDS, ISLAND_ORDER, SIZE_CAPACITY, SIZE_NAMES, SIZE_PRICE } from '../content/islands';
 import { TUNING } from '../content/tuning';
 import { NESTS, FONT, SHOP_STALL } from '../content/layout';
 import * as A from '../core/actions';
-import { creatureTraits, displayName, speciesTitle } from '../core/creatures';
+import { PERSONALITIES, creatureTraits, displayName, growth, sizeLabel, speciesTitle } from '../core/creatures';
 import { compatibility, eggClues } from '../core/genetics';
 import { arrivalWeights } from '../core/lures';
 import { nestOccupant } from '../core/state';
-import type { Creature, Egg, GameEvent, MutationId, SpotId, Trait } from '../core/types';
+import type { Creature, Egg, GameEvent, IslandId, MutationId, SpotId, Trait } from '../core/types';
 import { activeEvent, dayPhase, daylight, isDark, nextEvent } from '../core/world';
 import type { Game } from '../game/Game';
 import { fmtDuration, h, img, rich } from './dom';
@@ -26,6 +27,8 @@ export class UI {
   private shardsVal = h('span', { class: 'val' });
   private skyChip = h('span');
   private adsBadge = h('span', { class: 'count' });
+  private widget = h('div', { class: 'widget hidden' });
+  private widgetKey = '';
   private banner = h('div', { class: 'banner hidden' });
   private toasts = h('div', { class: 'toasts' });
   private coachEl = h('div', { class: 'coach hidden' });
@@ -59,11 +62,15 @@ export class UI {
             h('button', { class: 'bar-plus', 'aria-label': 'Get Starshards', onClick: () => this.showShop(true) }, I.icon(I.PLUS))),
           h('div', { class: 'bar', title: 'Coins', style: 'margin-left:10px' }, I.icon(I.COIN), this.glimmerVal),
         ),
-        h('div', { class: 'hud-row', style: 'width:100%' },
-          h('div', { class: 'sky-chip' }, this.skyChip),
+        h('div', { class: 'hud-row', style: 'width:100%;align-items:flex-start' },
+          h('div', { class: 'hud-col' }, h('div', { class: 'sky-chip' }, this.skyChip), this.widget),
           h('div', { class: 'spacer' }),
-          h('button', { class: 'hud-tile', 'aria-label': 'Watch an ad to summon a sky event', onClick: () => this.showSummon() },
-            I.icon(I.SUMMON), h('span', { class: 'lbl' }, 'EVENT'), this.adsBadge),
+          h('div', { class: 'hud-col right' },
+            h('button', { class: 'hud-tile', 'aria-label': 'Watch an ad to summon a sky event', onClick: () => this.showSummon() },
+              I.icon(I.SUMMON), h('span', { class: 'lbl' }, 'EVENT'), this.adsBadge),
+            h('button', { class: 'hud-tile islands', 'aria-label': 'Islands', onClick: () => { this.game.audio.play('tap'); this.showIslands(); } },
+              I.icon(I.ISLANDS), h('span', { class: 'lbl' }, 'ISLANDS')),
+          ),
         ),
       ),
     );
@@ -87,6 +94,7 @@ export class UI {
       openShop: () => this.showShop(),
       openBasket: () => this.showBasket(),
       openCreatureMenu: (id) => this.showCreature(id),
+      openIsland: (id) => (game.state.islands[id]?.owned ? game.travel(id) : this.showIslands(id)),
     });
   }
 
@@ -142,6 +150,7 @@ export class UI {
       this.rerender();
     }
     this.updateCoach();
+    this.updateWidget();
     this.labels.update(this.game.world.revealing || !!this.game.placing);
   }
 
@@ -152,7 +161,8 @@ export class UI {
   }
 
   toast(text: string, kind: 'info' | 'discovery' = 'info', image?: string, ms = 3200): void {
-    const el = h('div', { class: `toast ${kind}` }, image ? img(image) : null, h('span', null, rich(text)));
+    // The axolotl mascot delivers any news that doesn't come with its own picture.
+    const el = h('div', { class: `toast ${kind}` }, image ? img(image) : I.icon(I.AXOLOTL, 'icon toast-mascot'), h('span', null, rich(text)));
     this.toasts.append(el);
     while (this.toasts.children.length > 3) this.toasts.firstElementChild!.remove();
     setTimeout(() => el.classList.add('out'), ms);
@@ -217,15 +227,26 @@ export class UI {
 
   showLures(): void {
     this.openSheet('Lures', 'Set out a scent and see who answers.', (b) => {
-      for (const spot of Object.values(SPOTS)) b.append(this.spotBlock(spot.id));
+      const s = this.game.state;
+      for (const id of ISLAND_ORDER) {
+        if (!s.islands[id]?.owned) continue;
+        const spots = Object.values(SPOTS).filter((x) => x.island === id);
+        if (!spots.length) continue;
+        if (Object.values(s.islands).filter((x) => x.owned).length > 1) {
+          b.append(h('div', { class: 'section-title' }, `${ISLANDS[id].icon} ${ISLANDS[id].name}`));
+        }
+        for (const spot of spots) b.append(this.spotBlock(spot.id));
+      }
       b.append(h('p', { class: 'muted' }, 'Tip: the same lure can attract different visitors depending on where you place it, the time of day, and the sky.'));
     }, I.LURE);
   }
 
   showSpot(spotId: SpotId): void {
     const spot = SPOTS[spotId];
+    if (this.game.world.current !== spot.island) this.game.world.travelTo(spot.island, true);
     this.game.world.focus(spot, 14);
-    this.openSheet(spot.name, spot.water ? 'Where land meets water.' : 'A quiet ring of mossy stones.', (b) => b.append(this.spotBlock(spotId, true)), spot.water ? '💧' : '🌳');
+    const subs: Record<string, string> = { glade: 'A quiet ring of mossy stones.', pond: 'Where land meets water.', vent: 'Warm air rises from the rocks.', ash: 'Soft grey ash, still warm.', reef: 'Bright coral just under the surface.', shallows: 'Warm, clear, knee-deep water.' };
+    this.openSheet(spot.name, subs[spotId] ?? '', (b) => b.append(this.spotBlock(spotId, true)), ISLANDS[spot.island].icon);
   }
 
   private spotBlock(spotId: SpotId, solo = false): HTMLElement {
@@ -278,6 +299,7 @@ export class UI {
     this.labels.select(id);
     if (this.game.state.tutorial === 2) this.game.setTutorial(3);
     let renaming = false;
+    const s2 = this.game.state;
     this.openSheet(displayName(c), speciesTitle(c) !== displayName(c) ? speciesTitle(c) : species(c.species).origin === 'hybrid' ? 'Hybrid' : '', (b) => {
       const sp = species(c.species);
       const head = h('div', { class: 'row', style: 'align-items:flex-start' }, this.portrait(c, 'portrait big'),
@@ -295,12 +317,28 @@ export class UI {
           this.traitChips(creatureTraits(c)),
         ));
       b.append(head);
+      const t = this.game.now();
+      const grown = growth(c, t);
+      const P = PERSONALITIES[c.personality];
+      b.append(h('div', { class: 'stats' },
+        h('div', { class: 'stat' }, h('span', { class: 'k' }, 'Personality'), h('span', { class: 'v' }, `${P.emoji} ${P.name}`), h('span', { class: 'muted' }, P.blurb)),
+        h('div', { class: 'stat' }, h('span', { class: 'k' }, 'Size'), h('span', { class: 'v' }, `${sizeLabel(c.size)}${c.mutations.includes('giant') ? ' · Giant' : ''}`),
+          grown < 1
+            ? h('div', { class: 'col' }, h('div', { class: 'progress small' }, h('i', { style: `width:${Math.round(grown * 100)}%` })),
+              h('span', { class: 'muted' }, `Growing up · ${fmtDuration((1 - grown) * c.growMs)} to go`))
+            : h('span', { class: 'muted' }, `Fully grown (${Math.round(c.size * 100)}% of a typical ${sp.name})`)),
+        h('div', { class: 'stat' }, h('span', { class: 'k' }, 'Home'), h('span', { class: 'v' }, `${ISLANDS[c.island].icon} ${ISLANDS[c.island].name}`)),
+      ));
       b.append(h('div', { class: 'section-title' }, 'Story'));
       const story = h('div', { class: 'story' });
       for (const e of c.history) story.append(h('div', null, h('div', { class: 'when' }, this.when(e.t)), h('p', null, e.text)));
       b.append(story);
+      const pinned = this.game.pinned === c.id;
+      const others = ISLAND_ORDER.filter((i) => i !== c.island && s2.islands[i]?.owned);
       b.append(h('div', { class: 'btns' },
         h('button', { class: 'btn', onClick: () => { this.fontPick = [c.id, null]; this.showFont(); } }, '⛲ Create with…'),
+        h('button', { class: 'btn secondary', onClick: () => { this.game.setPinned(pinned ? null : c.id); this.rerender(); } }, pinned ? '📌 Unpin' : '📌 Pin to widget'),
+        ...others.map((i) => h('button', { class: 'btn secondary', onClick: () => this.game.moveCreature(c.id, i) }, `${ISLANDS[i].icon} Move to ${ISLANDS[i].name}`)),
         h('button', { class: 'btn danger', onClick: () => this.confirmRelease(c) }, 'Say goodbye'),
       ));
     });
@@ -317,7 +355,7 @@ export class UI {
         h('p', { class: 'muted' }, 'It will wander off into the wild. Your journal will remember it.'),
         h('div', { class: 'btns' },
           h('button', { class: 'btn secondary', onClick: close }, 'Keep'),
-          h('button', { class: 'btn', style: 'background:var(--danger);box-shadow:none', onClick: () => {
+          h('button', { class: 'btn danger', onClick: () => {
             close();
             const r = A.release(this.game.state, c.id);
             if (!r.ok) this.toast(r.error);
@@ -330,6 +368,7 @@ export class UI {
 
   showFont(): void {
     const s = this.game.state;
+    this.ensureHome();
     this.game.world.focus(FONT, 15);
     if (s.tutorial === 3) this.game.setTutorial(3.5);
     this.openSheet('Kindred Font', 'Two creatures who share something can make an egg together.', (b) => {
@@ -381,6 +420,7 @@ export class UI {
   showNest(index: number): void {
     const s = this.game.state;
     const n = NESTS[index];
+    this.ensureHome();
     this.game.world.focus(n, 12);
     if (index >= s.nests) {
       const price = A.nestPrice(s);
@@ -467,6 +507,7 @@ export class UI {
   }
 
   showBasket(): void {
+    this.ensureHome();
     const s = this.game.state;
     const waiting = s.eggs.filter((e) => e.nest === null);
     this.openSheet('Egg basket', `${waiting.length} of ${TUNING.basketSize} waiting`, (b) => {
@@ -483,6 +524,7 @@ export class UI {
   showShop(scrollToShards = false): void {
     const s = this.game.state;
     this.seenShopRotation = s.shop.rotation;
+    this.ensureHome();
     this.game.world.focus(SHOP_STALL, 15);
     this.openSheet('Traveling Merchant', 'New wares arrive with every visit.', (b) => {
       const t = this.game.now();
@@ -499,7 +541,7 @@ export class UI {
         A.adsLeft(s, t) > 0 ? h('button', { class: 'btn ad small', onClick: () => this.game.adRefreshShop() }, '▶ Watch ad · refresh') : null,
       );
       b.append(refresh);
-      const groups: [string, string[]][] = [['Lures', ['lure']], ['Curiosities', ['item', 'egg']], ['Decorations', ['decor']]];
+      const groups: [string, string[]][] = [['Eggs', ['egg']], ['Lures', ['lure']], ['Curiosities', ['item']], ['Decorations', ['decor']]];
       for (const [title, kinds] of groups) {
         b.append(h('div', { class: 'section-title' }, title));
         const list = h('div', { class: 'list' });
@@ -510,7 +552,13 @@ export class UI {
           let style = '';
           if (o.kind === 'lure') { const l = LURES[o.ref]; name = l.name; desc = l.scent; icon = HABITAT_ICON[l.attracts] ?? '🫙'; style = `background:${l.color}33`; }
           if (o.kind === 'item') { const it = ITEMS[o.ref]; name = it.name; desc = it.blurb; icon = it.effect === 'warmth' ? '🔥' : '🧪'; }
-          if (o.kind === 'egg') { name = 'Traveler\'s Egg'; desc = `Found far from here. ${eggClues({ species: o.ref, mutations: [] }, !!s.journal.species[o.ref])[0]}`; icon = '🥚'; }
+          if (o.kind === 'egg') {
+            const tier = EGG_TIERS[o.ref];
+            name = tier?.name ?? 'Egg';
+            desc = tier?.blurb ?? '';
+            icon = '🥚';
+            style = `background:linear-gradient(135deg, ${tier?.colors[0] ?? '#fff'}, ${tier?.colors[1] ?? '#fff'})`;
+          }
           if (o.kind === 'decor') { const d = DECOR[o.ref]; name = d.name + (d.rotating ? ' ✦' : ''); desc = d.blurb + (d.rotating ? ' Only here for a short while.' : ''); icon = '🪴'; }
           const can = (o.currency === 'glimmer' ? s.glimmer : s.shards) >= o.price && o.stock > 0;
           list.append(h('div', { class: 'item' },
@@ -688,7 +736,7 @@ export class UI {
       b.append(h('button', { class: 'btn danger', onClick: () => this.modal((m, close) => {
         m.append(h('h2', null, 'Start a new sanctuary?'), h('p', { class: 'muted' }, 'This erases your current save on this device.'),
           h('div', { class: 'btns' }, h('button', { class: 'btn secondary', onClick: close }, 'Cancel'),
-            h('button', { class: 'btn', style: 'background:var(--danger);box-shadow:none', onClick: () => g.reset() }, 'Erase & restart')));
+            h('button', { class: 'btn danger', onClick: () => g.reset() }, 'Erase & restart')));
       }) }, 'Start over'));
     }, '⚙️');
   }
@@ -730,7 +778,7 @@ export class UI {
       h('span', null, `${displayName(m.creature)} met the ${EVENTS[m.cause].touch.name} during a ${EVENTS[m.cause].name.toLowerCase()} and became ${MUTATIONS[m.mutation].name}!`)));
     if (touched.length) lines.push(h('div', { class: 'happen' }, h('span', { class: 'e' }, '🥚'), h('span', null, `${touched.length === 1 ? 'An egg' : `${touched.length} eggs`} glowed strangely during the storm.`)));
     if (ready.length) lines.push(h('div', { class: 'happen' }, h('span', { class: 'e' }, '🐣'), h('span', null, `${ready.length === 1 ? 'An egg is' : `${ready.length} eggs are`} ready to hatch!`)));
-    if (gifts) lines.push(h('div', { class: 'happen' }, h('span', { class: 'e' }, I.icon(I.COIN)), h('span', null, `Your creatures left ${gifts} little gift${gifts === 1 ? '' : 's'} around the sanctuary.`)));
+    if (gifts) lines.push(h('div', { class: 'happen' }, h('span', { class: 'e' }, I.icon(I.COIN)), h('span', null, `Your creatures dug up ${gifts} thing${gifts === 1 ? '' : 's'}. Go find them!`)));
     if (!lines.length) return;
     if (!arrivals.length && !Object.values(s.spots).some(Boolean)) {
       lines.push(h('div', { class: 'happen' }, h('span', { class: 'e' }, '🌿'), h('span', { class: 'muted' }, 'Tip: set out a lure before you leave. Visitors will be waiting when you return.')));
@@ -849,11 +897,101 @@ export class UI {
     }
     if (this.coachEl.dataset.step !== String(step) || this.coachEl.classList.contains('hidden')) {
       this.coachEl.dataset.step = String(step);
-      this.coachEl.replaceChildren(h('span', { class: 'who' }, '🦉'), h('span', null, text),
+      this.coachEl.replaceChildren(I.icon(I.AXOLOTL, 'icon who'), h('span', null, text),
         h('button', { class: 'x', 'aria-label': 'Dismiss', onClick: () => { this.coachDismissed = step; if (step === 5) this.game.setTutorial(6); } }, I.icon(I.CLOSE)));
       this.coachEl.classList.remove('hidden');
     }
     if (this.sheetOpen && (step === 3.5 || step === 4)) this.coachEl.classList.add('hidden');
+  }
+
+  // ------------------------------------------------------------------ islands
+
+  showIslands(highlight?: IslandId): void {
+    const s = this.game.state;
+    this.openSheet('Islands', 'Swipe past the edge, or tap an island on the horizon, to hop between them.', (b) => {
+      for (const id of ISLAND_ORDER) {
+        const def = ISLANDS[id];
+        const isl = s.islands[id] ?? { owned: false, size: 0 };
+        const here = this.game.world.current === id;
+        const pop = s.creatures.filter((c) => c.island === id).length;
+        const card = h('div', { class: `island-card ${highlight === id ? 'hl' : ''} ${def.status === 'soon' ? 'soon' : ''}` },
+          h('div', { class: 'row' },
+            h('div', { class: 'swatch big', style: `background:linear-gradient(160deg, ${def.palette.top}, ${def.palette.lip})` }, def.icon),
+            h('div', { class: 'grow col' },
+              h('div', { class: 'name' }, def.name, here ? h('span', { class: 'chip', style: 'margin-left:6px' }, 'You are here') : null),
+              h('div', { class: 'desc' }, def.blurb),
+              isl.owned ? h('div', { class: 'muted' }, `${SIZE_NAMES[isl.size]} · ${pop}/${SIZE_CAPACITY[isl.size]} creatures`) : null,
+            )),
+        );
+        const btns = h('div', { class: 'btns' });
+        if (isl.owned) {
+          if (!here) btns.append(h('button', { class: 'btn secondary small', onClick: () => this.game.travel(id) }, 'Visit'));
+          const next = SIZE_PRICE[isl.size + 1];
+          if (next) {
+            btns.append(
+              h('button', { class: 'btn small', disabled: s.glimmer < next.coins, onClick: () => this.game.upgradeIsland(id, 'glimmer') },
+                rich(`Grow to ${SIZE_NAMES[isl.size + 1]} · {coin} ${next.coins}`)),
+              h('button', { class: 'btn shard small', disabled: s.shards < next.gems, onClick: () => this.game.upgradeIsland(id, 'shards') },
+                rich(`{gem} ${next.gems}`)),
+            );
+          } else btns.append(h('span', { class: 'muted' }, 'Fully grown island.'));
+        } else if (def.status === 'buyable') {
+          btns.append(
+            h('button', { class: 'btn small', disabled: s.glimmer < def.price.coins, onClick: () => this.game.buyIsland(id, 'glimmer') },
+              rich(`Unlock · {coin} ${def.price.coins}`)),
+            h('button', { class: 'btn shard small', disabled: s.shards < def.price.gems, onClick: () => this.game.buyIsland(id, 'shards') },
+              rich(`Skip ahead · {gem} ${def.price.gems}`)),
+          );
+          const natives = SPECIES.filter((sp) => sp.traits.includes(def.habitat)).length;
+          btns.append(h('div', { class: 'muted', style: 'width:100%' }, `${natives} kinds of creature call this habitat home. Comes with its own lure spots.`));
+        } else {
+          btns.append(h('span', { class: 'chip' }, 'Coming soon'));
+        }
+        card.append(btns);
+        b.append(card);
+        if (highlight === id) setTimeout(() => card.scrollIntoView({ block: 'center' }), 60);
+      }
+    }, I.ISLANDS);
+  }
+
+  // ------------------------------------------------------------------ widget
+
+  /** Small pinned panel: next egg timer and a favourite creature at a glance. */
+  private updateWidget(): void {
+    const s = this.game.state;
+    const nestEggs = s.eggs.filter((e) => e.nest !== null).sort((a, b) => A.remainingMs(a) - A.remainingMs(b));
+    const egg = nestEggs[0];
+    const pinned = this.game.pinned ? s.creatures.find((c) => c.id === this.game.pinned) : undefined;
+    const eggLine = egg ? (A.remainingMs(egg) <= 0 ? 'Ready to hatch!' : fmtClock(A.remainingMs(egg))) : '';
+    const act = pinned ? this.game.world.creatureActivity(pinned.id) || `On ${ISLANDS[pinned.island].name}` : '';
+    const key = `${egg?.id}|${eggLine}|${pinned?.id}|${pinned ? displayName(pinned) : ''}|${act}|${pinned?.mutations.join()}`;
+    if (key === this.widgetKey) return;
+    this.widgetKey = key;
+    this.widget.classList.toggle('hidden', !egg && !pinned);
+    this.widget.replaceChildren(
+      egg ? h('button', { class: `w-row ${A.remainingMs(egg) <= 0 ? 'ready' : ''}`, onClick: () => this.showNest(egg.nest!) },
+        h('span', { class: 'w-ico' }, '🥚'), h('span', { class: 'col' }, h('b', null, eggLine), h('small', null, nestEggs.length > 1 ? `+${nestEggs.length - 1} more` : 'Next egg'))) : '',
+      pinned ? h('button', { class: 'w-row', onClick: () => this.focusCreature(pinned.id) },
+        img(this.game.world.portraits.get(pinned.species, pinned.mutations), 'w-pic'),
+        h('span', { class: 'col' }, h('b', null, displayName(pinned)), h('small', null, act))) : '',
+    );
+  }
+
+  /** The Font, nests, basket and shop live on Kindred Grove. */
+  private ensureHome(): void {
+    if (this.game.world.current !== 'home') this.game.world.travelTo('home', true);
+  }
+
+  /** Jump to a creature, hopping islands if needed, and show its name bubble. */
+  focusCreature(id: string): void {
+    const c = this.game.state.creatures.find((x) => x.id === id);
+    if (!c) return;
+    if (this.game.world.current !== c.island) this.game.world.travelTo(c.island, true);
+    setTimeout(() => {
+      const p = this.game.world.creaturePosition(id);
+      if (p) this.game.world.focus(p, 13);
+      this.selectCreature(id);
+    }, 30);
   }
 
   hideHud(hidden: boolean): void {
