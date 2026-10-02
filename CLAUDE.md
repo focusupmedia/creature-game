@@ -23,8 +23,14 @@ Playable link (private artifact, republish to the same URL): https://claude.ai/a
 ## Built so far
 Lures, combining (trait-based hybrids), eggs and reveal, 9 mutations (common/rare/epic/legendary tiers), 5 sky events (Storm, Eclipse, plus rare Starry Night, Full Moon, Blizzard), 3 legendary events (Angels, Eruption, Deep Tide; `core/legendary.ts`, `render/legendaryFx.ts`) with a claimable gift and legendary mutations (Angelic, Infernal, Abyssal), ad-summoned events (6 ads/day), generative cozy music (kalimba/marimba/bells; moods for day, night and each sky event; Music toggle in Settings), stacking mutation looks with rarity glow (rim, aura, sparkles), rotating shop with category tabs and Mango the monkey shopkeeper, egg tiers (coin eggs + premium gem Starry Egg), coins (8-bit) + Starshards, decor, journal, away report, tutorial with axolotl coach, pick up and carry creatures (press and hold; drop on another to breed, on a dig spot to dig/fish/forage), dig spots, growth to random size, personalities, squabbles, digging finds, first-3-eggs-always-new, 25 species including dragons and the legendary Axolotl, round dome islands you spin by dragging (`content/terrain.ts` groundY: everything standing on the ground must use it), archipelago (Home, Ember Peak, Coral Lagoon; Beach and Desert "coming soon"), island sizes S/M/L, in-game widget.
 
-## Next up (approved, not built; details in docs/DECISIONS.md A29–A37, build in this order; A29–A35 and A33 are done)
-1. **Gentle hunger + Economy phase** (A36): storage (stored pets pause; extra slots cost coins), selling (quick-sell with an "Are you sure?" step, plus a traveling Collector who pays more; price = rarity × size × mutations), favorites can't be sold.
+## Next up (approved, not built; details in docs/DECISIONS.md A40–A48; build in this order)
+1. **Small fixes** (A48, A42): skip price scales with hatch time, nickname typing bug, shard purchase button, rarity on card + bubble, coin bar like shard bar, coin packs.
+2. **Size outliers** (A48): mostly normal sizes, rare obvious tiny/huge.
+3. **Fully round globe islands + globe controls** (A40, A41).
+4. **Behaviour traits 2-5 + Trait Deleter/Wiper** (A43, A44).
+5. **Levels 1-50 + level creatures + rewards directory** (A45).
+6. **Daily + lasting quests** (A46).
+7. **Hunger, food, storage, selling + Collector** (A47, A36).
 
 ## Open / later
 Real ads/IAP SDKs, native builds, real phone home-screen widgets, cloud save, final art and audio, final game name and bundle ID.
