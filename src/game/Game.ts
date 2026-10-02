@@ -555,14 +555,16 @@ export class Game {
     this.saveSoon();
   }
 
-  async buyShards(productId: string): Promise<void> {
+  /** Buy a Starshard or coin pack. On the web playtest build nothing is charged. */
+  async buyPack(productId: string): Promise<void> {
     this.analytics.track('iap_tapped', { product: productId });
     const r = await this.purchases.buy(productId);
-    if (!r.ok) {
-      this.ui.toast('Purchases arrive with the App Store and Google Play builds. Nothing was charged.');
-      return;
-    }
-    this.state.shards += r.shards;
+    if (!r.ok || !r.product) return this.ui.toast('That purchase didn\'t go through. Nothing was charged.');
+    const p = r.product;
+    if (p.currency === 'shards') this.state.shards += p.amount;
+    else this.state.glimmer += p.amount;
+    this.audio.play('coin');
+    this.ui.toast(`${p.currency === 'shards' ? '{gem}' : '{coin}'} +${p.amount}${r.test ? ' (test purchase, nothing was charged)' : ''}`, 'discovery');
     this.saveSoon();
   }
 

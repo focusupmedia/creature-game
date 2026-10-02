@@ -4,7 +4,7 @@ import { ISLANDS, ISLAND_ORDER, SIZE_CAPACITY, SIZE_NAMES, SIZE_PRICE } from '..
 import { TUNING } from '../content/tuning';
 import { NESTS, FONT, SHOP_STALL } from '../content/layout';
 import * as A from '../core/actions';
-import { PERSONALITIES, creatureTraits, displayName, growth, sizeLabel, speciesTitle } from '../core/creatures';
+import { PERSONALITIES, creatureTraits, displayName, growth, isOutlier, sizeLabel, speciesTitle } from '../core/creatures';
 import { compatibility, eggClues } from '../core/genetics';
 import { arrivalWeights } from '../core/lures';
 import { nestOccupant } from '../core/state';
@@ -14,6 +14,7 @@ import type { Game } from '../game/Game';
 import { fmtDuration, h, img, rich } from './dom';
 import * as I from './icons';
 import { WorldLabels } from './Labels';
+import { rarityTag } from './rarity';
 
 const fmtClock = (ms: number) => `${Math.floor(Math.max(0, ms) / 60000)}:${String(Math.floor(Math.max(0, ms) / 1000) % 60).padStart(2, '0')}`;
 
@@ -71,7 +72,8 @@ export class UI {
         h('div', { class: 'hud-row' },
           h('button', { class: 'sq-btn', 'aria-label': 'Settings', onClick: () => this.showSettings() }, I.icon(I.GEAR)),
           h('div', { class: 'spacer' }),
-          h('div', { class: 'bar', title: 'Coins' }, I.icon(I.COIN), this.glimmerVal),
+          h('div', { class: 'bar', title: 'Coins' }, I.icon(I.COIN), this.glimmerVal,
+            h('button', { class: 'bar-plus', 'aria-label': 'Get coins', onClick: () => this.showShop(true) }, I.icon(I.PLUS))),
           h('div', { class: 'bar', title: 'Starshards', style: 'margin-left:10px' }, I.icon(I.GEM), this.shardsVal,
             h('button', { class: 'bar-plus', 'aria-label': 'Get Starshards', onClick: () => this.showShop(true) }, I.icon(I.PLUS))),
         ),
@@ -160,7 +162,8 @@ export class UI {
     this.journalDot.classList.toggle('hidden', s.journal.notes.length === this.seenNotes);
 
     this.refreshTimer -= dt;
-    if (this.refreshTimer <= 0 && this.sheetRender) {
+    const typing = document.activeElement instanceof HTMLInputElement && this.sheetHost.contains(document.activeElement);
+    if (this.refreshTimer <= 0 && this.sheetRender && !typing) {
       this.refreshTimer = 1;
       this.rerender();
     }
@@ -328,6 +331,7 @@ export class UI {
               return input;
             })()
             : h('button', { class: 'btn secondary small', style: 'align-self:flex-start', onClick: () => { renaming = true; this.rerender(); } }, '✏️ Name'),
+          h('div', { class: 'row', style: 'gap:6px;flex-wrap:wrap' }, rarityTag(sp.rarity), isOutlier(c.size) ? h('span', { class: 'rarity r-outlier' }, sizeLabel(c.size)) : h('span', { class: 'muted' }, sizeLabel(c.size))),
           h('div', { class: 'desc muted' }, sp.blurb),
           this.traitChips(creatureTraits(c)),
         ));
@@ -627,7 +631,7 @@ export class UI {
       const line = MANGO_LINES[this.shopTab][s.shop.rotation % MANGO_LINES[this.shopTab].length];
       b.append(h('div', { class: 'shopkeeper' }, I.icon(I.MONKEY, 'icon mango'), h('div', { class: 'speech' }, line)));
       const tabs: [typeof this.shopTab, string, string][] = [
-        ['egg', 'EGGS', I.CREATE], ['lure', 'LURES', I.LURE], ['item', 'ITEMS', I.POTION], ['decor', 'DECOR', I.DECOR], ['shards', 'GEMS', I.GEM],
+        ['egg', 'EGGS', I.CREATE], ['lure', 'LURES', I.LURE], ['item', 'ITEMS', I.POTION], ['decor', 'DECOR', I.DECOR], ['shards', 'BANK', I.GEM],
       ];
       b.append(h('div', { class: 'shop-tabs' }, ...tabs.map(([id, label, icon]) =>
         h('button', { class: `shop-tab ${this.shopTab === id ? 'on' : ''}`, 'aria-label': label, onClick: () => { this.game.audio.play('tap'); this.shopTab = id; this.rerender(); } },
@@ -635,10 +639,13 @@ export class UI {
 
       if (this.shopTab === 'shards') {
         const iap = h('div', { class: 'list' });
-        for (const p of this.game.purchases.products()) {
-          iap.append(h('div', { class: 'item' }, h('div', { class: 'swatch' }, I.icon(I.GEM)),
-            h('div', { class: 'grow' }, h('div', { class: 'name' }, `${p.shards} Starshards`), p.tag ? h('div', { class: 'desc' }, p.tag) : null),
-            h('button', { class: 'btn shard small', onClick: () => this.game.buyShards(p.id) }, p.price)));
+        for (const cur of ['shards', 'coins'] as const) {
+          iap.append(h('div', { class: 'section-title' }, cur === 'shards' ? 'Starshards' : 'Coins'));
+          for (const p of this.game.purchases.products().filter((x) => x.currency === cur)) {
+            iap.append(h('div', { class: 'item' }, h('div', { class: 'swatch' }, I.icon(cur === 'shards' ? I.GEM : I.COIN)),
+              h('div', { class: 'grow' }, h('div', { class: 'name' }, `${p.amount.toLocaleString()} ${cur === 'shards' ? 'Starshards' : 'coins'}`), p.tag ? h('div', { class: 'desc' }, p.tag) : null),
+              h('button', { class: `btn small ${cur === 'shards' ? 'shard' : ''}`, onClick: () => this.game.buyPack(p.id) }, p.price)));
+          }
         }
         b.append(iap, h('p', { class: 'muted' }, 'Starshards buy nests, decorations and time — never creatures or discoveries.'));
         return;
@@ -927,6 +934,7 @@ export class UI {
           h('div', { class: 'chips', style: 'margin-top:6px' }, ...creatureTraits(creature).map((t) =>
             h('span', { class: `chip ${MUTATION_TRAITS.includes(t) ? 'mut' : ''}` }, t))),
           h('p', null, sp.blurb),
+          isOutlier(creature.size) ? h('p', { style: 'color:#d0602a;font-weight:700' }, creature.size > 1 ? '✦ A Colossal one! It will grow far bigger than any other.' : '✦ A Teeny one! It will stay tiny forever.') : null,
           muts.some((m) => newMuts.includes(m)) ? h('p', { style: 'color:#6a4fd6;font-weight:600' }, `First ${muts.filter((m) => newMuts.includes(m)).map((m) => MUTATIONS[m].name).join(' & ')} creature you've ever seen!`) : null,
           h('button', { class: 'btn wide', style: 'margin-top:12px', onClick: () => {
             this.revealHost.replaceChildren();

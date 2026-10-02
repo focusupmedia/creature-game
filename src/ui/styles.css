@@ -434,3 +434,12 @@ input.rename { font-family: var(--display); font-size: 22px; border: var(--outli
 .lg-overlay.infernal .lg-cloud { background: #4a3030; box-shadow: 60px -26px 0 8px #4a3030, 120px -6px 0 0 #3a2626, 30px 10px 0 4px #5a3a30; }
 .lg-overlay.abyssal .lg-cloud { background: #1e4a7a; box-shadow: 60px -26px 0 8px #1e4a7a, 120px -6px 0 0 #2a6a8a, 30px 10px 0 4px #1a3a6a; }
 @keyframes lg-sweep { 0% { left: -60%; } 100% { left: 130%; } }
+
+/* ---- rarity tags */
+.rarity { display: inline-block; font-family: var(--display); font-size: 11px; letter-spacing: .03em; padding: 1px 7px; border-radius: 8px; color: #fff; border: 2px solid var(--ink); vertical-align: middle; line-height: 1.3; }
+.rarity.r-common { background: #9aa7a0; }
+.rarity.r-uncommon { background: #4fbf5a; }
+.rarity.r-rare { background: #3a8adf; }
+.rarity.r-legendary { background: linear-gradient(90deg, #ffb02a, #ff7a2a); }
+.rarity.r-mythical { background: linear-gradient(90deg, #ff6fc8, #8a6aff, #3ad0ff); }
+.rarity.r-outlier { background: linear-gradient(90deg, #ff9f1a, #ff5f9a); margin-left: 3px; }

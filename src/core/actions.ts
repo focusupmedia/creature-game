@@ -317,8 +317,9 @@ export function remainingMs(egg: Egg): number {
   return Math.max(0, egg.incubationMs - egg.progressMs);
 }
 
+/** Shards to hatch now: scales with how long is left, so long (rare) eggs cost more. */
 export function skipPrice(egg: Egg): number {
-  return Math.max(1, Math.ceil(remainingMs(egg) / (5 * 60_000)) * TUNING.skipShardsPer5Min);
+  return Math.max(1, Math.ceil((remainingMs(egg) / 60_000) * TUNING.skipShardsPerMin));
 }
 
 export function finishEggWithShards(state: GameState, eggId: string): Result {

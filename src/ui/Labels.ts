@@ -3,12 +3,14 @@ import { ISLANDS, ISLAND_ORDER } from '../content/islands';
 import type { IslandId } from '../core/types';
 import { LURES, SPOTS } from '../content/world';
 import { remainingMs, nestPrice } from '../core/actions';
-import { displayName } from '../core/creatures';
+import { displayName, isOutlier, sizeLabel } from '../core/creatures';
 import { arrivalWeights } from '../core/lures';
 import { nestOccupant } from '../core/state';
 import { activeEvent, isDark } from '../core/world';
 import type { Game } from '../game/Game';
 import { h } from './dom';
+import { rarityTag } from './rarity';
+import { species } from '../content/species';
 import { GEAR, icon } from './icons';
 
 // Labels that float over the 3D world and always face the player.
@@ -181,7 +183,13 @@ export class WorldLabels {
       this.bubble.style.transform = `translate(-50%, -100%) translate(${sp.x.toFixed(1)}px, ${sp.y.toFixed(1)}px)`;
       const name = displayName(c);
       const line = w.creatureActivity(c.id);
-      if (name !== this.lastName) this.bubbleName.textContent = this.lastName = name;
+      const r = species(c.species).rarity;
+      const odd = isOutlier(c.size) ? sizeLabel(c.size) : '';
+      const key = `${name}|${r}|${odd}`;
+      if (key !== this.lastName) {
+        this.lastName = key;
+        this.bubbleName.replaceChildren(document.createTextNode(name + ' '), rarityTag(r), odd ? h('span', { class: 'rarity r-outlier' }, odd) : '');
+      }
       if (line !== this.lastLine) this.bubbleLine.textContent = this.lastLine = line;
     }
   }

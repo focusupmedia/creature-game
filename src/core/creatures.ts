@@ -74,8 +74,14 @@ export interface CreatureOpts {
 /** Grown-up size, mostly in the normal range with rare tiny or huge outliers. */
 export function rollSize(rng: StateRng): number {
   const [lo, hi] = TUNING.sizeRange;
-  if (rng.chance(TUNING.sizeOutlierChance)) return rng.chance(0.5) ? rng.range(0.6, lo) : rng.range(hi, 1.55);
+  // Outliers are unmistakable: a teeny one at a third of normal, or a colossal one twice as big or more.
+  if (rng.chance(TUNING.sizeOutlierChance)) return rng.chance(0.5) ? rng.range(0.32, 0.5) : rng.range(1.9, 2.7);
   return lo + (hi - lo) * ((rng.next() + rng.next()) / 2);
+}
+
+/** Tiny or huge beyond the normal range: worth showing off. */
+export function isOutlier(size: number): boolean {
+  return size < 0.6 || size > 1.6;
 }
 
 export function makeCreature(
@@ -111,11 +117,11 @@ export function currentScale(c: Pick<Creature, 'bornAt' | 'growMs' | 'size'>, t:
 }
 
 export function sizeLabel(size: number): string {
-  if (size < 0.8) return 'Tiny';
+  if (size < 0.6) return '✦ Teeny';
   if (size < 0.95) return 'Small';
-  if (size < 1.12) return 'Average';
-  if (size < 1.3) return 'Big';
-  return 'Huge';
+  if (size < 1.08) return 'Average';
+  if (size < 1.6) return 'Big';
+  return '✦ Colossal';
 }
 
 export function hasMutation(c: { species: SpeciesId; mutations: MutationId[] }, m: MutationId): boolean {

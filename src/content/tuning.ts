@@ -42,7 +42,7 @@ export const TUNING = {
   /** ...and take this long to grow up. */
   growMin: 15,
   /** Grown size range (before Giant). */
-  sizeRange: [0.8, 1.3] as [number, number],
+  sizeRange: [0.88, 1.14] as [number, number],
   /** Rare outliers outside the normal range. */
   sizeOutlierChance: 0.06,
   /** The first N eggs a keeper makes always hold a creature they haven't discovered. */
@@ -80,8 +80,8 @@ export const TUNING = {
   /** Rewarded ads: optional, capped, never interrupting. */
   adHatchMaxRemainingMin: 15,
   adsPerDay: 6,
-  /** Premium skip price: shards per started 5 minutes. */
-  skipShardsPer5Min: 1,
+  /** Premium skip price: shards per minute of incubation left (a 30-minute egg costs 15). */
+  skipShardsPerMin: 0.5,
 
   start: {
     glimmer: 120,

@@ -23,9 +23,19 @@ export interface Ads {
   available(): boolean;
 }
 
+export interface Product {
+  id: string;
+  /** What the pack contains. */
+  currency: 'shards' | 'coins';
+  amount: number;
+  price: string;
+  tag?: string;
+}
+
 export interface Purchases {
-  products(): { id: string; shards: number; price: string; tag?: string }[];
-  buy(productId: string): Promise<{ ok: boolean; shards: number }>;
+  products(): Product[];
+  /** `test` is true when no real money changed hands (web playtest build). */
+  buy(productId: string): Promise<{ ok: boolean; product?: Product; test?: boolean }>;
 }
 
 export interface Analytics {
@@ -63,17 +73,21 @@ export class StubAds implements Ads {
 }
 
 export class StubPurchases implements Purchases {
-  products() {
+  products(): Product[] {
     return [
-      { id: 'shards_small', shards: 60, price: '$0.99' },
-      { id: 'shards_medium', shards: 330, price: '$4.99', tag: 'Popular' },
-      { id: 'shards_large', shards: 720, price: '$9.99', tag: 'Best value' },
+      { id: 'shards_small', currency: 'shards', amount: 60, price: '$0.99' },
+      { id: 'shards_medium', currency: 'shards', amount: 330, price: '$4.99', tag: 'Popular' },
+      { id: 'shards_large', currency: 'shards', amount: 720, price: '$9.99', tag: 'Best value' },
+      { id: 'coins_small', currency: 'coins', amount: 500, price: '$0.99' },
+      { id: 'coins_medium', currency: 'coins', amount: 3000, price: '$4.99', tag: 'Popular' },
+      { id: 'coins_large', currency: 'coins', amount: 7000, price: '$9.99', tag: 'Best value' },
     ];
   }
   async buy(productId: string) {
-    const p = this.products().find((x) => x.id === productId);
-    // Web build never charges: purchases are disabled until store SDKs are wired.
-    return { ok: false, shards: p?.shards ?? 0 };
+    const product = this.products().find((x) => x.id === productId);
+    // Web playtest build: packs are granted for free so the flow can be tested.
+    // Store SDKs replace this class in the App Store / Google Play builds.
+    return { ok: !!product, product, test: true };
   }
 }
 
