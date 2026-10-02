@@ -8,23 +8,23 @@ Cozy mobile creature-discovery game (working title **Kindred Grove**). TypeScrip
 - North Star: every session should make the player wonder what they'll discover next.
 
 ## Commands
-`npm run dev` · `npm test` (37 tests, includes a pacing bot) · `npx tsc --noEmit` · `npm run build:single` (one-file build)
+`npm run dev` · `npm test` (45 tests, includes a pacing bot and music checks) · `npx tsc --noEmit` · `npm run build:single` (one-file build)
 
 Playable link (private artifact, republish to the same URL): https://claude.ai/artifact/Vp8BW1soCF5jXTZ76FZ3hP. To republish, convert `dist-single/index.html` to artifact format (no doctype/html/head/body; keep title, styles, body divs, scripts) and publish it with the Artifact tool. Visual checks: Playwright with `executablePath: '/opt/pw-browsers/chromium'` against `npx vite preview --port 4173`, and `?debug` exposes `window.game`.
 
 ## Code map
 - `src/core/`: pure, deterministic simulation (sim tick, actions, genetics, lures, world/events, shop, save + migrations; save version 2)
 - `src/content/`: data (species, world: lures/spots/events/mutations/egg tiers, islands, layout, tuning)
+- `src/platform/`: audio.ts (SFX + ambience), composer.ts + music.ts (generative music), services (storage, ads, IAP stubs)
 - `src/render/`: World (multi-island, only the current island's actors animate), CreatureActor (AI, personalities, digging), creatureModels (procedural, outlined), sanctuary (island builders), sky (5 events)
 - `src/ui/`: UI.ts (sheets, HUD, widget, islands), Labels.ts (world pins and name bubble), icons.ts (SVG incl. axolotl mascot), styles.css (chunky casual style)
-- `docs/`: GAME_DESIGN, MVP_SCOPE, ARCHITECTURE, ROADMAP, DECISIONS (approved decisions A1–A27)
+- `docs/`: GAME_DESIGN, MVP_SCOPE, ARCHITECTURE, ROADMAP, DECISIONS (approved decisions A1–A28)
 
 ## Built so far
-Lures, combining (trait-based hybrids), eggs and reveal, 6 mutations, 5 sky events (Storm, Eclipse, plus rare Starry Night, Full Moon, Blizzard), ad-summoned events (6 ads/day), rotating shop with egg tiers (coin eggs + premium gem Starry Egg), coins (8-bit) + Starshards, decor, journal, away report, tutorial with axolotl coach, growth to random size, personalities, squabbles, digging finds, first-3-eggs-always-new, 25 species including dragons and the legendary Axolotl, archipelago (Home, Ember Peak, Coral Lagoon; Beach and Desert "coming soon"), island sizes S/M/L, in-game widget.
+Lures, combining (trait-based hybrids), eggs and reveal, 6 mutations, 5 sky events (Storm, Eclipse, plus rare Starry Night, Full Moon, Blizzard), ad-summoned events (6 ads/day), generative cozy music (kalimba/marimba/bells; moods for day, night and each sky event; Music toggle in Settings), rotating shop with egg tiers (coin eggs + premium gem Starry Egg), coins (8-bit) + Starshards, decor, journal, away report, tutorial with axolotl coach, growth to random size, personalities, squabbles, digging finds, first-3-eggs-always-new, 25 species including dragons and the legendary Axolotl, archipelago (Home, Ember Peak, Coral Lagoon; Beach and Desert "coming soon"), island sizes S/M/L, in-game widget.
 
 ## Next up (approved, not built)
-1. **Music:** cozy acoustic (kalimba/marimba), shifting for day, night and events. It currently plays an airy noise bed in `src/platform/audio.ts`.
-2. **Economy phase:** storage (stored pets pause; extra slots cost coins), selling (quick-sell with an "Are you sure?" step, plus a traveling Collector who pays more; price = rarity × size × mutations), favorites can't be sold.
+1. **Economy phase:** storage (stored pets pause; extra slots cost coins), selling (quick-sell with an "Are you sure?" step, plus a traveling Collector who pays more; price = rarity × size × mutations), favorites can't be sold.
 
 ## Open / later
 Real ads/IAP SDKs, native builds, real phone home-screen widgets, Beach and Desert islands, cloud save, final art and audio, final game name and bundle ID.

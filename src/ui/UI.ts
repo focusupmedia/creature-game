@@ -58,9 +58,9 @@ export class UI {
         h('div', { class: 'hud-row' },
           h('button', { class: 'sq-btn', 'aria-label': 'Settings', onClick: () => this.showSettings() }, I.icon(I.GEAR)),
           h('div', { class: 'spacer' }),
-          h('div', { class: 'bar', title: 'Starshards' }, I.icon(I.GEM), this.shardsVal,
+          h('div', { class: 'bar', title: 'Coins' }, I.icon(I.COIN), this.glimmerVal),
+          h('div', { class: 'bar', title: 'Starshards', style: 'margin-left:10px' }, I.icon(I.GEM), this.shardsVal,
             h('button', { class: 'bar-plus', 'aria-label': 'Get Starshards', onClick: () => this.showShop(true) }, I.icon(I.PLUS))),
-          h('div', { class: 'bar', title: 'Coins', style: 'margin-left:10px' }, I.icon(I.COIN), this.glimmerVal),
         ),
         h('div', { class: 'hud-row', style: 'width:100%;align-items:flex-start' },
           h('div', { class: 'hud-col' }, h('div', { class: 'sky-chip' }, this.skyChip), this.widget),
@@ -720,7 +720,9 @@ export class UI {
     const g = this.game;
     this.openSheet('Settings', 'Kindred Grove · prototype', (b) => {
       b.append(h('div', { class: 'item' }, h('div', { class: 'grow name' }, 'Sound'),
-        h('button', { class: 'btn small secondary', onClick: () => { g.audio.unlock(); g.audio.setEnabled(!g.audio.enabled); this.rerender(); } }, g.audio.enabled ? 'On' : 'Off')));
+        h('button', { class: 'btn small secondary', onClick: () => { g.setSound(!g.audio.enabled); this.rerender(); } }, g.audio.enabled ? 'On' : 'Off')));
+      b.append(h('div', { class: 'item' }, h('div', { class: 'grow name' }, 'Music'),
+        h('button', { class: 'btn small secondary', onClick: () => { g.setMusic(!g.audio.musicEnabled); this.rerender(); } }, g.audio.musicEnabled ? 'On' : 'Off')));
       b.append(h('div', { class: 'section-title' }, 'Playtest tools'));
       b.append(h('p', { class: 'muted' }, 'These exist to test the prototype quickly and will not ship.'));
       const speed = h('div', { class: 'btns' }, ...[1, 10, 60].map((x) =>

@@ -29,7 +29,7 @@
 | A6 | **Personalities:** e.g. energetic pets squabble and dig more; digging can turn up coins and shards | Planned (creature phase) |
 | A7 | **First eggs:** the first 2–3 hatches are always a new creature; later ones have a small chance | Planned (creature phase) |
 | A8 | **Coins:** the soft currency becomes an 8-bit coin | Planned (economy phase) |
-| A9 | **Music:** cozy acoustic (kalimba/marimba), shifting for day, night, storms and eclipses | Planned |
+| A9 | **Music:** cozy acoustic (kalimba/marimba), shifting for day, night, storms and eclipses. Option A chosen: the game composes it live (no music files), with a mood for day, night and each of the 5 sky events, plus a separate Music on/off in Settings | ✅ Built |
 | A10 | **Tap a pet:** name and current activity above its head, ⚙️ for the full menu | ✅ Built |
 | A11 | **Shop as a building** with a sign that faces the player when zoomed in | ✅ Built |
 | A12 | **Clearer bait spots and a decluttered map** | ✅ Built |
@@ -48,6 +48,7 @@
 | A25 | **Island sizes:** Small → Medium → Large (more room and capacity), coins or gems | ✅ Built |
 | A26 | **Egg shop:** coin eggs (Meadow, Wanderer, Ember, Reef) plus a premium gem **Starry Egg** with better rare odds. Wild species only; hybrids must be made | ✅ Built |
 | A27 | **Widgets:** in-game widget (next egg + pinned pet) now; real phone home-screen widgets come with the store build | ✅ In-game built |
+| A28 | **HUD:** coins on the left, Starshards to their right | ✅ Built |
 
 ## Where I'm challenging the brief
 

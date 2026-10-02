@@ -79,6 +79,7 @@ tests/             Vitest: core rules + balance/pacing bot
 - **Data-first:** creatures, lures, resonances, events, items, decor and tuning are TypeScript data today. Moving them to versioned JSON served through remote config needs no code changes beyond the loader. New seasons can add resonance rules and shop rotations without an app update.
 - **Art:** the procedural builders in `render/creatureModels.ts` define a **parts contract** (body, head, wings[], legs[], tail, segments[], glow anchors). Production glTF models export named nodes that match, and `CreatureActor` animates them unchanged. Mutation overlays (palette shift, crescent, sparks, scale, hue cycling) are applied generically to any model.
 - **Audio:** placeholder WebAudio synthesis behind `Audio.play(name)`. Replace it with authored samples via the same API.
+- **Music:** `platform/composer.ts` (pure, tested) writes cozy tunes one eighth-note at a time from a per-mood recipe (key, tempo, chords, instruments); `platform/music.ts` plays them with synthesized kalimba, marimba, bells, bass and pad through a soft echo. `Audio.ambience()` picks the mood from the sky event or day/night. Recorded samples can replace the voices in `Music.voice()` later.
 
 ## Mobile optimization
 

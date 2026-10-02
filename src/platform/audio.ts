@@ -1,6 +1,10 @@
 // Tiny procedural audio: ambience and UI sounds synthesized with WebAudio, so
 // the prototype has sound without an asset pipeline. Production replaces these
-// with authored sounds behind the same calls.
+// with authored sounds behind the same calls. Background music lives in music.ts.
+
+import type { EventKind } from '../core/types';
+import type { MoodId } from './composer';
+import { Music } from './music';
 
 type Sfx = 'tap' | 'place' | 'arrive' | 'discover' | 'crack' | 'hatch' | 'coin' | 'thunder' | 'chime' | 'egg' | 'error';
 
@@ -10,7 +14,10 @@ export class Audio {
   private rain: GainNode | null = null;
   private wind: GainNode | null = null;
   private chirpTimer = 0;
+  private music: Music | null = null;
+  private mood: MoodId = 'day';
   enabled = true;
+  musicEnabled = true;
 
   /** Must be called from a user gesture (browser autoplay rules). */
   unlock(): void {
@@ -28,11 +35,19 @@ export class Audio {
     this.master.connect(this.ctx.destination);
     this.wind = this.noiseBed(400, 0.05);
     this.rain = this.noiseBed(2400, 0);
+    this.music = new Music(this.ctx, this.master);
+    this.music.setMood(this.mood);
+    this.music.setEnabled(this.musicEnabled);
   }
 
   setEnabled(on: boolean): void {
     this.enabled = on;
     if (this.master && this.ctx) this.master.gain.setTargetAtTime(on ? 0.6 : 0, this.ctx.currentTime, 0.1);
+  }
+
+  setMusicEnabled(on: boolean): void {
+    this.musicEnabled = on;
+    this.music?.setEnabled(on);
   }
 
   private noiseBed(freq: number, vol: number): GainNode {
@@ -58,8 +73,16 @@ export class Audio {
   }
 
   /** Called every frame with world conditions. */
-  ambience(dt: number, darkness: number, storm: boolean): void {
+  ambience(dt: number, darkness: number, sky: EventKind | null): void {
+    // Sky events set the music's mood; otherwise day or night, with a little
+    // overlap at dawn and dusk so it doesn't flip back and forth.
+    if (sky) this.mood = sky;
+    else if (darkness > 0.6) this.mood = 'night';
+    else if (darkness < 0.4 || this.mood !== 'night') this.mood = 'day';
     if (!this.ctx || !this.rain || !this.wind) return;
+    this.music?.setMood(this.mood);
+    this.music?.update();
+    const storm = sky === 'storm';
     const t = this.ctx.currentTime;
     this.rain.gain.setTargetAtTime(storm ? 0.09 : 0, t, 1.5);
     this.wind.gain.setTargetAtTime(storm ? 0.12 : 0.04, t, 2);

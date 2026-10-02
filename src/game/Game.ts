@@ -20,6 +20,7 @@ import { World, type Pick } from '../render/World';
 import { UI } from '../ui/UI';
 
 const SAVE_KEY = 'kindred-grove.save.v1';
+const SETTINGS_KEY = 'kindred-grove.settings';
 const LIVE_TICK_S = 0.25;
 const AWAY_REPORT_MS = 90_000;
 
@@ -43,6 +44,7 @@ export class Game {
 
   constructor(container: HTMLElement) {
     this.state = this.load();
+    this.loadSettings();
     this.world = new World(container);
     this.ui = new UI(this, container);
     this.ads = new StubAds((s) => this.ui.showAd(s));
@@ -74,6 +76,31 @@ export class Game {
   }
 
   // ------------------------------------------------------------------ persistence
+
+  /** Device settings (sound, music) live outside the save so "Start over" keeps them. */
+  private loadSettings(): void {
+    try {
+      const s = JSON.parse(this.storage.load(SETTINGS_KEY) ?? '{}') as { sound?: boolean; music?: boolean };
+      if (s.sound === false) this.audio.enabled = false;
+      if (s.music === false) this.audio.musicEnabled = false;
+    } catch { /* ignore bad settings */ }
+  }
+
+  setSound(on: boolean): void {
+    this.audio.unlock();
+    this.audio.setEnabled(on);
+    this.saveSettings();
+  }
+
+  setMusic(on: boolean): void {
+    this.audio.unlock();
+    this.audio.setMusicEnabled(on);
+    this.saveSettings();
+  }
+
+  private saveSettings(): void {
+    this.storage.save(SETTINGS_KEY, JSON.stringify({ sound: this.audio.enabled, music: this.audio.musicEnabled }));
+  }
 
   private load(): GameState {
     const raw = this.storage.load(SAVE_KEY);
@@ -144,7 +171,7 @@ export class Game {
     const phase = dayPhase(this.state, t);
     this.world.sync(this.state, t, sky);
     this.world.sky.update(phase, sky, dt, performance.now() / 1000);
-    this.audio.ambience(dt, this.world.sky.darkness, sky === 'storm');
+    this.audio.ambience(dt, this.world.sky.darkness, sky);
     this.ui.update(dt);
     this.saveAcc += dt;
     if (this.saveAcc > 15 || (this.dirty && this.saveAcc > 1)) {
