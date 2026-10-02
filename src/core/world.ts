@@ -30,10 +30,26 @@ export function dayNumber(state: Pick<GameState, 'createdAt'>, t: number): numbe
 }
 
 export interface SkyEvent {
-  window: number;
+  /** Unique id for bookkeeping: window number for scheduled events, "s<start>" for summoned ones. */
+  key: string;
   kind: EventKind;
   start: number;
   end: number;
+  summoned?: boolean;
+}
+
+type Sched = Pick<GameState, 'seed' | 'createdAt'> & { summoned?: GameState['summoned'] };
+
+const KINDS: EventKind[] = ['storm', 'eclipse', 'starry', 'fullmoon', 'blizzard'];
+
+function pickKind(r: number): EventKind {
+  const total = KINDS.reduce((s, k) => s + (TUNING.eventWeights[k] ?? 0), 0);
+  let x = r * total;
+  for (const k of KINDS) {
+    x -= TUNING.eventWeights[k] ?? 0;
+    if (x <= 0) return k;
+  }
+  return 'storm';
 }
 
 /** The event (if any) scheduled in a given window. */
@@ -43,21 +59,23 @@ export function eventInWindow(state: Pick<GameState, 'seed' | 'createdAt'>, w: n
   if (w < 0) return null;
   if (w === 0) {
     const start = state.createdAt + TUNING.firstStormAtMin * MIN;
-    return { window: 0, kind: 'storm', start, end: start + 4 * MIN };
+    return { key: '0', kind: 'storm', start, end: start + 4 * MIN };
   }
   if (hash01(state.seed, w, 1) > TUNING.eventChancePerWindow) return null;
-  const kind: EventKind = hash01(state.seed, w, 2) < TUNING.eventWeights.storm ? 'storm' : 'eclipse';
+  const kind = pickKind(hash01(state.seed, w, 2));
   const [dMin, dMax] = EVENTS[kind].durationMin;
   const dur = (dMin + (dMax - dMin) * hash01(state.seed, w, 3)) * MIN;
   const start = winStart + hash01(state.seed, w, 4) * (winMs - dur - MIN);
-  return { window: w, kind, start, end: start + dur };
+  return { key: String(w), kind, start, end: start + dur };
 }
 
 export function windowAt(state: Pick<GameState, 'createdAt'>, t: number): number {
   return Math.floor((t - state.createdAt) / (TUNING.eventWindowMin * MIN));
 }
 
-export function activeEvent(state: Pick<GameState, 'seed' | 'createdAt'>, t: number): SkyEvent | null {
+export function activeEvent(state: Sched, t: number): SkyEvent | null {
+  const s = state.summoned;
+  if (s && t >= s.start && t < s.end) return { key: `s${s.start}`, kind: s.kind, start: s.start, end: s.end, summoned: true };
   const w = windowAt(state, t);
   for (const k of [w, w - 1]) {
     const e = eventInWindow(state, k);
@@ -77,7 +95,7 @@ export function nextEvent(state: Pick<GameState, 'seed' | 'createdAt'>, t: numbe
 }
 
 /** Whether nocturnal creatures are about: real night, or a dark event. */
-export function isDark(state: Pick<GameState, 'seed' | 'createdAt'>, t: number): boolean {
+export function isDark(state: Sched, t: number): boolean {
   if (daylight(dayPhase(state, t)) < 0.5) return true;
   const e = activeEvent(state, t);
   return !!e && EVENTS[e.kind].dark;

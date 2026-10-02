@@ -3,29 +3,43 @@ import type { EventKind } from '../core/types';
 import { glowSprite, glowTexture } from './materials';
 
 // Day/night, weather and sky events. Colors are keyframed by day phase and then
-// blended toward event moods, so a storm at dusk looks different from one at noon.
+// blended toward each event's mood, so a storm at dusk looks different from one at noon.
+//
+// Note on placement: the diorama camera looks down at the island, so the only
+// sky the player sees is the band *behind* the island (below the true horizon).
+// Event showpieces (eclipse, full moon, falling stars, storm clouds) live there.
 
-interface Mood { top: THREE.Color; horizon: THREE.Color; sun: THREE.Color; sunI: number; hemiSky: THREE.Color; hemiGround: THREE.Color; hemiI: number }
+interface Mood { top: THREE.Color; horizon: THREE.Color; low: THREE.Color; sun: THREE.Color; sunI: number; hemiSky: THREE.Color; hemiGround: THREE.Color; hemiI: number }
 
 const C = (h: string) => new THREE.Color(h);
-// phase keys: 0 midnight, .25 dawn, .5 noon, .75 dusk
+const M = (top: string, horizon: string, low: string, sun: string, sunI: number, hemiSky: string, hemiGround: string, hemiI: number): Mood =>
+  ({ top: C(top), horizon: C(horizon), low: C(low), sun: C(sun), sunI, hemiSky: C(hemiSky), hemiGround: C(hemiGround), hemiI });
+
+// phase keys: 0 midnight, .25 dawn, .5 noon, .75 dusk. Toy-box palette: bright, saturated days.
+const NIGHT = M('#0b1238', '#2c3a80', '#3a4ea0', '#a8b8ff', 0.55, '#6070d0', '#262c50', 0.8);
 const KEYS: [number, Mood][] = [
-  [0.0, { top: C('#0b1030'), horizon: C('#2c3870'), sun: C('#9fb2ff'), sunI: 0.5, hemiSky: C('#5a6ac0'), hemiGround: C('#242a48'), hemiI: 0.75 }],
-  [0.2, { top: C('#18204a'), horizon: C('#4b4a7a'), sun: C('#a0a8ff'), sunI: 0.35, hemiSky: C('#5a64a8'), hemiGround: C('#2a2a40'), hemiI: 0.6 }],
-  [0.27, { top: C('#5a7fc8'), horizon: C('#ffb38a'), sun: C('#ffc48a'), sunI: 1.4, hemiSky: C('#ffd6b0'), hemiGround: C('#5a4a40'), hemiI: 0.9 }],
-  [0.4, { top: C('#4aa3e8'), horizon: C('#bfe6ff'), sun: C('#fff4e0'), sunI: 2.2, hemiSky: C('#d8f0ff'), hemiGround: C('#6a7a4a'), hemiI: 1.1 }],
-  [0.6, { top: C('#4aa3e8'), horizon: C('#bfe6ff'), sun: C('#fff4e0'), sunI: 2.2, hemiSky: C('#d8f0ff'), hemiGround: C('#6a7a4a'), hemiI: 1.1 }],
-  [0.73, { top: C('#6a6ab8'), horizon: C('#ff9a6a'), sun: C('#ffae70'), sunI: 1.4, hemiSky: C('#ffc0a0'), hemiGround: C('#5a3a40'), hemiI: 0.85 }],
-  [0.8, { top: C('#18204a'), horizon: C('#4b4a7a'), sun: C('#a0a8ff'), sunI: 0.35, hemiSky: C('#5a64a8'), hemiGround: C('#2a2a40'), hemiI: 0.6 }],
-  [1.0, { top: C('#0b1030'), horizon: C('#2c3870'), sun: C('#9fb2ff'), sunI: 0.5, hemiSky: C('#5a6ac0'), hemiGround: C('#242a48'), hemiI: 0.75 }],
+  [0.0, NIGHT],
+  [0.2, M('#18204a', '#4b4a8a', '#5a5aa0', '#a0a8ff', 0.45, '#5a64a8', '#2a2a40', 0.65)],
+  [0.27, M('#4f86e0', '#ffb38a', '#ffcf9a', '#ffc48a', 1.5, '#ffd6b0', '#5a4a40', 0.95)],
+  [0.4, M('#2f8ff0', '#9fe0ff', '#7fd0ff', '#fff6e6', 2.3, '#e0f4ff', '#6a8a4a', 1.2)],
+  [0.6, M('#2f8ff0', '#9fe0ff', '#7fd0ff', '#fff6e6', 2.3, '#e0f4ff', '#6a8a4a', 1.2)],
+  [0.73, M('#5a62c8', '#ff9a6a', '#ffb07a', '#ffae70', 1.5, '#ffc0a0', '#5a3a40', 0.9)],
+  [0.8, M('#18204a', '#4b4a8a', '#5a5aa0', '#a0a8ff', 0.45, '#5a64a8', '#2a2a40', 0.65)],
+  [1.0, NIGHT],
 ];
 
-const STORM: Mood = { top: C('#3a4255'), horizon: C('#6a7385'), sun: C('#c8d0e0'), sunI: 0.5, hemiSky: C('#8a94a8'), hemiGround: C('#3a4038'), hemiI: 0.75 };
-const ECLIPSE: Mood = { top: C('#1a0f3a'), horizon: C('#7a3f8a'), sun: C('#c8a8ff'), sunI: 0.45, hemiSky: C('#8a6ad8'), hemiGround: C('#2a1a40'), hemiI: 0.65 };
+const MOODS: Record<EventKind, { mood: Mood; strength: number; darkness: number }> = {
+  storm: { mood: M('#3a4560', '#6a7890', '#56627a', '#c8d0e0', 0.6, '#9aa4b8', '#3a4038', 0.85), strength: 0.85, darkness: 0 },
+  eclipse: { mood: M('#1a0f3a', '#7a3f9a', '#5a2f8a', '#c8a8ff', 0.5, '#8a6ad8', '#2a1a40', 0.7), strength: 0.9, darkness: 0.85 },
+  starry: { mood: M('#060828', '#1e2468', '#2a2f80', '#b8c4ff', 0.55, '#6a6ad0', '#20204a', 0.85), strength: 0.95, darkness: 0.85 },
+  fullmoon: { mood: M('#0e1a40', '#3a5694', '#4a66a8', '#eef2ff', 1.1, '#a8bcff', '#2a3458', 1.0), strength: 0.95, darkness: 0.65 },
+  blizzard: { mood: M('#9fb0c8', '#e4ecf6', '#d6e0ee', '#f4f8ff', 1.2, '#eef4ff', '#8494a8', 1.2), strength: 0.9, darkness: 0 },
+};
 
 function lerpMood(a: Mood, b: Mood, t: number, out: Mood): Mood {
   out.top.copy(a.top).lerp(b.top, t);
   out.horizon.copy(a.horizon).lerp(b.horizon, t);
+  out.low.copy(a.low).lerp(b.low, t);
   out.sun.copy(a.sun).lerp(b.sun, t);
   out.hemiSky.copy(a.hemiSky).lerp(b.hemiSky, t);
   out.hemiGround.copy(a.hemiGround).lerp(b.hemiGround, t);
@@ -34,9 +48,12 @@ function lerpMood(a: Mood, b: Mood, t: number, out: Mood): Mood {
   return out;
 }
 
-function blankMood(): Mood {
-  return { top: C('#000'), horizon: C('#000'), sun: C('#000'), sunI: 0, hemiSky: C('#000'), hemiGround: C('#000'), hemiI: 0 };
-}
+const blankMood = () => M('#000', '#000', '#000', '#000', 0, '#000', '#000', 0);
+
+/** Where event showpieces sit: behind the island, in the slice of sky the camera can see. */
+const SHOWCASE = new THREE.Vector3(0.04, -0.6, -1).normalize().multiplyScalar(85);
+
+interface Fx { obj: THREE.Object3D; life: number; max: number; update?: (k: number, dt: number) => void }
 
 export class Sky {
   readonly group = new THREE.Group();
@@ -45,35 +62,48 @@ export class Sky {
   private dome: THREE.Mesh<THREE.SphereGeometry, THREE.ShaderMaterial>;
   private stars: THREE.Points;
   private sunDisc: THREE.Sprite;
+  private eclipseSun: THREE.Sprite;
   private moonDisc: THREE.Mesh;
   private corona: THREE.Sprite;
+  private fullMoon: THREE.Sprite;
+  private fullMoonGlow: THREE.Sprite;
   private rain: THREE.LineSegments;
-  private stormClouds = new THREE.Group();
+  private snow: THREE.Points;
+  private clouds = new THREE.Group();
+  private cloudMat: THREE.MeshToonMaterial;
   private mood = blankMood();
   private tmp = blankMood();
   private flash = 0;
-  private bolts: { mesh: THREE.Mesh; life: number }[] = [];
-  private beams: { mesh: THREE.Mesh; life: number }[] = [];
+  private fx: Fx[] = [];
+  private shootTimer = 0;
   /** 0..1 how much of each event is showing (eases in/out). */
-  private stormMix = 0;
-  private eclipseMix = 0;
+  private mix: Record<EventKind, number> = { storm: 0, eclipse: 0, starry: 0, fullmoon: 0, blizzard: 0 };
   darkness = 0;
 
   constructor(private scene: THREE.Scene) {
     const domeMat = new THREE.ShaderMaterial({
       side: THREE.BackSide,
       depthWrite: false,
-      uniforms: { top: { value: new THREE.Color() }, horizon: { value: new THREE.Color() } },
+      fog: false,
+      uniforms: { top: { value: new THREE.Color() }, horizon: { value: new THREE.Color() }, low: { value: new THREE.Color() } },
       vertexShader: 'varying vec3 vP; void main(){ vP = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
-      fragmentShader: 'uniform vec3 top; uniform vec3 horizon; varying vec3 vP; void main(){ float h = clamp(vP.y*1.4+0.25,0.0,1.0); gl_FragColor = vec4(mix(horizon, top, h),1.0); }',
+      fragmentShader: `uniform vec3 top; uniform vec3 horizon; uniform vec3 low; varying vec3 vP;
+        void main(){
+          float up = clamp(vP.y * 1.4 + 0.1, 0.0, 1.0);
+          float down = clamp(-vP.y * 1.6, 0.0, 1.0);
+          vec3 c = vP.y >= 0.0 ? mix(horizon, top, up) : mix(horizon, low, down);
+          gl_FragColor = vec4(c, 1.0);
+        }`,
     });
-    this.dome = new THREE.Mesh(new THREE.SphereGeometry(120, 24, 12), domeMat);
+    this.dome = new THREE.Mesh(new THREE.SphereGeometry(120, 32, 16), domeMat);
     this.group.add(this.dome);
 
-    const starPos = new Float32Array(400 * 3);
-    for (let i = 0; i < 400; i++) {
+    // stars wrap the whole dome, including the band behind the island
+    const n = 700;
+    const starPos = new Float32Array(n * 3);
+    for (let i = 0; i < n; i++) {
       const u = Math.random() * Math.PI * 2;
-      const v = Math.random() * 0.9 + 0.1;
+      const v = Math.random() * 1.6 - 0.75;
       const r = 100;
       starPos[i * 3] = Math.cos(u) * Math.sqrt(1 - v * v) * r;
       starPos[i * 3 + 1] = v * r;
@@ -81,15 +111,36 @@ export class Sky {
     }
     const sg = new THREE.BufferGeometry();
     sg.setAttribute('position', new THREE.BufferAttribute(starPos, 3));
-    this.stars = new THREE.Points(sg, new THREE.PointsMaterial({ color: '#ffffff', size: 1.4, map: glowTexture(), transparent: true, opacity: 0, depthWrite: false, sizeAttenuation: true }));
+    this.stars = new THREE.Points(sg, new THREE.PointsMaterial({
+      color: '#ffffff', size: 1.6, map: glowTexture(), transparent: true, opacity: 0, depthWrite: false, fog: false,
+    }));
     this.group.add(this.stars);
 
-    this.sunDisc = glowSprite('#fff2c4', 22, 0.9);
+    const noFog = (s: THREE.Sprite) => {
+      (s.material as THREE.SpriteMaterial).fog = false;
+      return s;
+    };
+    this.sunDisc = noFog(glowSprite('#fff2c4', 22, 0.9));
     this.group.add(this.sunDisc);
-    this.moonDisc = new THREE.Mesh(new THREE.CircleGeometry(3.2, 24), new THREE.MeshBasicMaterial({ color: '#160c2a' }));
-    this.group.add(this.moonDisc);
-    this.corona = glowSprite('#d9c6ff', 16, 0);
-    this.group.add(this.corona);
+
+    // eclipse showpiece: a sun, a dark moon sliding over it, and a corona
+    this.eclipseSun = noFog(glowSprite('#fff2c4', 20, 0));
+    this.eclipseSun.position.copy(SHOWCASE);
+    this.moonDisc = new THREE.Mesh(new THREE.CircleGeometry(3.4, 32), new THREE.MeshBasicMaterial({ color: '#160c2a', fog: false }));
+    this.moonDisc.lookAt(0, 0, 0);
+    this.corona = noFog(glowSprite('#d9c6ff', 18, 0));
+    this.corona.position.copy(SHOWCASE).multiplyScalar(1.01);
+    this.group.add(this.eclipseSun, this.corona, this.moonDisc);
+
+    // full moon showpiece
+    this.fullMoonGlow = noFog(glowSprite('#cfe0ff', 34, 0));
+    this.fullMoonGlow.position.copy(SHOWCASE).multiplyScalar(1.01);
+    const moonTex = new THREE.CanvasTexture(moonCanvas());
+    moonTex.colorSpace = THREE.SRGBColorSpace;
+    this.fullMoon = new THREE.Sprite(new THREE.SpriteMaterial({ map: moonTex, transparent: true, opacity: 0, fog: false, depthWrite: false }));
+    this.fullMoon.scale.setScalar(13);
+    this.fullMoon.position.copy(SHOWCASE);
+    this.group.add(this.fullMoonGlow, this.fullMoon);
 
     this.hemi = new THREE.HemisphereLight('#ffffff', '#445533', 1);
     scene.add(this.hemi);
@@ -112,16 +163,34 @@ export class Sky {
     this.rain.frustumCulled = false;
     this.group.add(this.rain);
 
-    const cm = new THREE.MeshToonMaterial({ color: '#5a6272', transparent: true, opacity: 0 });
-    for (let i = 0; i < 14; i++) {
-      const p = new THREE.Mesh(new THREE.IcosahedronGeometry(1.6 + Math.random() * 1.4, 1), cm);
-      const a = Math.random() * Math.PI * 2;
-      const r = Math.random() * 9;
-      p.position.set(Math.cos(a) * r, 9 + Math.random() * 1.5, Math.sin(a) * r);
-      p.scale.y = 0.6;
-      this.stormClouds.add(p);
+    // snow
+    const flakes = 900;
+    const sp = new Float32Array(flakes * 3);
+    for (let i = 0; i < flakes; i++) {
+      sp[i * 3] = (Math.random() - 0.5) * 26;
+      sp[i * 3 + 1] = Math.random() * 14;
+      sp[i * 3 + 2] = (Math.random() - 0.5) * 26;
     }
-    this.group.add(this.stormClouds);
+    const snowGeo = new THREE.BufferGeometry();
+    snowGeo.setAttribute('position', new THREE.BufferAttribute(sp, 3));
+    this.snow = new THREE.Points(snowGeo, new THREE.PointsMaterial({
+      color: '#ffffff', size: 0.22, map: glowTexture(), transparent: true, opacity: 0, depthWrite: false,
+    }));
+    this.snow.frustumCulled = false;
+    this.group.add(this.snow);
+
+    // weather clouds: a ring on the horizon behind and around the island, never between camera and island
+    this.cloudMat = new THREE.MeshToonMaterial({ color: '#5a6272', transparent: true, opacity: 0, fog: false });
+    for (let i = 0; i < 22; i++) {
+      const a = -Math.PI / 2 + (Math.random() - 0.5) * Math.PI * 1.5;
+      const r = 30 + Math.random() * 14;
+      const puff = new THREE.Mesh(new THREE.IcosahedronGeometry(3 + Math.random() * 3, 1), this.cloudMat);
+      puff.position.set(Math.cos(a) * r, -6 + Math.random() * 10, Math.sin(a) * r);
+      puff.scale.y = 0.55;
+      this.clouds.add(puff);
+    }
+    this.clouds.visible = false;
+    this.group.add(this.clouds);
     scene.add(this.group);
   }
 
@@ -134,23 +203,36 @@ export class Sky {
 
   update(phase: number, event: EventKind | null, dt: number, time: number): void {
     // ease event visuals in and out
-    const ease = (cur: number, target: number) => cur + (target - cur) * Math.min(1, dt * 0.6);
-    this.stormMix = ease(this.stormMix, event === 'storm' ? 1 : 0);
-    this.eclipseMix = ease(this.eclipseMix, event === 'eclipse' ? 1 : 0);
+    for (const k of Object.keys(this.mix) as EventKind[]) {
+      this.mix[k] += ((event === k ? 1 : 0) - this.mix[k]) * Math.min(1, dt * 0.6);
+    }
+    const mx = this.mix;
 
-    // base mood from time of day
+    // base mood from time of day, then each event's mood on top
     let i = 0;
     while (i < KEYS.length - 2 && phase > KEYS[i + 1][0]) i++;
     const [p0, m0] = KEYS[i];
     const [p1, m1] = KEYS[i + 1];
     lerpMood(m0, m1, (phase - p0) / (p1 - p0), this.mood);
-    if (this.stormMix > 0.001) lerpMood(this.mood, STORM, this.stormMix * 0.85, this.tmp), this.copyMood(this.tmp);
-    if (this.eclipseMix > 0.001) lerpMood(this.mood, ECLIPSE, this.eclipseMix * 0.9, this.tmp), this.copyMood(this.tmp);
+    let eventDark = 0;
+    for (const k of Object.keys(MOODS) as EventKind[]) {
+      if (mx[k] < 0.001) continue;
+      lerpMood(this.mood, MOODS[k].mood, mx[k] * MOODS[k].strength, this.tmp);
+      lerpMood(this.tmp, this.tmp, 0, this.mood);
+      eventDark = Math.max(eventDark, mx[k] * MOODS[k].darkness);
+    }
 
     const m = this.mood;
-    this.dome.material.uniforms.top.value.copy(m.top);
-    this.dome.material.uniforms.horizon.value.copy(m.horizon);
-    if (this.scene.fog instanceof THREE.Fog) this.scene.fog.color.copy(m.horizon);
+    const u = this.dome.material.uniforms;
+    u.top.value.copy(m.top);
+    u.horizon.value.copy(m.horizon);
+    u.low.value.copy(m.low);
+    if (this.scene.fog instanceof THREE.Fog) {
+      this.scene.fog.color.copy(m.horizon);
+      // a blizzard pulls the fog in close
+      this.scene.fog.near = 45 - mx.blizzard * 22;
+      this.scene.fog.far = 110 - mx.blizzard * 55;
+    }
     this.hemi.color.copy(m.hemiSky);
     this.hemi.groundColor.copy(m.hemiGround);
     this.flash = Math.max(0, this.flash - dt * 3);
@@ -164,26 +246,41 @@ export class Sky {
     const dir = new THREE.Vector3(Math.cos(a) * 14, Math.max(4, Math.sin(a) * 18), 6);
     this.sun.position.copy(dir);
     this.sun.target.position.set(0, 0, 0);
-    const sky = dir.clone().normalize().multiplyScalar(90);
-    this.sunDisc.position.copy(sky);
+    this.sunDisc.position.copy(dir.clone().normalize().multiplyScalar(90));
     (this.sunDisc.material as THREE.SpriteMaterial).color.set(day ? '#fff2c4' : '#dfe6ff');
-    this.sunDisc.scale.setScalar(day ? 22 : 12);
-    // eclipse: the moon slides over the sun
-    this.moonDisc.position.copy(sky).multiplyScalar(0.98).add(new THREE.Vector3((1 - this.eclipseMix) * 8, 0, 0));
-    this.moonDisc.lookAt(0, 0, 0);
-    this.moonDisc.visible = this.eclipseMix > 0.02;
-    this.corona.position.copy(sky).multiplyScalar(0.97);
-    (this.corona.material as THREE.SpriteMaterial).opacity = this.eclipseMix * (0.7 + Math.sin(time * 2) * 0.1);
-    (this.sunDisc.material as THREE.SpriteMaterial).opacity = 0.9 * (1 - this.stormMix * 0.9);
+    (this.sunDisc.material as THREE.SpriteMaterial).opacity = 0.9 * (1 - Math.max(mx.storm, mx.blizzard) * 0.9);
 
-    this.darkness = Math.max(1 - Math.min(1, (m.sunI - 0.5) / 1.1), this.eclipseMix * 0.85);
-    (this.stars.material as THREE.PointsMaterial).opacity = Math.max(0, this.darkness - 0.3) * (1 - this.stormMix);
+    // eclipse: the moon slides across the sun
+    const e = mx.eclipse;
+    (this.eclipseSun.material as THREE.SpriteMaterial).opacity = e * 0.95;
+    this.moonDisc.visible = e > 0.02;
+    this.moonDisc.position.copy(SHOWCASE).multiplyScalar(0.98).add(new THREE.Vector3((1 - e) * 9, 0, 0));
+    (this.corona.material as THREE.SpriteMaterial).opacity = e * (0.75 + Math.sin(time * 2) * 0.1);
+
+    // full moon rises behind the island
+    const fm = mx.fullmoon;
+    (this.fullMoon.material as THREE.SpriteMaterial).opacity = fm;
+    this.fullMoon.position.copy(SHOWCASE).add(new THREE.Vector3(0, (1 - fm) * -10, 0));
+    (this.fullMoonGlow.material as THREE.SpriteMaterial).opacity = fm * (0.55 + Math.sin(time * 1.5) * 0.08);
+    this.fullMoonGlow.position.copy(this.fullMoon.position);
+
+    this.darkness = Math.max(1 - Math.min(1, (m.sunI - 0.55) / 1.1), eventDark);
+    const sm = this.stars.material as THREE.PointsMaterial;
+    sm.opacity = Math.min(1, Math.max(0, this.darkness - 0.3) * (1 - mx.storm) * (1 - mx.blizzard) + mx.starry * 0.6);
+    sm.size = 1.6 + mx.starry * 1.2 + Math.sin(time * 3) * 0.15 * mx.starry;
     this.stars.rotation.y = time * 0.005;
+
+    // falling stars streak across the visible sky on a Starry Night
+    this.shootTimer -= dt;
+    if (mx.starry > 0.5 && this.shootTimer <= 0) {
+      this.shootTimer = 0.6 + Math.random() * 1.6;
+      this.shootingStar();
+    }
 
     // rain
     const rm = this.rain.material as THREE.LineBasicMaterial;
-    rm.opacity = this.stormMix * 0.85;
-    if (this.stormMix > 0.02) {
+    rm.opacity = mx.storm * 0.85;
+    if (mx.storm > 0.02) {
       const arr = this.rain.geometry.getAttribute('position') as THREE.BufferAttribute;
       const pa = arr.array as Float32Array;
       const fall = dt * 16;
@@ -195,51 +292,124 @@ export class Sky {
       arr.needsUpdate = true;
       if (Math.random() < dt * 0.12) this.flash = 1;
     }
-    const cmat = (this.stormClouds.children[0] as THREE.Mesh).material as THREE.MeshToonMaterial;
-    cmat.opacity = this.stormMix * 0.92;
-    this.stormClouds.visible = this.stormMix > 0.01;
-    this.stormClouds.rotation.y += dt * 0.03;
 
-    for (const b of this.bolts) {
-      b.life -= dt;
-      (b.mesh.material as THREE.MeshBasicMaterial).opacity = Math.max(0, b.life * 3);
+    // snow
+    (this.snow.material as THREE.PointsMaterial).opacity = mx.blizzard * 0.95;
+    if (mx.blizzard > 0.02) {
+      const arr = this.snow.geometry.getAttribute('position') as THREE.BufferAttribute;
+      const pa = arr.array as Float32Array;
+      for (let k = 0; k < pa.length / 3; k++) {
+        pa[k * 3 + 1] -= dt * (1.6 + (k % 5) * 0.25);
+        pa[k * 3] += dt * (2.2 + Math.sin(time + k) * 0.8);
+        pa[k * 3 + 2] += Math.cos(time * 0.7 + k) * dt * 0.4;
+        if (pa[k * 3 + 1] < 0) {
+          pa[k * 3 + 1] = 14;
+          pa[k * 3] = (Math.random() - 0.5) * 26 - 4;
+        }
+        if (pa[k * 3] > 13) pa[k * 3] -= 26;
+      }
+      arr.needsUpdate = true;
     }
-    this.bolts = this.bolts.filter((b) => (b.life > 0 ? true : (this.group.remove(b.mesh), b.mesh.geometry.dispose(), false)));
-    for (const b of this.beams) {
-      b.life -= dt;
-      (b.mesh.material as THREE.MeshBasicMaterial).opacity = Math.min(0.5, b.life * 0.3);
+
+    // horizon clouds: dark for storms, white for blizzards
+    const cloudAmt = Math.max(mx.storm, mx.blizzard);
+    this.clouds.visible = cloudAmt > 0.01;
+    this.cloudMat.opacity = cloudAmt * 0.95;
+    this.cloudMat.color.set('#5a6272').lerp(C('#f2f6ff'), mx.blizzard / Math.max(0.001, cloudAmt));
+    this.clouds.rotation.y = Math.sin(time * 0.02) * 0.15;
+
+    for (const f of this.fx) {
+      f.life -= dt;
+      f.update?.(1 - Math.max(0, f.life) / f.max, dt);
     }
-    this.beams = this.beams.filter((b) => (b.life > 0 ? true : (this.group.remove(b.mesh), b.mesh.geometry.dispose(), false)));
+    this.fx = this.fx.filter((f) => {
+      if (f.life > 0) return true;
+      this.group.remove(f.obj);
+      f.obj.traverse((o) => {
+        if (o instanceof THREE.Mesh || o instanceof THREE.Line) o.geometry.dispose();
+      });
+      return false;
+    });
   }
 
-  private copyMood(src: Mood): void {
-    lerpMood(src, src, 0, this.mood);
+  private add(obj: THREE.Object3D, life: number, update?: Fx['update']): void {
+    this.group.add(obj);
+    this.fx.push({ obj, life, max: life, update });
+  }
+
+  private shootingStar(): void {
+    const start = SHOWCASE.clone().add(new THREE.Vector3((Math.random() - 0.5) * 70, 10 + Math.random() * 18, (Math.random() - 0.5) * 10));
+    const dir = new THREE.Vector3(-0.8 - Math.random() * 0.4, -0.5, 0).normalize();
+    const geo = new THREE.BufferGeometry().setFromPoints([start, start.clone().addScaledVector(dir, 9)]);
+    const mat = new THREE.LineBasicMaterial({ color: '#fff6c8', transparent: true, opacity: 1, fog: false });
+    const line = new THREE.Line(geo, mat);
+    this.add(line, 0.7, (k) => {
+      line.position.copy(dir).multiplyScalar(k * 22);
+      mat.opacity = 1 - k;
+    });
   }
 
   /** Sparkfall: a jagged bolt from the clouds to a point. */
   strike(target: THREE.Vector3): void {
     const pts: THREE.Vector3[] = [];
-    const top = new THREE.Vector3(target.x + (Math.random() - 0.5) * 2, 10, target.z + (Math.random() - 0.5) * 2);
+    const top = new THREE.Vector3(target.x + (Math.random() - 0.5) * 2, 14, target.z - 4);
     for (let i = 0; i <= 8; i++) {
       const p = top.clone().lerp(target, i / 8);
       if (i > 0 && i < 8) p.add(new THREE.Vector3((Math.random() - 0.5) * 0.8, 0, (Math.random() - 0.5) * 0.8));
       pts.push(p);
     }
     const geo = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts, false, 'catmullrom', 0), 24, 0.06, 4, false);
-    const mesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: '#fff6a8', transparent: true, opacity: 1 }));
-    this.group.add(mesh);
-    this.bolts.push({ mesh, life: 0.45 });
+    const mat = new THREE.MeshBasicMaterial({ color: '#fff6a8', transparent: true, opacity: 1 });
+    this.add(new THREE.Mesh(geo, mat), 0.45, (k) => (mat.opacity = 1 - k));
     this.flash = 1.2;
   }
 
-  /** Moonbeam: a soft column of light onto a creature during an eclipse. */
+  /** Moonbeam: a soft column of light onto a creature (eclipse, full moon). */
   moonbeam(target: THREE.Vector3): void {
     const geo = new THREE.CylinderGeometry(0.5, 1.1, 12, 16, 1, true);
-    const mesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({
+    const mat = new THREE.MeshBasicMaterial({
       color: '#d4dcff', transparent: true, opacity: 0.5, side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending,
-    }));
+    });
+    const mesh = new THREE.Mesh(geo, mat);
     mesh.position.set(target.x, 6, target.z);
-    this.group.add(mesh);
-    this.beams.push({ mesh, life: 5 });
+    this.add(mesh, 5, (k) => (mat.opacity = Math.min(0.5, (1 - k) * 1.5)));
   }
+
+  /** A falling star drops onto a creature; `onLand` fires when it hits. */
+  fallingStar(target: THREE.Vector3, onLand: () => void): void {
+    const star = glowSprite('#fff6b0', 1.6, 1);
+    const from = new THREE.Vector3(target.x + 6, 16, target.z - 6);
+    let landed = false;
+    this.add(star, 1.1, (k) => {
+      const t = Math.min(1, k / 0.75);
+      star.position.lerpVectors(from, target, t * t);
+      if (t >= 1 && !landed) {
+        landed = true;
+        this.flash = 0.6;
+        onLand();
+      }
+      (star.material as THREE.SpriteMaterial).opacity = t >= 1 ? Math.max(0, 1 - (k - 0.75) * 4) : 1;
+    });
+  }
+}
+
+/** A friendly cartoon moon face texture with craters. */
+function moonCanvas(): HTMLCanvasElement {
+  const c = document.createElement('canvas');
+  c.width = c.height = 128;
+  const g = c.getContext('2d')!;
+  const grad = g.createRadialGradient(54, 50, 10, 64, 64, 60);
+  grad.addColorStop(0, '#fffbe8');
+  grad.addColorStop(1, '#e8e0c4');
+  g.fillStyle = grad;
+  g.beginPath();
+  g.arc(64, 64, 58, 0, Math.PI * 2);
+  g.fill();
+  g.fillStyle = 'rgba(190,180,150,0.45)';
+  for (const [x, y, r] of [[40, 44, 10], [82, 76, 13], [56, 90, 7], [90, 40, 6]]) {
+    g.beginPath();
+    g.arc(x, y, r, 0, Math.PI * 2);
+    g.fill();
+  }
+  return c;
 }

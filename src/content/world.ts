@@ -21,6 +21,14 @@ export const MUTATIONS: Record<MutationId, MutationDef> = {
     id: 'prismatic', trait: 'Prismatic', name: 'Prismatic', inheritChance: 0.5,
     blurb: 'Every color at once. Vanishingly rare.',
   },
+  starlit: {
+    id: 'starlit', trait: 'Starlit', name: 'Starlit', inheritChance: 0.45,
+    blurb: 'Kissed by a falling star. Tiny lights twinkle in its coat.',
+  },
+  frost: {
+    id: 'frost', trait: 'Frost', name: 'Frost', inheritChance: 0.45,
+    blurb: 'Came through a blizzard frosted over. It leaves a chill wherever it goes.',
+  },
 };
 
 // ---------------------------------------------------------------- lures
@@ -54,20 +62,79 @@ export const SPOTS: Record<string, SpotDef> = {
 // ---------------------------------------------------------------- events
 export const EVENTS: Record<EventKind, EventDef> = {
   storm: {
-    kind: 'storm', name: 'Thunderstorm', mutation: 'storm', empowers: 'Tide',
+    arrive: 'A thunderstorm rolls in. Things may change out there…', leave: 'The storm passes. The air smells clean.', away: 'A thunderstorm passed over the sanctuary.',
+    kind: 'storm', name: 'Thunderstorm', icon: '⛈️', mutation: 'storm', empowers: 'Tide',
     attracts: { Tide: 2, Amphibian: 2, Fish: 1.5 },
     arrivalMutationChance: 0.1, empoweredMutationChance: 0.35, eggMutationChance: 0.2,
     teaser: 'The air feels heavy. The Mossfrogs have started singing.',
     durationMin: [3, 5], dark: false,
+    touch: {
+      name: 'sparkfall', perEvent: 2, chance: 0.3,
+      story: 'Was struck by sparkfall during a thunderstorm, and changed.',
+      lesson: 'Creatures caught out in a thunderstorm can be changed by sparkfall.',
+      bubble: 'Just got zapped by sparkfall ⚡',
+    },
   },
   eclipse: {
-    kind: 'eclipse', name: 'Eclipse', mutation: 'lunar', empowers: 'Mystic',
+    arrive: 'The sun is going dark. An eclipse!', leave: 'The light returns.', away: 'The sun went dark in an eclipse.',
+    kind: 'eclipse', name: 'Eclipse', icon: '🌘', mutation: 'lunar', empowers: 'Mystic',
     attracts: { Mystic: 3, Spirit: 3 },
     arrivalMutationChance: 0.15, empoweredMutationChance: 0.55, eggMutationChance: 0.25,
     teaser: 'The light looks strange today, as if something is crossing the sun.',
     durationMin: [2.5, 4], dark: true,
+    touch: {
+      name: 'moonbeam', perEvent: 1, chance: 0.6, favor: 'Mystic',
+      story: 'Bathed in a moonbeam during an eclipse. Its colors silvered.',
+      lesson: 'An eclipse can silver a creature that stands in its moonbeam.',
+      bubble: 'Bathed in a moonbeam 🌙',
+    },
+  },
+  starry: {
+    arrive: 'The sky fills with stars. Watch for falling ones!', leave: 'The stars fade back to normal.', away: 'A Starry Night lit up the sky.',
+    kind: 'starry', name: 'Starry Night', icon: '🌠', mutation: 'starlit', empowers: 'Bloom',
+    attracts: { Insect: 2, Spirit: 2, Bloom: 1.5 },
+    arrivalMutationChance: 0.12, empoweredMutationChance: 0.45, eggMutationChance: 0.2,
+    teaser: 'The sky is turning clear and deep. Something up there is twinkling more than usual.',
+    durationMin: [3, 4.5], dark: true,
+    touch: {
+      name: 'falling star', perEvent: 2, chance: 0.5, favor: 'Bloom',
+      story: 'A falling star landed right beside it. It still twinkles.',
+      lesson: 'Falling stars on a Starry Night can leave a creature Starlit.',
+      bubble: 'A falling star landed nearby 🌠',
+    },
+  },
+  fullmoon: {
+    arrive: 'A full moon rises, huge and bright.', leave: 'The full moon sinks out of sight.', away: 'A full moon rose over the sanctuary.',
+    kind: 'fullmoon', name: 'Full Moon', icon: '🌕', mutation: 'lunar', empowers: 'Mystic',
+    attracts: { Mystic: 2.5, Spirit: 2, Mammal: 1.5 },
+    arrivalMutationChance: 0.2, empoweredMutationChance: 0.6, eggMutationChance: 0.3,
+    teaser: 'A huge, bright moon is rising. The night creatures are restless.',
+    durationMin: [3, 4.5], dark: true,
+    touch: {
+      name: 'moonbeam', perEvent: 2, chance: 0.6, favor: 'Mystic',
+      story: 'Soaked up the light of a full moon. Its colors silvered.',
+      lesson: 'A full moon is even better than an eclipse for silvering creatures.',
+      bubble: 'Soaking up the moonlight 🌕',
+    },
+  },
+  blizzard: {
+    arrive: 'Snow! A blizzard is sweeping in.', leave: 'The blizzard blows itself out.', away: 'A blizzard swept through the sanctuary.',
+    kind: 'blizzard', name: 'Blizzard', icon: '🌨️', mutation: 'frost', empowers: 'Grove',
+    attracts: { Mammal: 2, Bird: 1.5, Grove: 1.2 },
+    arrivalMutationChance: 0.12, empoweredMutationChance: 0.4, eggMutationChance: 0.2,
+    teaser: 'A sharp, cold wind is blowing in. Is that… snow?',
+    durationMin: [3, 4.5], dark: false,
+    touch: {
+      name: 'frost', perEvent: 2, chance: 0.35,
+      story: 'Got caught out in a blizzard and came back frosted.',
+      lesson: 'Creatures caught out in a blizzard can come back Frost.',
+      bubble: 'Covered in snow ❄️',
+    },
   },
 };
+
+/** Events an ad can summon, with weights. The rarer natural events are favored. */
+export const SUMMON_WEIGHTS: Record<EventKind, number> = { storm: 1, eclipse: 1, starry: 1.3, fullmoon: 1.3, blizzard: 1.3 };
 
 // ---------------------------------------------------------------- resonances
 // Hybrids come from the *traits* both parents bring, not from fixed species pairs.

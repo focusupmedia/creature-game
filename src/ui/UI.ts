@@ -10,18 +10,22 @@ import { nestOccupant } from '../core/state';
 import type { Creature, Egg, GameEvent, MutationId, SpotId, Trait } from '../core/types';
 import { activeEvent, dayPhase, daylight, isDark, nextEvent } from '../core/world';
 import type { Game } from '../game/Game';
-import { fmtDuration, h, img } from './dom';
+import { fmtDuration, h, img, rich } from './dom';
+import * as I from './icons';
 import { WorldLabels } from './Labels';
 
-const MUT_ICON: Record<MutationId, string> = { lunar: '🌙', storm: '⚡', giant: '⛰️', prismatic: '🌈' };
+const fmtClock = (ms: number) => `${Math.floor(Math.max(0, ms) / 60000)}:${String(Math.floor(Math.max(0, ms) / 1000) % 60).padStart(2, '0')}`;
+
+const MUT_ICON: Record<MutationId, string> = { lunar: '🌙', storm: '⚡', giant: '⛰️', prismatic: '🌈', starlit: '🌟', frost: '❄️' };
 const HABITAT_ICON: Partial<Record<Trait, string>> = { Grove: '🌳', Tide: '💧', Bloom: '🌸', Mystic: '🔮' };
-const MUTATION_TRAITS: Trait[] = ['Lunar', 'Storm', 'Giant', 'Prismatic'];
+const MUTATION_TRAITS: Trait[] = ['Lunar', 'Storm', 'Giant', 'Prismatic', 'Starlit', 'Frost'];
 
 export class UI {
   readonly root: HTMLElement;
   private glimmerVal = h('span', { class: 'val' });
   private shardsVal = h('span', { class: 'val' });
-  private skyChip = h('span', { class: 'val' });
+  private skyChip = h('span');
+  private adsBadge = h('span', { class: 'count' });
   private banner = h('div', { class: 'banner hidden' });
   private toasts = h('div', { class: 'toasts' });
   private coachEl = h('div', { class: 'coach hidden' });
@@ -47,20 +51,30 @@ export class UI {
   constructor(private game: Game, mount: HTMLElement) {
     this.root = h('div', { class: 'ui' });
     const top = h('div', { class: 'hud-top' },
-      h('div', { class: 'pill glimmer', title: 'Glimmer' }, h('span', { class: 'ico' }, '✨'), this.glimmerVal),
-      h('div', { class: 'pill shards', title: 'Starshards', onClick: () => this.showShop(true) }, h('span', { class: 'ico' }, '💎'), this.shardsVal),
-      h('div', { class: 'spacer' }),
-      h('div', { class: 'pill sky-chip' }, this.skyChip),
-      h('button', { class: 'icon-btn', 'aria-label': 'Settings', onClick: () => this.showSettings() }, '⚙️'),
+      h('div', { class: 'hud-col', style: 'flex:1' },
+        h('div', { class: 'hud-row' },
+          h('button', { class: 'sq-btn', 'aria-label': 'Settings', onClick: () => this.showSettings() }, I.icon(I.GEAR)),
+          h('div', { class: 'spacer' }),
+          h('div', { class: 'bar', title: 'Starshards' }, I.icon(I.GEM), this.shardsVal,
+            h('button', { class: 'bar-plus', 'aria-label': 'Get Starshards', onClick: () => this.showShop(true) }, I.icon(I.PLUS))),
+          h('div', { class: 'bar', title: 'Coins', style: 'margin-left:10px' }, I.icon(I.COIN), this.glimmerVal),
+        ),
+        h('div', { class: 'hud-row', style: 'width:100%' },
+          h('div', { class: 'sky-chip' }, this.skyChip),
+          h('div', { class: 'spacer' }),
+          h('button', { class: 'hud-tile', 'aria-label': 'Watch an ad to summon a sky event', onClick: () => this.showSummon() },
+            I.icon(I.SUMMON), h('span', { class: 'lbl' }, 'EVENT'), this.adsBadge),
+        ),
+      ),
     );
-    const dockBtn = (ico: string, label: string, fn: () => void, dot?: HTMLElement) =>
-      h('button', { onClick: () => { this.game.audio.play('tap'); fn(); } }, h('span', { class: 'ico' }, ico), label, dot ?? null);
+    const dockBtn = (svg: string, label: string, fn: () => void, dot?: HTMLElement) =>
+      h('button', { onClick: () => { this.game.audio.play('tap'); fn(); } }, I.icon(svg), h('span', { class: 'lbl' }, label), dot ?? null);
     this.dock = h('nav', { class: 'dock' },
-      dockBtn('🌿', 'Lures', () => this.showLures()),
-      dockBtn('⛲', 'Create', () => this.showFont()),
-      dockBtn('📖', 'Journal', () => this.showJournal(), this.journalDot),
-      dockBtn('🛍️', 'Shop', () => this.showShop(), this.shopDot),
-      dockBtn('🪴', 'Decor', () => this.showDecor()),
+      dockBtn(I.LURE, 'LURES', () => this.showLures()),
+      dockBtn(I.CREATE, 'CREATE', () => this.showFont()),
+      dockBtn(I.JOURNAL, 'JOURNAL', () => this.showJournal(), this.journalDot),
+      dockBtn(I.SHOP, 'SHOP', () => this.showShop(), this.shopDot),
+      dockBtn(I.DECOR, 'DECOR', () => this.showDecor()),
     );
     this.root.append(top, this.banner, this.toasts, this.coachEl, this.dock, this.sheetHost, this.placeHost, this.modalHost, this.revealHost);
     mount.append(this.root);
@@ -102,24 +116,24 @@ export class UI {
     const phase = dayPhase(s, t);
     const ev = activeEvent(s, t);
     const light = daylight(phase);
-    const icon = ev ? (ev.kind === 'storm' ? '⛈️' : '🌘') : light > 0.6 ? '☀️' : light > 0.1 ? (phase < 0.5 ? '🌅' : '🌇') : '🌙';
-    const label = ev ? EVENTS[ev.kind].name : light > 0.6 ? (phase < 0.5 ? 'Morning' : 'Afternoon') : light > 0.1 ? (phase < 0.5 ? 'Dawn' : 'Dusk') : 'Night';
+    const icon = ev ? EVENTS[ev.kind].icon : light > 0.6 ? '☀️' : light > 0.1 ? (phase < 0.5 ? '🌅' : '🌇') : '🌙';
+    const label = ev ? `${EVENTS[ev.kind].name} · ${fmtClock(ev.end - t)}` : light > 0.6 ? (phase < 0.5 ? 'Morning' : 'Afternoon') : light > 0.1 ? (phase < 0.5 ? 'Dawn' : 'Dusk') : 'Night';
     this.skyChip.textContent = `${icon} ${label}`;
 
     // event banner / forecast teaser
     const next = nextEvent(s, t);
     let text = '';
     let cls = '';
-    if (ev) {
-      text = `${ev.kind === 'storm' ? '⛈️' : '🌘'} ${EVENTS[ev.kind].name} · ${fmtDuration(ev.end - t)}`;
-      cls = ev.kind;
-    } else if (next && next.start - t < TUNING.forecastLeadMin * 60_000) {
+    // The sky chip shows an active event; the banner is only for forecast teasers.
+    if (!ev && next && next.start - t < TUNING.forecastLeadMin * 60_000) {
       text = EVENTS[next.kind].teaser;
     }
     this.banner.textContent = text;
     this.banner.className = `banner ${cls} ${text ? '' : 'hidden'}`;
 
     this.shopDot.classList.toggle('hidden', s.shop.rotation === this.seenShopRotation);
+    const ads = A.adsLeft(s, t);
+    if (this.adsBadge.textContent !== String(ads)) this.adsBadge.textContent = String(ads);
     this.journalDot.classList.toggle('hidden', s.journal.notes.length === this.seenNotes);
 
     this.refreshTimer -= dt;
@@ -138,7 +152,7 @@ export class UI {
   }
 
   toast(text: string, kind: 'info' | 'discovery' = 'info', image?: string, ms = 3200): void {
-    const el = h('div', { class: `toast ${kind}` }, image ? img(image) : null, h('span', null, text));
+    const el = h('div', { class: `toast ${kind}` }, image ? img(image) : null, h('span', null, rich(text)));
     this.toasts.append(el);
     while (this.toasts.children.length > 3) this.toasts.firstElementChild!.remove();
     setTimeout(() => el.classList.add('out'), ms);
@@ -153,9 +167,9 @@ export class UI {
     const sheet = h('section', { class: 'sheet', role: 'dialog', 'aria-label': title },
       h('div', { class: 'grab' }),
       h('header', null,
-        icon ? h('span', { style: 'font-size:28px' }, icon) : null,
+        icon ? h('span', null, icon.startsWith('<svg') ? I.icon(icon) : icon) : null,
         h('div', { class: 'col' }, h('h2', null, title), sub ? h('span', { class: 'sub' }, sub) : null),
-        h('button', { class: 'close', 'aria-label': 'Close', onClick: () => this.closeSheet() }, '✕'),
+        h('button', { class: 'close', 'aria-label': 'Close', onClick: () => this.closeSheet() }, I.icon(I.CLOSE)),
       ),
       body,
     );
@@ -205,7 +219,7 @@ export class UI {
     this.openSheet('Lures', 'Set out a scent and see who answers.', (b) => {
       for (const spot of Object.values(SPOTS)) b.append(this.spotBlock(spot.id));
       b.append(h('p', { class: 'muted' }, 'Tip: the same lure can attract different visitors depending on where you place it, the time of day, and the sky.'));
-    }, '🌿');
+    }, I.LURE);
   }
 
   showSpot(spotId: SpotId): void {
@@ -382,7 +396,7 @@ export class UI {
             this.toast('A new nest, warm and ready.');
             this.game.saveSoon();
             this.closeSheet();
-          } }, `Build nest · 💎 ${price}`));
+          } }, rich(`Build nest · {gem} ${price}`)));
           if (s.shards < price) b.append(h('p', { class: 'muted' }, 'Starshards come from new discoveries and the occasional rare gift.'));
         }
       }, '🪺');
@@ -430,7 +444,7 @@ export class UI {
           this.game.analytics.track('egg_skip_shards', { price });
           this.game.saveSoon();
           this.rerender();
-        } }, `Hatch now · 💎 ${price}`));
+        } }, rich(`Hatch now · {gem} ${price}`)));
         for (const [id, n] of Object.entries(s.items)) {
           if (!n) continue;
           const item = ITEMS[id];
@@ -481,7 +495,7 @@ export class UI {
           this.game.analytics.track('shop_refresh', { via: 'shards' });
           this.game.saveSoon();
           this.rerender();
-        } }, `Refresh now · 💎 ${TUNING.shopRefreshShards}`),
+        } }, rich(`Refresh · {gem} ${TUNING.shopRefreshShards}`)),
         A.adsLeft(s, t) > 0 ? h('button', { class: 'btn ad small', onClick: () => this.game.adRefreshShop() }, '▶ Watch ad · refresh') : null,
       );
       b.append(refresh);
@@ -504,7 +518,7 @@ export class UI {
             h('div', { class: 'grow' }, h('div', { class: 'name' }, name), h('div', { class: 'desc' }, desc),
               o.stock < 10 ? h('div', { class: 'muted' }, o.stock > 0 ? `${o.stock} left` : 'Sold out') : null),
             h('button', { class: `btn small ${o.currency === 'shards' ? 'shard' : ''}`, disabled: !can, onClick: () => this.game.buy(o.id) },
-              `${o.currency === 'shards' ? '💎' : '✨'} ${o.price}`),
+              rich(`${o.currency === 'shards' ? '{gem}' : '{coin}'} ${o.price}`)),
           ));
         }
         b.append(list);
@@ -513,14 +527,14 @@ export class UI {
       b.append(shardsTitle);
       const iap = h('div', { class: 'list' });
       for (const p of this.game.purchases.products()) {
-        iap.append(h('div', { class: 'item' }, h('div', { class: 'swatch' }, '💎'),
+        iap.append(h('div', { class: 'item' }, h('div', { class: 'swatch' }, I.icon(I.GEM)),
           h('div', { class: 'grow' }, h('div', { class: 'name' }, `${p.shards} Starshards`), p.tag ? h('div', { class: 'desc' }, p.tag) : null),
           h('button', { class: 'btn shard small', onClick: () => this.game.buyShards(p.id) }, p.price)));
       }
       b.append(iap, h('p', { class: 'muted' }, 'Starshards buy nests, decorations and time — never creatures or discoveries.'));
       if (scrollToShards) setTimeout(() => shardsTitle.scrollIntoView({ behavior: 'smooth' }), 50);
       scrollToShards = false;
-    }, '🛍️');
+    }, I.SHOP);
   }
 
   // ---- journal
@@ -562,13 +576,15 @@ export class UI {
         for (const n of s.journal.notes) story.append(h('div', null, h('div', { class: 'when' }, this.when(n.t)), h('p', null, n.text)));
         b.append(story);
       }
-    }, '📖');
+    }, I.JOURNAL);
   }
 
   private mutationHint(m: MutationId): string {
     switch (m) {
-      case 'lunar': return 'Something about the sun going dark...';
+      case 'lunar': return 'Something about the sun going dark... or a very bright moon.';
       case 'storm': return 'Creatures caught out in bad weather sometimes come back different.';
+      case 'starlit': return 'Have you ever seen a star fall? Where did it land?';
+      case 'frost': return 'Some creatures come back changed from the cold.';
       case 'giant': return 'Some say two of a kind make something bigger. Or a tonic could help.';
       default: return 'Vanishingly rare. Nobody you know has seen one.';
     }
@@ -605,7 +621,7 @@ export class UI {
       b.append(list);
       if (s.placedDecor.length) b.append(h('p', { class: 'muted' }, 'Tap a placed decoration to put it back in your satchel.'));
       b.append(h('button', { class: 'btn secondary wide', style: 'margin-top:12px', onClick: () => this.showShop() }, 'Browse decorations'));
-    }, '🪴');
+    }, I.DECOR);
   }
 
   beginPlacement(decorId: string): void {
@@ -666,7 +682,7 @@ export class UI {
         h('button', { class: 'btn small secondary', onClick: () => g.skip(5 * 60_000) }, '⏩ Skip 5 min'),
         h('button', { class: 'btn small secondary', onClick: () => g.skip(60 * 60_000) }, '⏩ Skip 1 hour (away)'),
         h('button', { class: 'btn small secondary', onClick: () => g.skipToNextEvent() }, '🌦️ Next sky event'),
-        h('button', { class: 'btn small secondary', onClick: () => { g.state.glimmer += 500; g.state.shards += 50; } }, '+500 ✨ +50 💎'),
+        h('button', { class: 'btn small secondary', onClick: () => { g.state.glimmer += 500; g.state.shards += 50; } }, '+500 coins +50 gems'),
       ));
       b.append(h('div', { class: 'section-title' }, 'Save'));
       b.append(h('button', { class: 'btn danger', onClick: () => this.modal((m, close) => {
@@ -699,20 +715,22 @@ export class UI {
     const ready = events.filter((e) => e.type === 'eggReady');
     const touched = events.filter((e) => e.type === 'eggTouched');
     const gifts = events.filter((e) => e.type === 'gift').length;
-    const storms = skies.filter((x) => x.kind === 'storm').length;
-    const eclipses = skies.length - storms;
-    if (storms) lines.push(h('div', { class: 'happen' }, h('span', { class: 'e' }, '⛈️'), h('span', null, storms === 1 ? 'A thunderstorm passed over the sanctuary.' : `${storms} thunderstorms rolled through.`)));
-    if (eclipses) lines.push(h('div', { class: 'happen' }, h('span', { class: 'e' }, '🌘'), h('span', null, eclipses === 1 ? 'The sun went dark in an eclipse.' : `The sun went dark ${eclipses} times.`)));
+    const kinds = new Map<string, number>();
+    for (const sk of skies) kinds.set(sk.kind, (kinds.get(sk.kind) ?? 0) + 1);
+    for (const [k, n] of kinds) {
+      const def = EVENTS[k as keyof typeof EVENTS];
+      lines.push(h('div', { class: 'happen' }, h('span', { class: 'e' }, def.icon), h('span', null, n === 1 ? def.away : `${def.away} (×${n})`)));
+    }
     for (const a of arrivals) {
       const stayed = s.creatures.some((c) => c.id === a.creature.id);
       lines.push(h('div', { class: 'happen' }, this.portrait(a.creature, ''),
         h('span', null, `${a.discovered ? '🆕 ' : ''}A ${speciesTitle(a.creature)} came to the ${SPOTS[a.spot].name}${stayed ? '' : ', looked around, and left'}.`)));
     }
     for (const m of muts) lines.push(h('div', { class: 'happen' }, this.portrait(m.creature, ''),
-      h('span', null, `${displayName(m.creature)} ${m.cause === 'sparkfall' ? 'was struck by sparkfall' : 'stood in a moonbeam'} and became ${MUTATIONS[m.mutation].name}!`)));
+      h('span', null, `${displayName(m.creature)} met the ${EVENTS[m.cause].touch.name} during a ${EVENTS[m.cause].name.toLowerCase()} and became ${MUTATIONS[m.mutation].name}!`)));
     if (touched.length) lines.push(h('div', { class: 'happen' }, h('span', { class: 'e' }, '🥚'), h('span', null, `${touched.length === 1 ? 'An egg' : `${touched.length} eggs`} glowed strangely during the storm.`)));
     if (ready.length) lines.push(h('div', { class: 'happen' }, h('span', { class: 'e' }, '🐣'), h('span', null, `${ready.length === 1 ? 'An egg is' : `${ready.length} eggs are`} ready to hatch!`)));
-    if (gifts) lines.push(h('div', { class: 'happen' }, h('span', { class: 'e' }, '✨'), h('span', null, `Your creatures left ${gifts} little gift${gifts === 1 ? '' : 's'} around the sanctuary.`)));
+    if (gifts) lines.push(h('div', { class: 'happen' }, h('span', { class: 'e' }, I.icon(I.COIN)), h('span', null, `Your creatures left ${gifts} little gift${gifts === 1 ? '' : 's'} around the sanctuary.`)));
     if (!lines.length) return;
     if (!arrivals.length && !Object.values(s.spots).some(Boolean)) {
       lines.push(h('div', { class: 'happen' }, h('span', { class: 'e' }, '🌿'), h('span', { class: 'muted' }, 'Tip: set out a lure before you leave. Visitors will be waiting when you return.')));
@@ -755,6 +773,32 @@ export class UI {
         ));
       },
     };
+  }
+
+  /** The EVENT tile: watch an ad to summon a random sky event. */
+  showSummon(): void {
+    const s = this.game.state;
+    const t = this.game.now();
+    const busy = activeEvent(s, t);
+    const left = A.adsLeft(s, t);
+    this.modal((m, close) => {
+      m.append(
+        h('h2', { class: 'outlined' }, 'Summon an event!'),
+        h('p', null, 'Watch a short ad and the sky brings a random event. Maybe a storm or an eclipse… or something rare like a Starry Night, a Full Moon or a Blizzard.'),
+        h('div', { class: 'row', style: 'justify-content:center;gap:14px;font-size:30px;margin:8px 0' },
+          ...Object.values(EVENTS).map((e) => h('span', { title: e.name }, e.icon))),
+        h('p', { class: 'muted' }, busy
+          ? `A ${EVENTS[busy.kind].name.toLowerCase()} is happening right now. Try again when it passes.`
+          : `${left} ad${left === 1 ? '' : 's'} left today. Each event can change your creatures in its own way.`),
+        h('div', { class: 'btns' },
+          h('button', { class: 'btn secondary', onClick: close }, 'Not now'),
+          h('button', { class: 'btn ad', style: 'flex:1', disabled: !!busy || left <= 0, onClick: async () => {
+            close();
+            await this.game.adSummon();
+          } }, '▶ Watch ad'),
+        ),
+      );
+    });
   }
 
   showAd(seconds: number): Promise<boolean> {
@@ -806,7 +850,7 @@ export class UI {
     if (this.coachEl.dataset.step !== String(step) || this.coachEl.classList.contains('hidden')) {
       this.coachEl.dataset.step = String(step);
       this.coachEl.replaceChildren(h('span', { class: 'who' }, '🦉'), h('span', null, text),
-        h('button', { class: 'x', 'aria-label': 'Dismiss', onClick: () => { this.coachDismissed = step; if (step === 5) this.game.setTutorial(6); } }, '✕'));
+        h('button', { class: 'x', 'aria-label': 'Dismiss', onClick: () => { this.coachDismissed = step; if (step === 5) this.game.setTutorial(6); } }, I.icon(I.CLOSE)));
       this.coachEl.classList.remove('hidden');
     }
     if (this.sheetOpen && (step === 3.5 || step === 4)) this.coachEl.classList.add('hidden');

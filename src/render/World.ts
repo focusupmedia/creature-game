@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { BASKET, NESTS, ISLAND_RADIUS, inPond, blocked } from '../content/layout';
-import { LURES, SPOTS } from '../content/world';
+import { EVENTS, LURES, SPOTS } from '../content/world';
 import type { Creature, Egg, EventKind, GameEvent, GameState } from '../core/types';
 import { CameraRig } from './CameraRig';
 import { CreatureActor, type ActorContext } from './CreatureActor';
@@ -295,26 +295,27 @@ export class World {
         if (!this.actors.has(ev.creature.id)) this.actors.set(ev.creature.id, a);
         break;
       }
-      case 'strike': {
+      case 'skyTouch': {
         const a = this.actors.get(ev.creature.id);
-        if (a) {
-          a.note('Just got zapped by sparkfall ⚡');
-          this.sky.strike(a.position.clone().setY(0.3));
-          this.burst(a.position.clone().setY(0.3), '#fff27a', 22, 2);
-        }
-        break;
-      }
-      case 'moonbeam': {
-        const a = this.actors.get(ev.creature.id);
-        if (a) {
+        if (!a) break;
+        a.note(EVENTS[ev.event].touch.bubble);
+        const at = a.position.clone().setY(0.3);
+        if (ev.event === 'storm') {
+          this.sky.strike(at);
+          this.burst(at, '#fff27a', 22, 2);
+        } else if (ev.event === 'eclipse' || ev.event === 'fullmoon') {
           this.sky.moonbeam(a.position);
-          a.note('Bathed in a moonbeam 🌙');
+        } else if (ev.event === 'starry') {
+          this.sky.fallingStar(at, () => this.burst(at, '#fff1a8', 26, 1.8));
+        } else {
+          this.burst(a.position.clone().setY(0.6), '#ffffff', 30, 1.4);
         }
         break;
       }
       case 'eggTouched': {
         const e = this.eggs.get(ev.egg.id);
-        if (e) this.burst(e.model.root.position.clone().setY(0.7), ev.event === 'storm' ? '#fff27a' : '#c9d4ff', 16);
+        const color: Record<string, string> = { storm: '#fff27a', starry: '#fff1a8', blizzard: '#ffffff' };
+        if (e) this.burst(e.model.root.position.clone().setY(0.7), color[ev.event] ?? '#c9d4ff', 16);
         break;
       }
       case 'eggReady': {

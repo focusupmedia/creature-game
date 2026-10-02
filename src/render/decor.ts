@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { glowSprite, toon } from './materials';
+import { addOutlines, glowSprite, toon } from './materials';
 
 // Cosmetic decorations. Each returns a group; glows register as night lights.
 
@@ -81,5 +81,6 @@ export function buildDecor(id: string): THREE.Group {
     default:
       add(new THREE.BoxGeometry(0.5, 0.5, 0.5), '#ff00ff', [0, 0.25, 0]);
   }
+  addOutlines(g, 2.6);
   return g;
 }

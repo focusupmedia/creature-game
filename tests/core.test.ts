@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { createGame } from '../src/core/state';
 import { tick } from '../src/core/sim';
 import {
-  adHatch, buyOffer, canAdHatch, collectGift, hatch, placeLure, startCombine, useItem,
+  adHatch, buyOffer, canAdHatch, collectGift, hatch, placeLure, startCombine, summonEvent, useItem,
 } from '../src/core/actions';
 import { compatibility, combine } from '../src/core/genetics';
 import { StateRng } from '../src/core/rng';
@@ -43,7 +43,7 @@ describe('sky events', () => {
     expect(e.kind).toBe('storm');
     expect(e.start - T0).toBe(TUNING.firstStormAtMin * MIN);
     expect(activeEvent(s, e.start + 1000)?.kind).toBe('storm');
-    expect(nextEvent(s, T0)?.window).toBe(0);
+    expect(nextEvent(s, T0)?.key).toBe('0');
   });
 
   it('is deterministic per seed and identical across devices', () => {
@@ -52,14 +52,55 @@ describe('sky events', () => {
     for (let w = 0; w < 30; w++) expect(eventInWindow(a, w)).toEqual(eventInWindow(b, w));
   });
 
-  it('schedules both kinds of events over a day of play', () => {
-    const s = fresh(3);
-    const kinds = new Set<string>();
-    for (let w = 0; w < 40; w++) {
-      const e = eventInWindow(s, w);
-      if (e) kinds.add(e.kind);
+  it('schedules every kind of event naturally, with the new ones rare', () => {
+    const counts: Record<string, number> = {};
+    for (let seed = 1; seed <= 20; seed++) {
+      const s = fresh(seed);
+      for (let w = 1; w < 60; w++) {
+        const e = eventInWindow(s, w);
+        if (e) counts[e.kind] = (counts[e.kind] ?? 0) + 1;
+      }
     }
-    expect(kinds).toEqual(new Set(['storm', 'eclipse']));
+    expect(Object.keys(counts).sort()).toEqual(['blizzard', 'eclipse', 'fullmoon', 'starry', 'storm']);
+    expect(counts.storm).toBeGreaterThan(counts.starry * 4);
+    expect(counts.blizzard).toBeLessThan(counts.eclipse);
+  });
+
+  it('an ad can summon a random event right now, within the daily ad cap', () => {
+    const s = fresh();
+    const t = T0 + 30_000;
+    const r = summonEvent(s, t);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(activeEvent(s, t + 1000)?.kind).toBe(r.kind);
+    expect(summonEvent(s, t + 1000).ok).toBe(false);
+    const events = tick(s, t + 6 * MIN, { maxStepMs: 5000 });
+    expect(events.some((e) => e.type === 'eventStart' && e.kind === r.kind)).toBe(true);
+    expect(events.some((e) => e.type === 'eventEnd' && e.kind === r.kind)).toBe(true);
+    // Keep summoning whenever the sky is free; the daily ad cap is the only limit.
+    let n = 1;
+    for (let when = t + 10 * MIN; when < t + 6 * 60 * MIN; when += MIN) {
+      if (activeEvent(s, when)) continue;
+      if (summonEvent(s, when).ok) n++;
+    }
+    expect(n).toBe(TUNING.adsPerDay);
+    expect(summonEvent(s, t + 7 * 60 * MIN).ok).toBe(false);
+  });
+
+  it('every event can touch and mutate residents', () => {
+    const seen = new Set<string>();
+    for (let seed = 1; seed <= 40 && seen.size < 5; seed++) {
+      const s = fresh(seed);
+      for (let i = 0; i < 5; i++) {
+        const t = T0 + (i * 60 + 30) * MIN;
+        s.lastTick = t;
+        if (!summonEvent(s, t).ok) continue;
+        s.ads.count = 0;
+        const ev = tick(s, t + 6 * MIN, { maxStepMs: 5000 });
+        for (const e of ev) if (e.type === 'mutation') seen.add(e.cause);
+      }
+    }
+    expect(seen.size).toBe(5);
   });
 
   it('emits start and end once', () => {

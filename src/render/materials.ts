@@ -1,11 +1,13 @@
 import * as THREE from 'three';
+import { mergeVertices } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 
 // A shared 3-band toon ramp gives everything the same soft, illustrated look
 // and keeps shader variants (and mobile compile hitches) to a minimum.
 let ramp: THREE.DataTexture | null = null;
 export function toonRamp(): THREE.DataTexture {
   if (ramp) return ramp;
-  const data = new Uint8Array([90, 90, 90, 255, 175, 175, 175, 255, 255, 255, 255, 255]);
+  // Bright, toy-like ramp: soft shadow band, no muddy darks.
+  const data = new Uint8Array([150, 150, 150, 255, 210, 210, 210, 255, 255, 255, 255, 255]);
   ramp = new THREE.DataTexture(data, 3, 1, THREE.RGBAFormat);
   ramp.minFilter = THREE.NearestFilter;
   ramp.magFilter = THREE.NearestFilter;
@@ -87,4 +89,68 @@ export function emoteTexture(text: string): THREE.Texture {
   tex.colorSpace = THREE.SRGBColorSpace;
   emoteCache.set(text, tex);
   return tex;
+}
+
+// ---------------------------------------------------------------- toy-box outlines
+// Inverted-hull outlines: a slightly inflated, back-face-only copy of a mesh drawn
+// in navy. Inflation happens in view space so the line weight is even regardless
+// of how a part is scaled. Faceted geometry gets smoothed normals for the hull so
+// hard edges don't crack.
+
+const OUTLINE_COLOR = new THREE.Color('#1b2a4a');
+const outlineMats = new Map<number, THREE.ShaderMaterial>();
+
+/** `thickness` is the outline width in (approximate) screen pixels. */
+export function outlineMaterial(thickness = 3): THREE.ShaderMaterial {
+  let m = outlineMats.get(thickness);
+  if (!m) {
+    m = new THREE.ShaderMaterial({
+      side: THREE.BackSide,
+      uniforms: { color: { value: OUTLINE_COLOR }, thickness: { value: thickness } },
+      vertexShader: `uniform float thickness;
+        void main() {
+          vec4 mv = modelViewMatrix * vec4(position, 1.0);
+          vec3 n = normalize(normalMatrix * normal);
+          // thickness is roughly in screen pixels: scale the offset with view distance
+          mv.xyz += n * thickness * max(-mv.z, 1.0) * 0.0012;
+          gl_Position = projectionMatrix * mv;
+        }`,
+      fragmentShader: `uniform vec3 color; void main() { gl_FragColor = vec4(color, 1.0); }`,
+    });
+    outlineMats.set(thickness, m);
+  }
+  return m;
+}
+
+const hullCache = new WeakMap<THREE.BufferGeometry, THREE.BufferGeometry>();
+
+function hullGeometry(geo: THREE.BufferGeometry): THREE.BufferGeometry {
+  let hull = hullCache.get(geo);
+  if (hull) return hull;
+  const base = new THREE.BufferGeometry();
+  base.setAttribute('position', geo.getAttribute('position'));
+  if (geo.index) base.setIndex(geo.index);
+  hull = mergeVertices(base, 1e-3);
+  hull.computeVertexNormals();
+  hullCache.set(geo, hull);
+  return hull;
+}
+
+/** Give every solid mesh under `root` a navy outline. Skips sprites, hit boxes and transparent effects. */
+export function addOutlines(root: THREE.Object3D, thickness = 3): void {
+  const targets: THREE.Mesh[] = [];
+  root.traverse((o) => {
+    if (!(o instanceof THREE.Mesh) || o.userData.outline || o.userData.noOutline) return;
+    const mat = o.material as THREE.Material;
+    if (!mat || mat.visible === false || mat.transparent || mat instanceof THREE.ShaderMaterial) return;
+    targets.push(o);
+  });
+  for (const o of targets) {
+    const hull = new THREE.Mesh(hullGeometry(o.geometry), outlineMaterial(thickness));
+    hull.userData.outline = true;
+    hull.castShadow = false;
+    hull.receiveShadow = false;
+    hull.raycast = () => {};
+    o.add(hull);
+  }
 }

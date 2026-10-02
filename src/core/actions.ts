@@ -2,7 +2,7 @@
 // show. Keeping these pure makes them testable and server-verifiable later.
 
 import { species } from '../content/species';
-import { DECOR, EVENTS, ITEMS, LURES, MUTATIONS, RESONANCES, SPOTS } from '../content/world';
+import { DECOR, EVENTS, ITEMS, LURES, MUTATIONS, RESONANCES, SPOTS, SUMMON_WEIGHTS } from '../content/world';
 import { TUNING } from '../content/tuning';
 import { addMutation, displayName, makeCreature, newId } from './creatures';
 import { compatibility, combine, incubationMs } from './genetics';
@@ -10,7 +10,7 @@ import { addNote, recordMutation, recordResonance, recordSpecies } from './journ
 import { StateRng } from './rng';
 import { refreshShop } from './shop';
 import { freeNest } from './state';
-import type { Creature, Egg, GameState, MutationId, SpotId } from './types';
+import type { Creature, Egg, EventKind, GameState, MutationId, SpotId } from './types';
 import { activeEvent } from './world';
 
 export type Result<T = object> = ({ ok: true } & T) | { ok: false; error: string };
@@ -151,7 +151,7 @@ export function buyOffer(state: GameState, offerId: string, t: number): Result<{
   if (!o) return fail('That offer has gone.');
   if (o.stock <= 0) return fail('Sold out.');
   const wallet = o.currency === 'glimmer' ? state.glimmer : state.shards;
-  if (wallet < o.price) return fail(o.currency === 'glimmer' ? 'Not enough Glimmer.' : 'Not enough Starshards.');
+  if (wallet < o.price) return fail(o.currency === 'glimmer' ? 'Not enough coins.' : 'Not enough Starshards.');
   if (o.kind === 'egg' && state.eggs.filter((e) => e.nest === null).length >= TUNING.basketSize) {
     return fail('Your egg basket is full.');
   }
@@ -294,6 +294,22 @@ export function storeDecor(state: GameState, placedId: string): Result {
   state.placedDecor = state.placedDecor.filter((p) => p !== d);
   state.decorOwned[d.decor] = (state.decorOwned[d.decor] ?? 0) + 1;
   return { ok: true };
+}
+
+/**
+ * Rewarded ad: summon a random sky event right now. Uses one of the day's ads.
+ * Every summonable event can also happen naturally, so ad-free players see them too.
+ */
+export function summonEvent(state: GameState, t: number): Result<{ kind: EventKind }> {
+  if (activeEvent(state, t)) return fail('The sky is already busy. Wait for this event to pass.');
+  if (adsLeft(state, t) <= 0) return fail('No more ads today. Come back tomorrow!');
+  const rng = new StateRng(state);
+  const kind = rng.weighted(Object.entries(SUMMON_WEIGHTS) as [EventKind, number][]) ?? 'storm';
+  const [dMin, dMax] = EVENTS[kind].durationMin;
+  const dur = rng.range(dMin, dMax) * 60_000;
+  consumeAd(state, t);
+  state.summoned = { kind, start: t, end: t + dur };
+  return { ok: true, kind };
 }
 
 /** Developer helper for testing: grant a mutation directly. */

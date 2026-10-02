@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { species } from '../content/species';
 import type { MutationId, SpeciesId } from '../core/types';
 import { mulberry32 } from '../core/rng';
-import { glowSprite, toonRamp } from './materials';
+import { addOutlines, glowSprite, toonRamp } from './materials';
 
 let eggGeo: THREE.LatheGeometry | null = null;
 function eggGeometry(): THREE.LatheGeometry {
@@ -70,10 +70,13 @@ export function buildEgg(sp: SpeciesId, mutations: MutationId[], seed: number, s
   shell.castShadow = true;
   const root = new THREE.Group();
   root.add(shell);
+  addOutlines(root, 2.6);
   let glowColor = '#fff6d0';
   if (mutations.includes('lunar')) glowColor = '#b9c6ff';
   if (mutations.includes('storm')) glowColor = '#ffe14d';
-  if (mutations.includes('lunar') || mutations.includes('storm')) {
+  if (mutations.includes('starlit')) glowColor = '#fff1a8';
+  if (mutations.includes('frost')) glowColor = '#bfe8ff';
+  if (['lunar', 'storm', 'starlit', 'frost'].some((m) => mutations.includes(m as MutationId))) {
     mat.emissive = new THREE.Color(glowColor);
     mat.emissiveIntensity = 0.18;
   }

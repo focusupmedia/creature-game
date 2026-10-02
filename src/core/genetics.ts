@@ -102,6 +102,8 @@ export function eggClues(e: { species: SpeciesId; mutations: MutationId[]; witne
   if (has('giant')) clues.push('It is surprisingly heavy.');
   if (has('lunar')) clues.push('A faint silver light pulses under the shell.');
   if (has('storm')) clues.push('It crackles when you touch it.');
+  if (has('starlit')) clues.push('Tiny lights twinkle across the shell.');
+  if (has('frost')) clues.push('It is cold, and frost keeps forming on it.');
   if (has('prismatic')) clues.push('The shell shifts color as you turn it.');
   if (sp.rarity === 'rare' || sp.rarity === 'legendary') clues.push('It takes its time. Whatever is inside is in no hurry.');
   return clues;

@@ -12,17 +12,11 @@ export const TUNING = {
   /** Each window may host one sky event. */
   eventWindowMin: 22,
   eventChancePerWindow: 0.65,
-  eventWeights: { storm: 0.65, eclipse: 0.35 },
+  /** Natural frequencies. Starry Night, Full Moon and Blizzard are rare unless summoned. */
+  eventWeights: { storm: 0.55, eclipse: 0.25, starry: 0.08, fullmoon: 0.07, blizzard: 0.05 } as Record<string, number>,
   /** The very first window always brings a storm so new keepers see the world change. */
   firstStormAtMin: 7,
   forecastLeadMin: 1.5,
-  /** Average seconds between sparkfall strikes during a storm. */
-  sparkfallEverySec: 35,
-  sparkfallMutationChance: 0.3,
-  maxStrikesPerStorm: 2,
-  /** Moonbeams per eclipse that silver a resident creature. */
-  moonbeamsPerEclipse: 1,
-  moonbeamChance: 0.6,
 
   rarityWeight: { common: 10, uncommon: 4, rare: 1.2, legendary: 0.3 } as Record<string, number>,
   prismaticChance: 0.005,

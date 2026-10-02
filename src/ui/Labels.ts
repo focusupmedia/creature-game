@@ -7,6 +7,7 @@ import { nestOccupant } from '../core/state';
 import { activeEvent, isDark } from '../core/world';
 import type { Game } from '../game/Game';
 import { h } from './dom';
+import { GEAR, icon } from './icons';
 
 // Labels that float over the 3D world and always face the player.
 // - Signs (Shop, Kindred Font, nests) fade in when zoomed in.
@@ -52,7 +53,7 @@ export class WorldLabels {
       h('button', {
         class: 'wl-cog', 'aria-label': 'Creature options',
         onClick: (e: MouseEvent) => { e.stopPropagation(); if (this.bubbleFor) this.act.openCreatureMenu(this.bubbleFor); },
-      }, '⚙️'),
+      }, icon(GEAR)),
     );
     this.host.append(this.bubble);
     this.buildPins();

@@ -8,15 +8,15 @@ export type Trait =
   // Kinds — body plans
   | 'Amphibian' | 'Reptile' | 'Insect' | 'Bird' | 'Fish' | 'Mammal' | 'Fungus' | 'Spirit'
   // Mutation traits — acquired, never native
-  | 'Lunar' | 'Storm' | 'Giant' | 'Prismatic';
+  | 'Lunar' | 'Storm' | 'Giant' | 'Prismatic' | 'Starlit' | 'Frost';
 
 export type SpeciesId = string;
-export type MutationId = 'lunar' | 'storm' | 'giant' | 'prismatic';
+export type MutationId = 'lunar' | 'storm' | 'giant' | 'prismatic' | 'starlit' | 'frost';
 export type LureId = string;
 export type ItemId = string;
 export type DecorId = string;
 export type SpotId = string;
-export type EventKind = 'storm' | 'eclipse';
+export type EventKind = 'storm' | 'eclipse' | 'starry' | 'fullmoon' | 'blizzard';
 
 export type Rarity = 'common' | 'uncommon' | 'rare' | 'legendary';
 export type Activity = 'day' | 'night' | 'any';
@@ -97,6 +97,27 @@ export interface EventDef {
   durationMin: [number, number];
   /** Counts as night for nocturnal creatures. */
   dark: boolean;
+  /** How the event reaches down and changes a resident creature. */
+  touch: {
+    /** e.g. "sparkfall", "moonbeam" */
+    name: string;
+    /** Touches per event, spread across its duration. */
+    perEvent: number;
+    /** Chance a touch actually mutates the creature. */
+    chance: number;
+    /** Creatures with this trait are 4× more likely to be chosen. */
+    favor?: Trait;
+    story: string;
+    /** Journal line the first time it changes a creature. */
+    lesson: string;
+    /** Shown in the creature's bubble. */
+    bubble: string;
+  };
+  icon: string;
+  /** Toast when it begins / ends, and a line for the away report. */
+  arrive: string;
+  leave: string;
+  away: string;
 }
 
 export interface ItemDef {
@@ -228,7 +249,9 @@ export interface GameState {
   shop: ShopState;
   journal: JournalState;
   /** Event occurrences already applied (by window index) so effects don't double up. */
-  eventsApplied: Record<string, { kind: EventKind; started: boolean; ended: boolean; strikes: number; moonbeams: number }>;
+  eventsApplied: Record<string, { kind: EventKind; started: boolean; ended: boolean; touches: number }>;
+  /** An event summoned by the player (rewarded ad). Takes precedence over the schedule. */
+  summoned?: { kind: EventKind; start: number; end: number } | null;
   tutorial: number;
   ads: { day: string; count: number };
   stats: { combines: number; hatches: number; arrivals: number; lures: number };
@@ -241,9 +264,9 @@ export interface GameState {
 /** Things that happened during a tick. Rendering, UI, audio and analytics react to these. */
 export type GameEvent =
   | { type: 'arrival'; creature: Creature; spot: SpotId; discovered: boolean; t: number }
-  | { type: 'mutation'; creature: Creature; mutation: MutationId; cause: 'sparkfall' | 'moonbeam'; t: number; discovered: boolean }
-  | { type: 'strike'; creature: Creature; t: number }
-  | { type: 'moonbeam'; creature: Creature; t: number }
+  | { type: 'mutation'; creature: Creature; mutation: MutationId; cause: EventKind; t: number; discovered: boolean }
+  /** The sky reached down to a creature (sparkfall, moonbeam, falling star, frost). It may or may not have changed it. */
+  | { type: 'skyTouch'; creature: Creature; event: EventKind; changed: boolean; t: number }
   | { type: 'lureExpired'; spot: SpotId; t: number }
   | { type: 'eggReady'; egg: Egg; t: number }
   | { type: 'eggTouched'; egg: Egg; event: EventKind; t: number }

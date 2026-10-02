@@ -3,7 +3,7 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import { BASKET, FONT, ISLAND_RADIUS, NESTS, POND, ROCKS, SHOP_STALL, TREES, inPond, blocked } from '../content/layout';
 import { SPOTS } from '../content/world';
 import { mulberry32 } from '../core/rng';
-import { glowSprite, glowTexture, toon, vertexToon } from './materials';
+import { addOutlines, glowSprite, glowTexture, toon, vertexToon } from './materials';
 
 // Static diorama. Everything that never moves is merged into one vertex-colored
 // mesh (one draw call); animated or interactive bits stay separate.
@@ -67,9 +67,9 @@ export function buildSanctuary(): Sanctuary {
 
   // ---- island body
   const top = new THREE.CylinderGeometry(ISLAND_RADIUS, ISLAND_RADIUS * 0.97, 0.6, 56, 1);
-  M.add(top, '#8fd16a', { x: 0, y: -0.3, z: 0 });
+  M.add(top, '#7fd94f', { x: 0, y: -0.3, z: 0 });
   const lip = new THREE.CylinderGeometry(ISLAND_RADIUS * 0.985, ISLAND_RADIUS * 0.9, 0.7, 56, 1);
-  M.add(lip, '#9a6b45', { x: 0, y: -0.95, z: 0 });
+  M.add(lip, '#c27a3e', { x: 0, y: -0.95, z: 0 });
   const under = new THREE.ConeGeometry(ISLAND_RADIUS * 0.9, 6.5, 14, 3);
   const pos = under.getAttribute('position');
   for (let i = 0; i < pos.count; i++) {
@@ -79,11 +79,11 @@ export function buildSanctuary(): Sanctuary {
       pos.setZ(i, pos.getZ(i) * (0.85 + rand() * 0.3));
     }
   }
-  M.add(under, '#7a5236', { x: 0, y: -4.55, z: 0 }, { x: Math.PI, y: 0, z: 0 });
+  M.add(under, '#a4603a', { x: 0, y: -4.55, z: 0 }, { x: Math.PI, y: 0, z: 0 });
   for (let i = 0; i < 9; i++) {
     const a = rand() * Math.PI * 2;
     const r = 3 + rand() * 4;
-    M.add(new THREE.DodecahedronGeometry(0.6 + rand() * 0.6, 0), '#6b6f73', { x: Math.cos(a) * r, y: -1.6 - rand() * 2.5, z: Math.sin(a) * r });
+    M.add(new THREE.DodecahedronGeometry(0.6 + rand() * 0.6, 0), '#8a7f86', { x: Math.cos(a) * r, y: -1.6 - rand() * 2.5, z: Math.sin(a) * r });
   }
 
   // invisible flat ground for picking taps on the world
@@ -100,7 +100,7 @@ export function buildSanctuary(): Sanctuary {
     M.add(new THREE.DodecahedronGeometry(0.22 + rand() * 0.12, 0), i % 3 ? '#a3a59c' : '#8b8e86',
       { x: POND.x + Math.cos(a) * (POND.r + 0.1), y: 0.05, z: POND.z + Math.sin(a) * (POND.r + 0.1) }, { x: 0, y: 0, z: 0 }, { x: 1, y: 0.6, z: 1 });
   }
-  const waterMat = new THREE.MeshToonMaterial({ color: '#4fb3d9', transparent: true, opacity: 0.88, emissive: '#1d5f8a', emissiveIntensity: 0.25 });
+  const waterMat = new THREE.MeshToonMaterial({ color: '#36c6ff', transparent: true, opacity: 0.92, emissive: '#1a8fd0', emissiveIntensity: 0.3 });
   const water = new THREE.Mesh(new THREE.CircleGeometry(POND.r, 40), waterMat);
   water.rotation.x = -Math.PI / 2;
   water.position.set(POND.x, 0.06, POND.z);
@@ -121,16 +121,16 @@ export function buildSanctuary(): Sanctuary {
     const t = i / 8;
     const x = 0.4 * (1 - t) + FONT.x * t + Math.sin(i) * 0.3;
     const z = 1.5 * (1 - t) + (FONT.z + 1.4) * t;
-    M.add(new THREE.CylinderGeometry(0.32, 0.36, 0.06, 8), '#d9cfa8', { x, y: 0.01, z }, { x: 0, y: rand(), z: 0 });
+    M.add(new THREE.CylinderGeometry(0.32, 0.36, 0.06, 8), '#f4dfa0', { x, y: 0.01, z }, { x: 0, y: rand(), z: 0 });
   }
 
   // ---- trees
   const canopies: THREE.Object3D[] = [];
   for (const t of TREES) {
-    M.add(new THREE.CylinderGeometry(0.2 * t.s, 0.32 * t.s, 2.2 * t.s, 7), '#7b5236', { x: t.x, y: 1.1 * t.s, z: t.z });
+    M.add(new THREE.CylinderGeometry(0.2 * t.s, 0.32 * t.s, 2.2 * t.s, 7), '#9a5a32', { x: t.x, y: 1.1 * t.s, z: t.z });
     const canopy = new THREE.Group();
     canopy.position.set(t.x, 2.2 * t.s, t.z);
-    const greens = ['#4f9e45', '#5fb24e', '#3f8a3f'];
+    const greens = ['#4fc23a', '#6fdc45', '#3fae35'];
     for (let i = 0; i < 3; i++) {
       const blob = new THREE.Mesh(new THREE.IcosahedronGeometry((1.2 - i * 0.18) * t.s, 0), toon(greens[i]));
       blob.position.set((rand() - 0.5) * 0.6 * t.s, i * 0.65 * t.s, (rand() - 0.5) * 0.6 * t.s);
@@ -185,7 +185,7 @@ export function buildSanctuary(): Sanctuary {
         M.add(new THREE.CylinderGeometry(0.06, 0.06, 0.4, 5), '#7b5236', { x: spot.x + dx, y: 0.05, z: spot.z + dz });
       }
     } else {
-      M.add(new THREE.CylinderGeometry(1.0, 1.0, 0.04, 24), '#d9cfa8', { x: spot.x, y: 0.01, z: spot.z });
+      M.add(new THREE.CylinderGeometry(1.0, 1.0, 0.04, 24), '#f4dfa0', { x: spot.x, y: 0.01, z: spot.z });
       for (let i = 0; i < 8; i++) {
         const a = (i / 8) * Math.PI * 2;
         M.add(new THREE.DodecahedronGeometry(0.15, 0), '#c9c2a8', { x: spot.x + Math.cos(a) * 1.0, y: 0.07, z: spot.z + Math.sin(a) * 1.0 });
@@ -227,9 +227,9 @@ export function buildSanctuary(): Sanctuary {
   // ---- the Kindred Font (combining)
   const font = new THREE.Group();
   font.position.set(FONT.x, 0, FONT.z);
-  M.add(new THREE.CylinderGeometry(1.15, 1.25, 0.12, 10), '#c9c2a8', { x: FONT.x, y: 0.06, z: FONT.z });
+  M.add(new THREE.CylinderGeometry(1.15, 1.25, 0.12, 10), '#e8dcc0', { x: FONT.x, y: 0.06, z: FONT.z });
   M.add(new THREE.CylinderGeometry(0.3, 0.42, 0.6, 8), '#b4ad95', { x: FONT.x, y: 0.42, z: FONT.z });
-  M.add(new THREE.CylinderGeometry(0.75, 0.5, 0.35, 10), '#cfc8ae', { x: FONT.x, y: 0.85, z: FONT.z });
+  M.add(new THREE.CylinderGeometry(0.75, 0.5, 0.35, 10), '#efe4c8', { x: FONT.x, y: 0.85, z: FONT.z });
   for (const s of [1, -1]) {
     M.add(new THREE.BoxGeometry(0.35, 1.7, 0.3), '#a8a28b', { x: FONT.x + 1.0 * s, y: 0.85, z: FONT.z - 0.2 }, { x: 0, y: 0, z: -0.08 * s });
     M.add(new THREE.SphereGeometry(0.25, 6, 4), '#6fae55', { x: FONT.x + 1.0 * s, y: 1.7, z: FONT.z - 0.2 }, { x: 0, y: 0, z: 0 }, { x: 1, y: 0.4, z: 1 });
@@ -343,11 +343,18 @@ export function buildSanctuary(): Sanctuary {
   pickables.push(sHit);
   group.add(stall);
 
-  group.add(M.build());
+  const scenery = M.build();
+  group.add(scenery);
+  // toy-box look: navy outlines on scenery, structures, trees
+  addOutlines(scenery, 2.6);
+  for (const c of canopies) addOutlines(c, 3);
+  addOutlines(stall, 3);
+  addOutlines(font, 2.6);
+  for (const n of nests) addOutlines(n, 2.4);
 
   // ---- clouds drifting below/around the island
   const clouds = new THREE.Group();
-  const cloudMat = toon('#ffffff');
+  const cloudMat = toon('#ffffff', '#dfefff', 0.3);
   for (let i = 0; i < 9; i++) {
     const c = new THREE.Group();
     for (let j = 0; j < 4; j++) {

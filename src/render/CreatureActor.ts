@@ -255,6 +255,9 @@ export class CreatureActor {
         s.rotation.set(this.phase * 5, this.phase * 3, 0);
       });
     }
+    if (m.twinkles) {
+      m.twinkles.children.forEach((s, i) => s.scale.setScalar(0.03 + Math.max(0, Math.sin(this.phase * 4 + i * 1.7)) * 0.05));
+    }
     if (this.root.userData.prismatic) animatePrismatic(m, time);
 
     // emote bubble

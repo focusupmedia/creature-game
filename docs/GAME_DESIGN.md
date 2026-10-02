@@ -141,6 +141,11 @@ The schedule is a pure function of (world seed, creation time, time), so the sam
 |---|---|---|
 | ⛈️ Thunderstorm | Rain, dark clouds, lightning, swaying trees. Exposed creatures run for tree shelter. Amphibians sing. | Tide lures strengthened (×1.6 rate). Storm arrivals. **Sparkfall** strikes a resident (up to 2 per storm, 30% to mutate). Eggs may absorb Storm. Lends Storm to pairings. |
 | 🌘 Eclipse | The moon slides over the sun. Purple dusk, stars, a corona. Creatures stop and look up. Mystics sparkle. | Nocturnals wake at noon. Mystic ×3 and Spirit ×3 attraction. Lunar arrivals. **A moonbeam** silvers a resident (Mystics favored). Eggs may absorb Lunar. Lends Lunar to pairings. |
+| 🌠 Starry Night *(rare / ad-summonable)* | Deep navy sky full of stars, shooting stars streak behind the island | Bloom lures strengthened. Insects and Spirits drawn in. **Falling stars** land on residents and can make them **Starlit**. |
+| 🌕 Full Moon *(rare / ad-summonable)* | A huge cartoon moon rises behind the island; silver light | Wakes nocturnals. Mystic lures strengthened. **Two moonbeams** per event, the best way to get Lunar. |
+| 🌨️ Blizzard *(rare / ad-summonable)* | Snow, white horizon clouds, close fog | Grove lures strengthened. Mammals and Birds drawn in. Creatures caught out can come back **Frost**. |
+
+**Rewarded ad → summon an event.** The EVENT button lets a player watch an ad to start a random event right now (rarer events are slightly favored). It shares the 6-ads-a-day cap. Every summonable event also happens naturally, just rarely, so players who never watch ads can still see everything.
 
 - **Forecast teaser:** about 90 seconds before an event, the banner hints at it ("The air feels heavy. The Mossfrogs have started singing."). This gives a reason to stay or to prepare a lure.
 - **First-session guarantee:** the first storm arrives 7 minutes into a new sanctuary.
@@ -150,7 +155,7 @@ The schedule is a pure function of (world seed, creation time, time), so the sam
 - A floating forest island diorama: pond, glade, the Kindred Font, nests, a merchant's stall, trees, rocks, wildflowers, drifting clouds below, fireflies at night.
 - **Day and night:** an accelerated 20-minute cycle in the prototype (production recommendation: about 90 minutes, D7). Sky gradient, sun and moon, stars, and lighting moods all follow it.
 - **Creature behavior:** wander, idle, nap (diurnals at night, nocturnals by day), visit lures that smell right, greet neighbors (💕 if kindred, 👋 otherwise), shelter from storms, sing in the rain, look up at eclipses, celebrate after a mutation. Each body plan has its own motion: hop, walk, scuttle, fly, swim, slither, waddle, float.
-- **Gifts:** creatures leave small sparkling gifts (Glimmer, rarely Starshards). Tapping them is a reason to look closely at the world.
+- **Gifts:** creatures leave small sparkling gifts (coins, rarely Starshards). Tapping them is a reason to look closely at the world.
 - **While you were away:** the same simulation runs over the gap (capped at 12 hours) and produces a story summary.
 
 ### Shop (the Traveling Merchant)
@@ -159,7 +164,7 @@ The stock rotates every 20 minutes in the prototype (production: about 4 hours).
 
 - **Staples:** Mossberry and Riverweed, always available.
 - **Curiosities:** Moonpetal and Honeydew rotate in. One item (Rootswell Tonic or Warm Stone). One **Traveler's Egg**: a non-common *wild* species, never a hybrid, because hybrids must be made.
-- **Decor:** two Glimmer decorations plus one **rotating premium decoration** (Starshards only, shown with ✦).
+- **Decor:** two coins decorations plus one **rotating premium decoration** (Starshards only, shown with ✦).
 - **Refresh early:** 5 💎 or one rewarded ad.
 
 ---
@@ -257,7 +262,7 @@ Creature = Species (body plan, native traits, activity, rarity)
 | Pebbleback | Reptile Tide | Day | Common | Walk |
 | Glowbeetle | Insect Grove | Night | Common | Scuttle |
 | Petalwing | Insect Bloom Grove | Day | Common | Fly |
-| Glimmerfin | Fish Tide | Any | Common | Swim |
+| coinsfin | Fish Tide | Any | Common | Swim |
 | Puffwren | Bird Grove | Day | Common | Hop |
 | Vinecoil | Reptile Grove | Any | Uncommon | Slither |
 | Burrowbun | Mammal Grove Bloom | Day | Common | Hop |
@@ -285,16 +290,16 @@ Creature = Species (body plan, native traits, activity, rarity)
 
 ### Currencies (only two)
 
-| | Glimmer ✨ (soft) | Starshards 💎 (premium) |
+| | Coins (8-bit coin, soft) | Starshards 💎 (premium) |
 |---|---|---|
 | Earn | Gifts from creatures (capped at 8 contributing residents and 14 on the ground); discovery rewards | First discoveries (2 to 5), rare gifts (3%), purchase |
 | Spend | Lures, tonics, Warm Stones, Traveler's Eggs, standard decor | Nests 3 and 4, finishing eggs early, early shop refresh, rotating premium decor |
 
-**Faucets are tied to looking at the world** (tapping gifts), not to idling or grinding. Sinks are consumable lures, so Glimmer keeps flowing into discovery.
+**Faucets are tied to looking at the world** (tapping gifts), not to idling or grinding. Sinks are consumable lures, so coins keeps flowing into discovery.
 
 ### Hard rules
 
-1. **Never sell discovery.** No creature, lure, hybrid or mutation for Starshards. Traveler's Eggs are Glimmer only and never hybrids.
+1. **Never sell discovery.** No creature, lure, hybrid or mutation for Starshards. Traveler's Eggs are coins only and never hybrids.
 2. **Premium saves time or adds beauty.** It never adds power, because there isn't any power to add.
 3. **Free players get a complete game:** 2 free nests, all content reachable, and a premium currency trickle from discoveries.
 
@@ -302,6 +307,7 @@ Creature = Species (body plan, native traits, activity, rarity)
 
 | Placement | Offer | Limit |
 |---|---|---|
+| EVENT button | ▶ Summon a random sky event now | Shared cap |
 | Egg (≤ 15 min left) | ▶ Hatch now | Once per egg |
 | Shop | ▶ Free refresh | Shared cap |
 | *(Post-MVP)* Lure expired | ▶ Second wind (+50% duration) | Shared cap |

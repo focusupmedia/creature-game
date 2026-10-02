@@ -177,18 +177,18 @@ export class Game {
           this.ui.toast(`${displayName(ev.creature)} became ${MUTATIONS[ev.mutation].name}!${ev.discovered ? ' A new kind of change!' : ''}`, 'discovery', pic, 5000);
           break;
         }
-        case 'strike':
-          if (live) this.audio.play('thunder');
+        case 'skyTouch':
+          if (live) this.audio.play(ev.event === 'storm' ? 'thunder' : 'chime');
           break;
         case 'eventStart':
           this.analytics.track('sky_event', { kind: ev.kind });
           if (live) {
-            this.ui.toast(ev.kind === 'storm' ? '⛈️ A thunderstorm rolls in. Things may change out there…' : '🌘 The sun is going dark. An eclipse!', 'discovery', undefined, 5000);
+            this.ui.toast(`${EVENTS[ev.kind].icon} ${EVENTS[ev.kind].arrive}`, 'discovery', undefined, 5000);
             if (ev.kind === 'storm') this.audio.play('thunder'); else this.audio.play('chime');
           }
           break;
         case 'eventEnd':
-          if (live) this.ui.toast(ev.kind === 'storm' ? 'The storm passes. The air smells clean.' : 'The light returns.');
+          if (live) this.ui.toast(EVENTS[ev.kind].leave);
           break;
         case 'eggTouched':
           if (live) this.ui.toast(`An egg glows strangely as the ${EVENTS[ev.event].name.toLowerCase()} passes…`);
@@ -241,7 +241,7 @@ export class Game {
         const r = A.collectGift(this.state, p.id);
         if (r.ok) {
           this.audio.play('coin');
-          this.ui.toast(`Picked up a little gift: ✨${r.glimmer}${r.shards ? ` and 💎${r.shards}` : ''}`, 'info', undefined, 1800);
+          this.ui.toast(`Picked up a little gift: {coin} ${r.glimmer}${r.shards ? ` and {gem} ${r.shards}` : ''}`, 'info', undefined, 1800);
           this.analytics.track('gift_collected', { glimmer: r.glimmer, shards: r.shards });
           this.saveSoon();
         }
@@ -338,6 +338,25 @@ export class Game {
     this.analytics.track('ad_rewarded', { placement: 'egg_hatch' });
     this.ui.rerender();
     this.saveSoon();
+  }
+
+  /** Rewarded ad → a random sky event starts right now. */
+  async adSummon(): Promise<boolean> {
+    if (activeEvent(this.state, this.now())) {
+      this.ui.toast('The sky is already busy. Try again when this event passes.');
+      return false;
+    }
+    this.analytics.track('ad_offer_accepted', { placement: 'summon_event' });
+    const ok = await this.ads.showRewarded('summon_event');
+    if (!ok) return false;
+    const r = A.summonEvent(this.state, this.now());
+    if (!r.ok) {
+      this.ui.toast(r.error);
+      return false;
+    }
+    this.analytics.track('ad_rewarded', { placement: 'summon_event', kind: r.kind });
+    this.saveSoon();
+    return true;
   }
 
   async adRefreshShop(): Promise<void> {

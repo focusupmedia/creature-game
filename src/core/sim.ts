@@ -13,7 +13,7 @@ import { arrivalChance, arrivalMutations, arrivalWeights } from './lures';
 import { StateRng } from './rng';
 import { refreshShop } from './shop';
 import { freeNest } from './state';
-import type { EventKind, GameEvent, GameState, MutationId } from './types';
+import type { EventKind, GameEvent, GameState } from './types';
 import { activeEvent, isDark } from './world';
 
 const MIN = 60_000;
@@ -41,8 +41,9 @@ function step(state: GameState, t: number, dt: number, out: GameEvent[]): void {
 
   // ---- sky events
   if (ev) {
-    const key = String(ev.window);
-    const rec = (state.eventsApplied[key] ??= { kind: ev.kind, started: false, ended: false, strikes: 0, moonbeams: 0 });
+    const key = ev.key;
+    const rec = (state.eventsApplied[key] ??= { kind: ev.kind, started: false, ended: false, touches: 0 });
+    rec.touches ??= 0;
     if (!rec.started) {
       rec.started = true;
       state.journal.eventsSeen[ev.kind] = (state.journal.eventsSeen[ev.kind] ?? 0) + 1;
@@ -60,11 +61,10 @@ function step(state: GameState, t: number, dt: number, out: GameEvent[]): void {
         }
       }
     }
-    if (ev.kind === 'storm') sparkfall(state, t, dt, rec, rng, out);
-    if (ev.kind === 'eclipse') moonbeam(state, t, dt, ev.end - ev.start, rec, rng, out);
+    skyTouch(state, ev.kind, t, dt, ev.end - ev.start, rec, rng, out);
   }
   for (const [key, rec] of Object.entries(state.eventsApplied)) {
-    if (rec.started && !rec.ended && (!ev || String(ev.window) !== key)) {
+    if (rec.started && !rec.ended && (!ev || ev.key !== key)) {
       rec.ended = true;
       out.push({ type: 'eventEnd', kind: rec.kind, t });
     }
@@ -161,48 +161,33 @@ function step(state: GameState, t: number, dt: number, out: GameEvent[]): void {
   }
 }
 
-function sparkfall(state: GameState, t: number, dt: number, rec: { strikes: number }, rng: StateRng, out: GameEvent[]): void {
-  if (rec.strikes >= TUNING.maxStrikesPerStorm || !state.creatures.length) return;
-  if (!rng.chance(1 - Math.exp(-dt / (TUNING.sparkfallEverySec * 1000)))) return;
-  const target = rng.pick(state.creatures);
-  rec.strikes += 1;
-  const changes = !creatureTraits(target).includes('Storm') && rng.chance(TUNING.sparkfallMutationChance);
-  out.push({ type: 'strike', creature: target, t });
-  if (!changes) {
+/**
+ * The sky reaches down to one resident: sparkfall, a moonbeam, a falling star,
+ * a flurry of snow. Every touch is a visible moment; some of them change the creature.
+ */
+function skyTouch(
+  state: GameState, kind: EventKind, t: number, dt: number, durMs: number, rec: { touches: number }, rng: StateRng, out: GameEvent[],
+): void {
+  const def = EVENTS[kind];
+  const touch = def.touch;
+  if (rec.touches >= touch.perEvent || !state.creatures.length) return;
+  const rate = touch.perEvent / (durMs * 0.8);
+  if (!rng.chance(1 - Math.exp(-rate * dt))) return;
+  rec.touches += 1;
+  const target = rng.weighted(state.creatures.map((c) => [c, touch.favor && creatureTraits(c).includes(touch.favor) ? 4 : 1] as [typeof c, number]));
+  if (!target) return;
+  const trait = MUTATIONS[def.mutation].trait;
+  const changed = !creatureTraits(target).includes(trait) && rng.chance(touch.chance);
+  out.push({ type: 'skyTouch', creature: target, event: kind, changed, t });
+  if (!changed) {
     // A near miss still makes a story.
-    note(state, out, t, 'sparkfall-miss', 'Sparkfall struck near a creature during the storm. It looked startled, but unchanged.');
+    note(state, out, t, `${kind}-miss`, `During a ${def.name.toLowerCase()}, the ${touch.name} reached a creature. It looked startled, but unchanged.`);
     return;
   }
-  applyMutation(state, target, 'storm', t, 'sparkfall', 'Was struck by sparkfall during a thunderstorm, and changed.', out);
-}
-
-function moonbeam(
-  state: GameState, t: number, dt: number, durMs: number, rec: { moonbeams: number }, rng: StateRng, out: GameEvent[],
-): void {
-  if (rec.moonbeams >= TUNING.moonbeamsPerEclipse || !state.creatures.length) return;
-  const rate = TUNING.moonbeamsPerEclipse / (durMs * 0.8);
-  if (!rng.chance(1 - Math.exp(-rate * dt))) return;
-  rec.moonbeams += 1;
-  if (!rng.chance(TUNING.moonbeamChance)) return;
-  // Mystic creatures catch the moonlight more easily.
-  const cands = state.creatures.filter((c) => !creatureTraits(c).includes('Lunar'));
-  if (!cands.length) return;
-  const target = rng.weighted(cands.map((c) => [c, creatureTraits(c).includes('Mystic') ? 4 : 1] as [typeof c, number]));
-  if (!target) return;
-  out.push({ type: 'moonbeam', creature: target, t });
-  applyMutation(state, target, 'lunar', t, 'moonbeam', 'Bathed in a moonbeam during an eclipse. Its colors silvered.', out);
-}
-
-function applyMutation(
-  state: GameState, c: GameState['creatures'][number], m: MutationId, t: number,
-  cause: 'sparkfall' | 'moonbeam', story: string, out: GameEvent[],
-): void {
-  if (!addMutation(c, m, t, story)) return;
-  const discovered = recordMutation(state, m, t);
-  out.push({ type: 'mutation', creature: c, mutation: m, cause, t, discovered });
-  note(state, out, t, `${cause}-hit`, cause === 'sparkfall'
-    ? 'Creatures caught out in a thunderstorm can be changed by sparkfall.'
-    : 'An eclipse can silver a creature that stands in its moonbeam.');
+  if (!addMutation(target, def.mutation, t, touch.story)) return;
+  const discovered = recordMutation(state, def.mutation, t);
+  out.push({ type: 'mutation', creature: target, mutation: def.mutation, cause: kind, t, discovered });
+  note(state, out, t, `${kind}-hit`, touch.lesson);
 }
 
 function note(state: GameState, out: GameEvent[], t: number, key: string, text: string): void {

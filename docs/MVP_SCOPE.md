@@ -13,10 +13,10 @@ Specifically: do lures, pairings, eggs and the sky create "I wonder what happens
 | Eggs | Physical eggs, clues, patterns, shake/glow, sky absorption | ✅ |
 | 1 to 2 incubators | 2 free nests + 2 premium nests (Starshards) + egg basket | ✅ |
 | A small sanctuary | Floating forest island: pond, glade, Font, nests, stall | ✅ |
-| 2 to 3 mutations | Lunar, Storm, Giant, Prismatic | ✅ |
-| 2 environmental events | Thunderstorm (sparkfall), Eclipse (moonbeam) | ✅ |
+| 2 to 3 mutations | Lunar, Storm, Giant, Prismatic, Starlit, Frost | ✅ |
+| 2 environmental events | Thunderstorm, Eclipse, plus rare Starry Night, Full Moon, Blizzard (ad-summonable) | ✅ |
 | Basic rotating shop | Traveling Merchant: staples, rotating curiosities, premium decor | ✅ |
-| Basic currency | Glimmer (soft) and Starshards (premium) | ✅ |
+| Basic currency | Coins (soft, 8-bit coin) and Starshards (premium) | ✅ |
 | Basic cosmetics | 7 decorations, free placement | ✅ |
 | Basic save system | Versioned JSON, autosave, migrations, corrupt-save quarantine | ✅ |
 | Camera controls | Drag pan with inertia, pinch/wheel zoom, twist rotate, tap pick | ✅ |

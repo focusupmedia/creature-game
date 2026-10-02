@@ -10,8 +10,8 @@
 | M4 | **Kindred rule:** pairs must share a trait | Makes pairing a puzzle, and makes mutations open new pairings. |
 | M5 | Hybrids are keyed on **traits**, not species pairs | Learnable, and resistant to breeding charts. The sky can lend a trait. |
 | M6 | Lures pause when nothing can answer them | Avoids "I wasted my lure", and is itself a clue (Moonpetal by day). |
-| M7 | Two currencies only: Glimmer and Starshards | The brief asks to avoid excessive currencies. |
-| M8 | Gifts are the main Glimmer source, capped by 8 residents | Rewards looking at the world. Hoarding creatures isn't an income strategy. |
+| M7 | Two currencies only: coins and Starshards | The brief asks to avoid excessive currencies. |
+| M8 | Gifts are the main coins source, capped by 8 residents | Rewards looking at the world. Hoarding creatures isn't an income strategy. |
 | M9 | Sanctuary capacity is 20. Full sanctuaries still record visitors in the journal. | Discovery continues even when full. "Say goodbye" is gentle and never sells creatures. |
 | M10 | Sky schedule is deterministic per sanctuary (seed + time) | Identical live and offline. A server calendar can override it later. |
 | M11 | First storm guaranteed at minute 7; first arrival guaranteed within about 30 s | The first session must show that the world changes. |
@@ -33,11 +33,15 @@
 | A10 | **Tap a pet:** name and current activity above its head, ⚙️ for the full menu | ✅ Built |
 | A11 | **Shop as a building** with a sign that faces the player when zoomed in | ✅ Built |
 | A12 | **Clearer bait spots and a decluttered map** | ✅ Built |
-| A13 | **UI visual style:** waiting for your direction; only layout and behavior change until then | Waiting on you |
+| A13 | **UI visual style:** bright, chunky casual style from your reference image (glossy outlined buttons, purple panel headers, orange dock tiles, Lilita One + Nunito fonts) | ✅ Built |
+| A14 | **Map style:** bright toy-box (saturated colors, navy outlines on creatures, buildings and scenery) | ✅ Built |
+| A15 | **Ads summon events** (replaces the mutation-boost ad idea): watching an ad starts a random sky event, any time, within the 6-ads-a-day cap | ✅ Built |
+| A16 | **New events:** Starry Night (new Starlit mutation), Full Moon (stronger Lunar, wakes night creatures), Blizzard (new Frost mutation). They can also happen naturally, but rarely | ✅ Built |
+| A17 | **Storm clouds** sit on the horizon behind the island instead of covering the screen | ✅ Built |
 
 ## Where I'm challenging the brief
 
-**C1 (open: options A/B/C in chat). "Watch Ad → increase mutation opportunity."** This sells discovery odds, which contradicts the rule "do not monetize discovery itself", and it trains players to feel that un-boosted discoveries are second-class. **Recommendation:** don't build it. Use "Watch ad → lure second wind" instead, which saves time without changing odds. *Not built.*
+**C1 (resolved: replaced by A15). "Watch Ad → increase mutation opportunity."** This sells discovery odds, which contradicts the rule "do not monetize discovery itself", and it trains players to feel that un-boosted discoveries are second-class. **Recommendation:** don't build it. Use "Watch ad → lure second wind" instead, which saves time without changing odds. *Not built.*
 
 **C2. Premium incubator slots.** Nests are the throughput of the Create pillar, so selling them edges toward selling discovery speed. **Recommendation:** keep 2 free nests plus nests 3 and 4 for Starshards (built). In M1, test making nest 3 **earnable** through a journal milestone, so a free player can reach it.
 

@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { species as speciesDef } from '../content/species';
 import { visibleMutations } from '../core/creatures';
 import type { MutationId, Movement, SpeciesId } from '../core/types';
-import { glowSprite, uniqueToon } from './materials';
+import { addOutlines, glowSprite, uniqueToon } from './materials';
 
 // Procedural, primitive-built creatures. This is a deliberate prototype choice:
 // silhouettes and mutation overlays can be iterated in code in minutes, and each
@@ -19,6 +19,8 @@ export interface CreatureModel {
   segments: THREE.Object3D[];
   glows: THREE.Sprite[];
   sparks?: THREE.Group;
+  /** Starlit: tiny lights that twinkle across the body. */
+  twinkles?: THREE.Group;
   materials: THREE.MeshToonMaterial[];
   height: number;
   movement: Movement;
@@ -96,10 +98,13 @@ class Kit {
     g.position.set(x, y, z);
     const white = this.ball(r, '#ffffff', [0, 0, 0]);
     white.castShadow = false;
+    white.userData.noOutline = r < 0.05;
     const pupil = this.ball(r * 0.62, '#1a1420', [dir.x * r * 0.5, dir.y * r * 0.5, dir.z * r * 0.5]);
     pupil.castShadow = false;
+    pupil.userData.noOutline = true;
     const shine = this.ball(r * 0.22, '#ffffff', [dir.x * r * 0.75 + r * 0.2, r * 0.35, dir.z * r * 0.75]);
     shine.castShadow = false;
+    shine.userData.noOutline = true;
     g.add(white, pupil, shine);
     parent.add(g);
     return g;
@@ -513,6 +518,16 @@ function mutatePalette(P: Palette, muts: MutationId[], seed: number): Palette {
     out.second = '#ffd23d';
     out.accent = '#fff27a';
   }
+  const mix = (hex: string, to: string, t: number) => `#${new THREE.Color(hex).lerp(new THREE.Color(to), t).getHexString()}`;
+  if (muts.includes('frost')) {
+    out.main = mix(out.main, '#cdeeff', 0.55);
+    out.second = mix(out.second, '#8fd0ff', 0.45);
+    out.belly = mix(out.belly, '#ffffff', 0.6);
+  }
+  if (muts.includes('starlit')) {
+    out.main = mix(out.main, '#3b3f9a', 0.45);
+    out.second = mix(out.second, '#2a2c70', 0.4);
+  }
   return out;
 }
 
@@ -552,12 +567,44 @@ export function buildCreature(speciesId: SpeciesId, mutations: MutationId[], see
     for (let i = 0; i < 4; i++) {
       const s = k.mesh(G.tetra, '#fff27a', [0.05, 0.05, 0.05], [0, 0, 0], '#ffe14d');
       s.castShadow = false;
+      s.userData.noOutline = true;
       sparks.add(s);
     }
     sparks.position.y = m.height * 0.55;
     body.add(sparks);
     m.sparks = sparks;
   }
+  if (muts.includes('starlit')) {
+    const tw = new THREE.Group();
+    for (let i = 0; i < 9; i++) {
+      const a = i * 2.39996;
+      const y = m.height * (0.25 + (i % 4) * 0.15);
+      const r = 0.22 + (i % 3) * 0.06;
+      const s = k.mesh(G.lowSphere, '#fff6c0', [0.035, 0.035, 0.035], [Math.cos(a) * r, y, Math.sin(a) * r], '#ffe98a');
+      s.castShadow = false;
+      s.userData.noOutline = true;
+      tw.add(s);
+    }
+    body.add(tw);
+    m.twinkles = tw;
+    const glow = glowSprite('#c9c4ff', 1.5, 0.5);
+    glow.position.y = m.height * 0.5;
+    body.add(glow);
+    m.glows.push(glow);
+  }
+  if (muts.includes('frost')) {
+    for (let i = 0; i < 5; i++) {
+      const a = (i / 5) * Math.PI * 2;
+      const spike = k.mesh(G.cone, '#f4fbff', [0.035, 0.14, 0.035], [Math.cos(a) * 0.14, m.height * 0.9, Math.sin(a) * 0.14], '#bfe8ff');
+      spike.rotation.set(Math.sin(a) * 0.4, 0, -Math.cos(a) * 0.4);
+      body.add(spike);
+    }
+    const chill = glowSprite('#bfe8ff', 1.4, 0.35);
+    chill.position.y = m.height * 0.4;
+    body.add(chill);
+    m.glows.push(chill);
+  }
+  addOutlines(body, 2.6);
   const size = 0.94 + ((seed >>> 3) % 100) / 100 * 0.12;
   m.baseScale = size * (muts.includes('giant') ? 1.6 : 1) * (sp.rarity === 'legendary' ? 1.2 : 1);
   root.scale.setScalar(m.baseScale);

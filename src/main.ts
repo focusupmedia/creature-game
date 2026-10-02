@@ -1,3 +1,6 @@
+import '@fontsource/lilita-one/latin-400.css';
+import '@fontsource/nunito/latin-700.css';
+import '@fontsource/nunito/latin-800.css';
 import './ui/styles.css';
 import { Game } from './game/Game';
 import { applyRemoteConfig } from './platform/services';

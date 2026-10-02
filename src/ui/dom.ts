@@ -1,3 +1,5 @@
+import { COIN, GEM } from './icons';
+
 type Child = Node | string | number | null | undefined | false;
 type Props = Record<string, unknown> & { class?: string; style?: string; onClick?: (e: MouseEvent) => void };
 
@@ -28,6 +30,20 @@ export function fmtDuration(ms: number): string {
   if (m < 60) return `${m}m ${String(s % 60).padStart(2, '0')}s`;
   const hr = Math.floor(m / 60);
   return `${hr}h ${m % 60}m`;
+}
+
+/** Text with inline currency icons: "{coin}" and "{gem}" become the 8-bit coin and the gem. */
+export function rich(text: string): DocumentFragment {
+  const frag = document.createDocumentFragment();
+  for (const part of text.split(/(\{coin\}|\{gem\})/)) {
+    if (part === '{coin}' || part === '{gem}') {
+      const s = document.createElement('span');
+      s.className = 'icon';
+      s.innerHTML = part === '{coin}' ? COIN : GEM;
+      frag.append(s);
+    } else if (part) frag.append(part);
+  }
+  return frag;
 }
 
 export function img(src: string, cls = ''): HTMLImageElement {
