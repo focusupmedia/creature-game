@@ -1,5 +1,6 @@
 import { species } from '../content/species';
-import { DIG_KINDS, EVENTS, ITEMS, LURES, MUTATIONS, SPOTS } from '../content/world';
+import { DIG_KINDS, EVENTS, ITEMS, LEGENDARY, LURES, MUTATIONS, SPOTS } from '../content/world';
+import { claimBlessing, startLegendary } from '../core/legendary';
 import { ISLANDS } from '../content/islands';
 import { refreshShop } from '../core/shop';
 import { NESTS } from '../content/layout';
@@ -9,7 +10,7 @@ import { displayName, speciesTitle } from '../core/creatures';
 import { deserialize, serialize } from '../core/save';
 import { tick } from '../core/sim';
 import { createGame } from '../core/state';
-import type { GameEvent, GameState, IslandId } from '../core/types';
+import type { GameEvent, GameState, IslandId, LegendaryKind, MutationId } from '../core/types';
 import { activeEvent, dayPhase, nextEvent } from '../core/world';
 import { Audio } from '../platform/audio';
 import {
@@ -179,7 +180,8 @@ export class Game {
     const phase = dayPhase(this.state, t);
     this.world.sync(this.state, t, sky);
     this.world.sky.update(phase, sky, dt, performance.now() / 1000);
-    this.audio.ambience(dt, this.world.sky.darkness, sky);
+    const legend = this.state.legendary && t < this.state.legendary.end ? this.state.legendary.kind : null;
+    this.audio.ambience(dt, this.world.sky.darkness, sky, legend);
     this.ui.update(dt);
     this.saveAcc += dt;
     if (this.saveAcc > 15 || (this.dirty && this.saveAcc > 1)) {
@@ -243,6 +245,29 @@ export class Game {
           break;
         case 'lureExpired':
           if (live) this.ui.toast(`The lure at the ${SPOTS[ev.spot].name} has faded.`);
+          break;
+        case 'legendary': {
+          this.analytics.track('legendary_event', { kind: ev.kind, creature: ev.creature?.species ?? '' });
+          if (!live) break;
+          const def = LEGENDARY[ev.kind];
+          this.audio.play('fanfare');
+          this.ui.legendaryOverlay(ev.kind);
+          this.world.legendaryStart(ev.kind, def.island);
+          const where = def.island && def.island !== this.world.current ? ` (at ${ISLANDS[def.island].name})` : '';
+          this.ui.toast(`${def.icon} ${def.arrive}${where}`, 'discovery', undefined, 6000);
+          if (ev.creature) {
+            const pic = this.world.portraits.get(ev.creature.species, ev.creature.mutations);
+            const who = ev.creature.nickname ?? `Your ${species(ev.creature.species).name}`;
+            setTimeout(() => this.ui.toast(`${who} became ${MUTATIONS[def.mutation].name}!${ev.discovered ? ' A legendary change!' : ''}`, 'discovery', pic, 6000), 3500);
+          }
+          setTimeout(() => this.ui.toast('🎁 A gift was left for you! Tap GIFT to choose a change for any creature.', 'discovery', undefined, 6000), 7000);
+          break;
+        }
+        case 'legendaryEnd':
+          if (!live) break;
+          this.ui.toast(`${LEGENDARY[ev.kind].icon} ${LEGENDARY[ev.kind].leave}`);
+          this.ui.legendaryOverlayEnd();
+          this.world.legendaryEnd();
           break;
         case 'digSpot':
           if (live && ev.spot.island === this.world.current && this.digHints < 2) {
@@ -549,6 +574,30 @@ export class Game {
     this.dispatch(events, false);
     if (ms >= 30 * 60_000) this.ui.showAwayReport(events, ms);
     else this.ui.toast(`⏩ ${Math.round(ms / 60000)} minute${Math.round(ms / 60000) === 1 ? '' : 's'} passed.`);
+  }
+
+  /** Playtest: start a legendary event now. Players can never summon these. */
+  summonLegendary(kind: LegendaryKind): void {
+    const def = LEGENDARY[kind];
+    if (def.island && !this.state.islands[def.island]?.owned) return this.ui.toast(`You need ${ISLANDS[def.island].name} for that one.`);
+    if (this.state.legendary) return this.ui.toast('A legendary event is already happening.');
+    this.dispatch(startLegendary(this.state, kind, this.now()), true);
+    this.saveSoon();
+  }
+
+  claimBlessing(creatureId: string, m: MutationId): void {
+    const r = claimBlessing(this.state, creatureId, m, this.now());
+    if (!r.ok) {
+      this.audio.play('error');
+      return this.ui.toast(r.error);
+    }
+    this.audio.play('chime');
+    this.analytics.track('blessing_claimed', { mutation: m });
+    this.ui.closeSheet();
+    this.ui.toast(`✨ ${r.message}${r.discovered ? ' A new kind of change!' : ''}`, 'discovery', undefined, 5000);
+    const c = this.state.creatures.find((x) => x.id === creatureId);
+    if (c && c.island !== this.world.current) this.travel(c.island);
+    this.saveSoon();
   }
 
   skipToNextEvent(): void {

@@ -1,6 +1,6 @@
 import { ISLANDS } from './islands';
 import type {
-  DigKind, IslandId, DecorDef, EventDef, EventKind, ItemDef, LureDef, MutationDef, MutationId, ResonanceRule, SpotDef,
+  DigKind, IslandId, LegendaryKind, DecorDef, EventDef, EventKind, ItemDef, LureDef, MutationDef, MutationId, ResonanceRule, SpotDef,
 } from '../core/types';
 
 // ---------------------------------------------------------------- mutations
@@ -30,7 +30,63 @@ export const MUTATIONS: Record<MutationId, MutationDef> = {
     id: 'frost', trait: 'Frost', name: 'Frost', inheritChance: 0.45, tier: 'rare', glow: '#9fe0ff',
     blurb: 'Came through a blizzard frosted over. It leaves a chill wherever it goes.',
   },
+  angelic: {
+    id: 'angelic', trait: 'Angelic', name: 'Angelic', inheritChance: 0.25, tier: 'legendary', glow: '#fff3b0',
+    blurb: 'Touched by visiting angels. A golden halo and soft white wings.',
+  },
+  infernal: {
+    id: 'infernal', trait: 'Infernal', name: 'Infernal', inheritChance: 0.25, tier: 'legendary', glow: '#ff5a2a',
+    blurb: 'Kissed by the heart of the volcano. Little horns and a tail of embers.',
+  },
+  abyssal: {
+    id: 'abyssal', trait: 'Abyssal', name: 'Abyssal', inheritChance: 0.25, tier: 'legendary', glow: '#3affe0',
+    blurb: 'Came back from the deep tide glowing like the bottom of the sea.',
+  },
 };
+
+// ---------------------------------------------------------------- legendary events
+// Very rare and never for sale or summoned by ads. Each leaves a gift (give
+// one creature any mutation you choose) and one creature with a legendary mutation.
+export interface LegendaryDef {
+  name: string;
+  icon: string;
+  mutation: MutationId;
+  /** Where it happens: null for anywhere; otherwise only once you own that island, touching its creatures. */
+  island: IslandId | null;
+  meanHours: number;
+  durationMin: number;
+  arrive: string;
+  leave: string;
+  giftTitle: string;
+  giftBlurb: string;
+  story: string;
+}
+
+export const LEGENDARY: Record<LegendaryKind, LegendaryDef> = {
+  angel: {
+    name: 'Angels', icon: '👼', mutation: 'angelic', island: null, meanHours: 18, durationMin: 3,
+    arrive: 'The clouds part… angels are descending!', leave: 'The angels drift back up into the light.',
+    giftTitle: 'A gift from the angels', giftBlurb: 'Choose a creature, then choose any change for it.',
+    story: 'Was visited by angels and left with a halo and wings.',
+  },
+  infernal: {
+    name: 'The Eruption', icon: '🌋', mutation: 'infernal', island: 'volcano', meanHours: 24, durationMin: 3,
+    arrive: 'Ember Peak rumbles awake… the volcano erupts!', leave: 'The volcano settles back to a warm, sleepy glow.',
+    giftTitle: 'A gift from the volcano', giftBlurb: 'The fire offers one change. Choose a creature, then the change.',
+    story: 'Stood too close to the eruption and came back Infernal.',
+  },
+  abyssal: {
+    name: 'The Deep Tide', icon: '🌊', mutation: 'abyssal', island: 'lagoon', meanHours: 24, durationMin: 3,
+    arrive: 'The lagoon glows… a deep tide is rising from below!', leave: 'The deep tide sinks back into the dark.',
+    giftTitle: 'A gift from the deep', giftBlurb: 'Something old offers one change. Choose a creature, then the change.',
+    story: 'Swam down into the deep tide and came back Abyssal.',
+  },
+};
+
+export const LEGENDARY_ORDER: LegendaryKind[] = ['angel', 'infernal', 'abyssal'];
+
+/** Mutations a legendary gift can grant (legendary ones only come from the events themselves). */
+export const GIFTABLE_MUTATIONS: MutationId[] = ['lunar', 'storm', 'frost', 'starlit', 'giant', 'prismatic'];
 
 // ---------------------------------------------------------------- lures
 // Lures are named for what they smell like, so players learn by association

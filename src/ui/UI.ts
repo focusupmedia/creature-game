@@ -1,5 +1,5 @@
 import { SPECIES, species } from '../content/species';
-import { DECOR, EGG_TIERS, EVENTS, ITEMS, LURES, MUTATIONS, SPOTS } from '../content/world';
+import { DECOR, EGG_TIERS, EVENTS, GIFTABLE_MUTATIONS, ITEMS, LEGENDARY, LEGENDARY_ORDER, LURES, MUTATIONS, SPOTS } from '../content/world';
 import { ISLANDS, ISLAND_ORDER, SIZE_CAPACITY, SIZE_NAMES, SIZE_PRICE } from '../content/islands';
 import { TUNING } from '../content/tuning';
 import { NESTS, FONT, SHOP_STALL } from '../content/layout';
@@ -8,7 +8,7 @@ import { PERSONALITIES, creatureTraits, displayName, growth, sizeLabel, speciesT
 import { compatibility, eggClues } from '../core/genetics';
 import { arrivalWeights } from '../core/lures';
 import { nestOccupant } from '../core/state';
-import type { Creature, Egg, GameEvent, IslandId, MutationId, SpotId, Trait } from '../core/types';
+import type { Creature, Egg, GameEvent, IslandId, LegendaryKind, MutationId, SpotId, Trait } from '../core/types';
 import { activeEvent, dayPhase, daylight, isDark, nextEvent } from '../core/world';
 import type { Game } from '../game/Game';
 import { fmtDuration, h, img, rich } from './dom';
@@ -17,9 +17,9 @@ import { WorldLabels } from './Labels';
 
 const fmtClock = (ms: number) => `${Math.floor(Math.max(0, ms) / 60000)}:${String(Math.floor(Math.max(0, ms) / 1000) % 60).padStart(2, '0')}`;
 
-const MUT_ICON: Record<MutationId, string> = { lunar: '🌙', storm: '⚡', giant: '⛰️', prismatic: '🌈', starlit: '🌟', frost: '❄️' };
+const MUT_ICON: Record<MutationId, string> = { lunar: '🌙', storm: '⚡', giant: '⛰️', prismatic: '🌈', starlit: '🌟', frost: '❄️', angelic: '😇', infernal: '😈', abyssal: '🫧' };
 const HABITAT_ICON: Partial<Record<Trait, string>> = { Grove: '🌳', Tide: '💧', Bloom: '🌸', Mystic: '🔮' };
-const MUTATION_TRAITS: Trait[] = ['Lunar', 'Storm', 'Giant', 'Prismatic', 'Starlit', 'Frost'];
+const MUTATION_TRAITS: Trait[] = ['Lunar', 'Storm', 'Giant', 'Prismatic', 'Starlit', 'Frost', 'Angelic', 'Infernal', 'Abyssal'];
 
 /** What Mango says on each shop tab; the line changes with every new stock. */
 const MANGO_LINES: Record<'lure' | 'egg' | 'item' | 'decor' | 'shards', string[]> = {
@@ -36,6 +36,9 @@ export class UI {
   private shardsVal = h('span', { class: 'val' });
   private skyChip = h('span');
   private adsBadge = h('span', { class: 'count' });
+  private giftTile = h('button', { class: 'hud-tile gift hidden', 'aria-label': 'Claim a legendary gift', onClick: () => { this.game.audio.play('tap'); this.showBlessing(); } },
+    h('span', { class: 'emoji' }, '🎁'), h('span', { class: 'lbl' }, 'GIFT'));
+  private overlay: HTMLElement | null = null;
   private widget = h('div', { class: 'widget hidden' });
   private widgetKey = '';
   private banner = h('div', { class: 'banner hidden' });
@@ -80,6 +83,7 @@ export class UI {
               I.icon(I.SUMMON), h('span', { class: 'lbl' }, 'EVENT'), this.adsBadge),
             h('button', { class: 'hud-tile islands', 'aria-label': 'Islands', onClick: () => { this.game.audio.play('tap'); this.showIslands(); } },
               I.icon(I.ISLANDS), h('span', { class: 'lbl' }, 'ISLANDS')),
+            this.giftTile,
           ),
         ),
       ),
@@ -131,6 +135,7 @@ export class UI {
       if (this.lastShards >= 0) this.bump(this.shardsVal.parentElement!);
       this.lastShards = s.shards;
     }
+    this.giftTile.classList.toggle('hidden', !(s.blessing && t < s.blessing.expiresAt));
     const phase = dayPhase(s, t);
     const ev = activeEvent(s, t);
     const light = daylight(phase);
@@ -396,6 +401,62 @@ export class UI {
           comp.ok && free ? h('button', { class: 'btn', onClick: () => { close(); this.game.combine(a.id, b.id); } }, 'Breed!') : null),
       );
     });
+  }
+
+  // ---- legendary events
+
+  /** Clouds sweep across the screen and the light changes while a legendary event lasts. */
+  legendaryOverlay(kind: LegendaryKind): void {
+    this.overlay?.remove();
+    const clouds = Array.from({ length: 7 }, (_, i) => h('div', { class: 'lg-cloud', style: `top:${8 + i * 12}%;animation-delay:${(i % 4) * 0.35}s;transform:scale(${1 + (i % 3) * 0.35})` }));
+    this.overlay = h('div', { class: `lg-overlay ${kind}` }, h('div', { class: 'lg-tint' }), h('div', { class: 'lg-rays' }), ...clouds);
+    this.root.prepend(this.overlay);
+  }
+
+  legendaryOverlayEnd(): void {
+    const o = this.overlay;
+    if (!o) return;
+    this.overlay = null;
+    o.classList.add('ending');
+    setTimeout(() => o.remove(), 2200);
+  }
+
+  /** Claim a legendary gift: pick a creature, then any change for it. */
+  showBlessing(): void {
+    const s = this.game.state;
+    const b = s.blessing;
+    if (!b || this.game.now() >= b.expiresAt) return;
+    const def = LEGENDARY[b.kind];
+    this.openSheet(def.giftTitle, def.giftBlurb, (body) => {
+      body.append(h('p', { class: 'muted' }, `The gift fades in ${fmtDuration(b.expiresAt - this.game.now())}.`));
+      const grid = h('div', { class: 'grid' });
+      for (const c of s.creatures) {
+        grid.append(h('button', { class: 'tile', onClick: () => this.chooseGift(c) }, this.portrait(c, ''), displayName(c)));
+      }
+      body.append(grid);
+    }, '🎁');
+  }
+
+  private chooseGift(c: Creature): void {
+    const sp = species(c.species);
+    this.openSheet('Choose a change', `For ${displayName(c)}`, (body) => {
+      const list = h('div', { class: 'list' });
+      for (const m of GIFTABLE_MUTATIONS) {
+        const def = MUTATIONS[m];
+        const has = c.mutations.includes(m) || sp.traits.includes(def.trait);
+        list.append(h('div', { class: 'item' },
+          h('div', { class: 'swatch' }, MUT_ICON[m]),
+          h('div', { class: 'grow' }, h('div', { class: 'name' }, `${def.name}${def.tier !== 'common' ? ` · ${def.tier}` : ''}`), h('div', { class: 'desc' }, def.blurb)),
+          h('button', { class: 'btn small', disabled: has, onClick: () => this.modal((mm, close) => {
+            mm.append(h('h2', null, `Make ${displayName(c)} ${def.name}?`),
+              h('p', { class: 'muted' }, 'The gift can only be used once.'),
+              h('div', { class: 'btns' }, h('button', { class: 'btn secondary', onClick: close }, 'Not yet'),
+                h('button', { class: 'btn', onClick: () => { close(); this.game.claimBlessing(c.id, m); } }, 'Yes!')));
+          }) }, has ? 'Has it' : 'Choose')));
+      }
+      body.append(list);
+      body.append(h('button', { class: 'btn secondary wide', style: 'margin-top:10px', onClick: () => this.showBlessing() }, 'Pick a different creature'));
+    }, '🎁');
   }
 
   // ---- Kindred Font
@@ -680,6 +741,9 @@ export class UI {
       case 'starlit': return 'Have you ever seen a star fall? Where did it land?';
       case 'frost': return 'Some creatures come back changed from the cold.';
       case 'giant': return 'Some say two of a kind make something bigger. Or a tonic could help.';
+      case 'angelic': return 'Legendary. Some say angels visit, very rarely, and leave a mark.';
+      case 'infernal': return 'Legendary. What happens if Ember Peak ever wakes up?';
+      case 'abyssal': return 'Legendary. The lagoon is deeper than it looks. Something rises from it, once in a long while.';
       default: return 'Vanishingly rare. Nobody you know has seen one.';
     }
   }
@@ -778,6 +842,7 @@ export class UI {
         h('button', { class: 'btn small secondary', onClick: () => g.skip(5 * 60_000) }, '⏩ Skip 5 min'),
         h('button', { class: 'btn small secondary', onClick: () => g.skip(60 * 60_000) }, '⏩ Skip 1 hour (away)'),
         h('button', { class: 'btn small secondary', onClick: () => g.skipToNextEvent() }, '🌦️ Next sky event'),
+        ...LEGENDARY_ORDER.map((k) => h('button', { class: 'btn small secondary', onClick: () => { this.closeSheet(); g.summonLegendary(k); } }, `${LEGENDARY[k].icon} ${LEGENDARY[k].name}`)),
         h('button', { class: 'btn small secondary', onClick: () => { g.state.glimmer += 500; g.state.shards += 50; } }, '+500 coins +50 gems'),
       ));
       b.append(h('div', { class: 'section-title' }, 'Save'));

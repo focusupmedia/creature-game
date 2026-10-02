@@ -64,6 +64,8 @@ export const TUNING = {
   digSpotEveryMin: 6,
   digSpotMax: 2,
   digSpotLifeMin: 25,
+  /** How long a legendary event's gift waits to be claimed. */
+  blessingHours: 24,
 
   shopRefreshMin: 20,
   shopRefreshShards: 5,

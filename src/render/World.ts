@@ -2,11 +2,12 @@ import * as THREE from 'three';
 import { BASKET, NESTS } from '../content/layout';
 import { ISLAND_ORDER, inWater, isBlocked, islandGeo, onLand } from '../content/islands';
 import { EVENTS, LURES, SPOTS } from '../content/world';
-import type { Creature, Egg, EventKind, GameEvent, GameState, IslandId } from '../core/types';
+import type { Creature, Egg, EventKind, GameEvent, GameState, IslandId, LegendaryKind } from '../core/types';
 import { groundAt, groundNormal, groundY } from '../content/terrain';
 import { CameraRig } from './CameraRig';
 import { CreatureActor, type ActorContext, type FxKind } from './CreatureActor';
 import { animateDigSpot, buildDigSpot, disposeDigSpot, type DigSpotView } from './digSpots';
+import { LegendaryFx } from './legendaryFx';
 import { buildDecor } from './decor';
 import { animateShopkeeper } from './creatureModels';
 import { buildEgg, disposeEgg, type EggModel } from './eggModel';
@@ -77,6 +78,7 @@ export class World {
   private hoverRing: THREE.Mesh;
   private dropShadow: THREE.Mesh;
   private digViews = new Map<string, DigSpotView & { island: IslandId; x: number; z: number }>();
+  private legendaryFx: LegendaryFx;
 
   constructor(private container: HTMLElement) {
     this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
@@ -101,6 +103,7 @@ export class World {
     this.dropShadow.rotation.x = -Math.PI / 2;
     this.dropShadow.visible = false;
     this.scene.add(this.dropShadow);
+    this.legendaryFx = new LegendaryFx(this.scene);
     this.sky = new Sky(this.scene);
     this.buildClouds();
     this.portraits = new Portraits(this.renderer);
@@ -510,6 +513,17 @@ export class World {
     if (id) this.actors.get(id)?.setSelected(true);
   }
 
+  /** A legendary event begins: angels over this island, or the volcano / deep tide on theirs. */
+  legendaryStart(kind: LegendaryKind, island: IslandId | null): void {
+    const id = island ?? this.current;
+    const g = islandGeo(id, this.sizes[id] ?? 0);
+    this.legendaryFx.start(kind, new THREE.Vector3(g.ox, 0, g.oz), g.r);
+  }
+
+  legendaryEnd(): void {
+    this.legendaryFx.leave();
+  }
+
   /** Height of the (domed) ground at a world point. */
   groundAt(x: number, z: number): number {
     return groundAt(x, z, this.sizes);
@@ -783,6 +797,7 @@ export class World {
     // Only the island you're on is simulated visually; others are "unloaded".
     for (const a of visible) a.update(dt, this.time, ctx);
     this.updateCarry();
+    this.legendaryFx.update(dt, (x, z) => this.groundAt(x, z));
     for (const v of this.digViews.values()) if (v.root.visible) animateDigSpot(v, this.time);
 
     const windy = this.skyKind === 'storm' || this.skyKind === 'blizzard';

@@ -539,3 +539,30 @@ describe('mythicals', () => {
     expect(at('shallows', 'fullmoon')).toBe(false);
   });
 });
+
+describe('legendary events', () => {
+  it('leave a legendary mutation and a one-time gift you can claim', async () => {
+    const { startLegendary, claimBlessing } = await import('../src/core/legendary');
+    const s = createGame(11, 0);
+    tick(s, 60_000, { maxStepMs: 1000 });
+    const ev = startLegendary(s, 'angel', s.lastTick)[0];
+    if (ev.type !== 'legendary') throw new Error('expected a legendary event');
+    expect(ev.creature?.mutations).toContain('angelic');
+    expect(s.blessing?.kind).toBe('angel');
+    const target = s.creatures.find((c) => !c.mutations.includes('frost'))!;
+    expect(claimBlessing(s, target.id, 'angelic', s.lastTick).ok).toBe(false);
+    const r = claimBlessing(s, target.id, 'frost', s.lastTick);
+    expect(r.ok).toBe(true);
+    expect(target.mutations).toContain('frost');
+    expect(s.blessing).toBeNull();
+    expect(claimBlessing(s, target.id, 'starlit', s.lastTick).ok).toBe(false);
+  });
+
+  it('the Eruption only happens once you own Ember Peak', () => {
+    const s = createGame(12, 0);
+    for (let h = 1; h <= 200; h++) {
+      tick(s, h * 3_600_000, { maxStepMs: 60_000 });
+      if (s.legendary) expect(s.legendary.kind).toBe('angel');
+    }
+  });
+});

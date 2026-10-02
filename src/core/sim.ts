@@ -12,6 +12,7 @@ import { addNote, recordMutation, recordSpecies } from './journal';
 import { arrivalChance, arrivalMutations, arrivalWeights } from './lures';
 import { StateRng } from './rng';
 import { refreshShop } from './shop';
+import { stepLegendary } from './legendary';
 import { freeNest } from './state';
 import type { DigKind, EventKind, GameEvent, GameState, Gift, IslandId } from './types';
 import { activeEvent, isDark } from './world';
@@ -180,6 +181,9 @@ function step(state: GameState, t: number, dt: number, out: GameEvent[]): void {
     state.digSpots.push(spot);
     out.push({ type: 'digSpot', spot, t });
   }
+
+  // ---- legendary events (very rare)
+  stepLegendary(state, t, dt, rng, out);
 
   // ---- shop rotation
   if (t >= state.shop.nextRefreshAt) {

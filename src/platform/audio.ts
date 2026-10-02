@@ -2,11 +2,11 @@
 // the prototype has sound without an asset pipeline. Production replaces these
 // with authored sounds behind the same calls. Background music lives in music.ts.
 
-import type { EventKind } from '../core/types';
+import type { EventKind, LegendaryKind } from '../core/types';
 import type { MoodId } from './composer';
 import { Music } from './music';
 
-type Sfx = 'tap' | 'place' | 'arrive' | 'discover' | 'crack' | 'hatch' | 'coin' | 'thunder' | 'chime' | 'egg' | 'error';
+type Sfx = 'tap' | 'place' | 'arrive' | 'discover' | 'crack' | 'hatch' | 'coin' | 'thunder' | 'chime' | 'egg' | 'error' | 'fanfare';
 
 export class Audio {
   private ctx: AudioContext | null = null;
@@ -73,10 +73,11 @@ export class Audio {
   }
 
   /** Called every frame with world conditions. */
-  ambience(dt: number, darkness: number, sky: EventKind | null): void {
-    // Sky events set the music's mood; otherwise day or night, with a little
-    // overlap at dawn and dusk so it doesn't flip back and forth.
-    if (sky) this.mood = sky;
+  ambience(dt: number, darkness: number, sky: EventKind | null, legendary: LegendaryKind | null = null): void {
+    // Legendary and sky events set the music's mood; otherwise day or night,
+    // with a little overlap at dawn and dusk so it doesn't flip back and forth.
+    if (legendary) this.mood = legendary;
+    else if (sky) this.mood = sky;
     else if (darkness > 0.6) this.mood = 'night';
     else if (darkness < 0.4 || this.mood !== 'night') this.mood = 'day';
     if (!this.ctx || !this.rain || !this.wind) return;
@@ -151,6 +152,7 @@ export class Audio {
       case 'chime': [880, 1109, 1319].forEach((f, i) => this.tone(f, 0.8, 'sine', 0.06, 0, i * 0.15)); break;
       case 'egg': this.tone(392, 0.15, 'sine', 0.12, 200); break;
       case 'error': this.tone(200, 0.15, 'sawtooth', 0.05, -60); break;
+      case 'fanfare': [523, 659, 784, 1047, 1319, 1568].forEach((f, i) => { this.tone(f, 0.9, 'triangle', 0.09, 0, i * 0.12); this.tone(f / 2, 1.2, 'sine', 0.06, 0, i * 0.12); }); break;
     }
   }
 }

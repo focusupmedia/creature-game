@@ -8,10 +8,12 @@ export type Trait =
   // Kinds — body plans
   | 'Amphibian' | 'Reptile' | 'Insect' | 'Bird' | 'Fish' | 'Mammal' | 'Fungus' | 'Spirit' | 'Dragon' | 'Primate' | 'Arachnid'
   // Mutation traits — acquired, never native
-  | 'Lunar' | 'Storm' | 'Giant' | 'Prismatic' | 'Starlit' | 'Frost';
+  | 'Lunar' | 'Storm' | 'Giant' | 'Prismatic' | 'Starlit' | 'Frost' | 'Angelic' | 'Infernal' | 'Abyssal';
 
 export type SpeciesId = string;
-export type MutationId = 'lunar' | 'storm' | 'giant' | 'prismatic' | 'starlit' | 'frost';
+export type MutationId = 'lunar' | 'storm' | 'giant' | 'prismatic' | 'starlit' | 'frost' | 'angelic' | 'infernal' | 'abyssal';
+/** Very rare events that grant a gift and leave one creature with a legendary mutation. Never summoned by ads. */
+export type LegendaryKind = 'angel' | 'infernal' | 'abyssal';
 export type LureId = string;
 export type ItemId = string;
 export type DecorId = string;
@@ -298,6 +300,10 @@ export interface GameState {
   journal: JournalState;
   /** Event occurrences already applied (by window index) so effects don't double up. */
   eventsApplied: Record<string, { kind: EventKind; started: boolean; ended: boolean; touches: number }>;
+  /** A legendary event in progress (Angel, Infernal, Abyssal). */
+  legendary?: { kind: LegendaryKind; start: number; end: number } | null;
+  /** The gift a legendary event left: give one creature any mutation you choose. */
+  blessing?: { kind: LegendaryKind; expiresAt: number } | null;
   /** An event summoned by the player (rewarded ad). Takes precedence over the schedule. */
   summoned?: { kind: EventKind; start: number; end: number } | null;
   tutorial: number;
@@ -324,5 +330,7 @@ export type GameEvent =
   | { type: 'eventEnd'; kind: EventKind; t: number }
   | { type: 'gift'; gift: Gift; t: number }
   | { type: 'digSpot'; spot: DigSpot; t: number }
+  | { type: 'legendary'; kind: LegendaryKind; creature: Creature | null; discovered: boolean; t: number }
+  | { type: 'legendaryEnd'; kind: LegendaryKind; t: number }
   | { type: 'shopRefresh'; t: number }
   | { type: 'note'; text: string; t: number };

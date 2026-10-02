@@ -784,6 +784,19 @@ function mutatePalette(P: Palette, muts: MutationId[], seed: number): Palette {
     out.second = mix(out.second, '#2a2c70', solo ? 0.4 : 0.55);
     if (solo) out.main = mix(out.main, '#3b3f9a', 0.45);
   }
+  // legendary marks tint gently so the creature stays recognisable
+  if (muts.includes('angelic')) {
+    out.belly = mix(out.belly, '#ffffff', 0.6);
+    out.main = mix(out.main, '#fff6e0', 0.25);
+  }
+  if (muts.includes('infernal')) {
+    out.main = mix(out.main, '#b8382a', 0.35);
+    out.accent = '#ffb02a';
+  }
+  if (muts.includes('abyssal')) {
+    out.main = mix(out.main, '#1e3a78', 0.45);
+    out.second = mix(out.second, '#1a6a8a', 0.5);
+  }
   return out;
 }
 
@@ -862,6 +875,54 @@ export function buildCreature(speciesId: SpeciesId, mutations: MutationId[], see
     body.add(chill);
     m.glows.push(chill);
   }
+  if (muts.includes('angelic')) {
+    const halo = k.mesh(new THREE.TorusGeometry(1, 0.13, 6, 24), '#ffe27a', [0.17, 0.17, 0.17], [0, m.height + 0.18, 0], '#ffd23d');
+    halo.rotation.x = Math.PI / 2;
+    halo.userData.noOutline = true;
+    body.add(halo);
+    const wings: THREE.Object3D[] = [];
+    for (const s of [1, -1]) {
+      const wing = new THREE.Group();
+      wing.position.set(0.12 * s, m.height * 0.55, -m.height * 0.3);
+      for (let i = 0; i < 3; i++) {
+        const f = k.ball(0.13 - i * 0.025, '#ffffff', [(0.12 + i * 0.1) * s, 0.06 - i * 0.05, -0.05], [1, 0.32, 0.5]);
+        f.rotation.z = (0.5 - i * 0.25) * s;
+        wing.add(f);
+      }
+      body.add(wing);
+      wings.push(wing);
+    }
+    root.userData.angelWings = wings;
+  }
+  if (muts.includes('infernal')) {
+    for (const s of [1, -1]) {
+      const horn = k.mesh(G.cone, '#5a1a1a', [0.045, 0.16, 0.045], [0.1 * s, m.height * 0.98, m.height * 0.08]);
+      horn.rotation.z = -0.4 * s;
+      body.add(horn);
+    }
+    const embers = new THREE.Group();
+    embers.position.set(0, m.height * 0.35, -m.height * 0.4);
+    for (let i = 0; i < 3; i++) {
+      const flame = k.mesh(G.cone, i === 1 ? '#ffe27a' : '#ff6a1a', [0.05, 0.16, 0.05], [(i - 1) * 0.05, 0.06, 0], '#ff5a00');
+      flame.rotation.x = -0.6;
+      flame.userData.noOutline = true;
+      embers.add(flame);
+    }
+    const glow = glowSprite('#ff7a2a', 0.8, 0.6);
+    embers.add(glow);
+    body.add(embers);
+  }
+  if (muts.includes('abyssal')) {
+    for (let i = 0; i < 7; i++) {
+      const a = i * 2.39996;
+      const y = m.height * (0.25 + (i % 4) * 0.15);
+      const dot = k.ball(0.035, '#7affea', [Math.cos(a) * 0.24, y, Math.sin(a) * 0.24], [1, 1, 1], '#3affe0');
+      dot.castShadow = false;
+      dot.userData.noOutline = true;
+      body.add(dot);
+    }
+  }
+
   // Mythicals always shine; otherwise the rarest mutation sets the glow.
   const mythic = MYTHIC_GLOW[speciesId];
   const level = Math.max(glowLevel({ species: speciesId, mutations }), mythic ? 2 : 0);
@@ -912,11 +973,13 @@ function addAura(m: CreatureModel, level: number, glow: string, prismatic: boole
 const WHITE = new THREE.Color('#ffffff');
 const INK = new THREE.Color('#1b2a4a');
 const RIM_MIX = [0, 0.6, 0.85, 1];
-const EMISSIVE = [0, 0.1, 0.18, 0.3];
+const EMISSIVE = [0, 0.1, 0.18, 0.22];
 const AURA_OPACITY = [0, 0.35, 0.55, 0.75];
 
 /** Pulse the rare-mutation glow; call every frame. */
 export function animateGlow(model: CreatureModel, t: number): void {
+  const wings = model.root.userData.angelWings as THREE.Object3D[] | undefined;
+  wings?.forEach((w, i) => (w.rotation.y = Math.sin(t * 3) * 0.35 * (i ? -1 : 1)));
   const a = model.aura;
   if (!a) return;
   const pulse = 0.5 + 0.5 * Math.sin(t * 2.4);
@@ -1459,3 +1522,38 @@ Object.assign(BUILDERS, {
     m.height = 1.25;
   },
 } satisfies Record<string, Builder>);
+
+/** A little visiting angel for the Angel event. */
+export function buildCherub(): THREE.Group {
+  const k = new Kit();
+  const g = new THREE.Group();
+  const robe = k.mesh(G.cone, '#ffffff', [0.26, 0.5, 0.26], [0, 0.25, 0]);
+  g.add(robe);
+  g.add(k.ball(0.2, '#ffe0c8', [0, 0.62, 0]));
+  k.eye(g, 0.07, 0.65, 0.16, 0.035);
+  k.eye(g, -0.07, 0.65, 0.16, 0.035);
+  g.add(k.ball(0.04, '#ff9ab0', [0.11, 0.58, 0.14], [1, 0.6, 0.5]));
+  g.add(k.ball(0.04, '#ff9ab0', [-0.11, 0.58, 0.14], [1, 0.6, 0.5]));
+  g.add(k.ball(0.15, '#ffe27a', [0, 0.74, -0.03], [1.1, 0.6, 1.1]));
+  const halo = k.mesh(new THREE.TorusGeometry(1, 0.14, 6, 24), '#ffe27a', [0.15, 0.15, 0.15], [0, 0.92, 0], '#ffd23d');
+  halo.rotation.x = Math.PI / 2;
+  g.add(halo);
+  const wings: THREE.Object3D[] = [];
+  for (const s of [1, -1]) {
+    const wing = new THREE.Group();
+    wing.position.set(0.1 * s, 0.42, -0.12);
+    for (let i = 0; i < 3; i++) {
+      const f = k.ball(0.16 - i * 0.03, '#ffffff', [(0.14 + i * 0.12) * s, 0.08 - i * 0.06, -0.04], [1, 0.3, 0.5]);
+      f.rotation.z = (0.6 - i * 0.3) * s;
+      wing.add(f);
+    }
+    g.add(wing);
+    wings.push(wing);
+  }
+  addOutlines(g, 2.4);
+  const glow = glowSprite('#fff3b0', 2.2, 0.6);
+  glow.position.y = 0.5;
+  g.add(glow);
+  g.userData.wings = wings;
+  return g;
+}

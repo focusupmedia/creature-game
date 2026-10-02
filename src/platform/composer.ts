@@ -2,7 +2,7 @@
 // time. Pure (no WebAudio) so it can be tested; music.ts turns the notes into
 // sound. Each mood is a small "song recipe": key, tempo, chords, instruments.
 
-export type MoodId = 'day' | 'night' | 'storm' | 'eclipse' | 'starry' | 'fullmoon' | 'blizzard';
+export type MoodId = 'day' | 'night' | 'storm' | 'eclipse' | 'starry' | 'fullmoon' | 'blizzard' | 'angel' | 'infernal' | 'abyssal';
 export type Inst = 'kalimba' | 'marimba' | 'bell' | 'bass' | 'pad';
 
 export interface Note {
@@ -56,6 +56,13 @@ export const MOODS: Record<MoodId, MoodDef> = {
   starry: { bpm: 80, root: 64, scale: LYDIAN, chords: [0, 1, 0, 4], lead: 'bell', arp: 'kalimba', pad: true, bass: false, density: [0.15, 0.55], arpDensity: 0.35, swing: 0.05, volume: 0.85, echo: 0.4 },
   // Warm, glowing D major with kalimba and pad.
   fullmoon: { bpm: 64, root: 62, scale: IONIAN, chords: [0, 3, 5, 4], lead: 'kalimba', arp: 'bell', pad: true, bass: true, density: [0.12, 0.55], arpDensity: 0.15, swing: 0.04, volume: 0.85, echo: 0.36 },
+  // Legendary events: bigger and more intense.
+  // Angels: soaring bells and a full shimmering arpeggio in D lydian.
+  angel: { bpm: 88, root: 62, scale: LYDIAN, chords: [0, 1, 4, 0], lead: 'bell', arp: 'kalimba', pad: true, bass: true, density: [0.35, 0.85], arpDensity: 0.75, swing: 0, volume: 1.15, echo: 0.45 },
+  // The Eruption: driving low marimba in D phrygian.
+  infernal: { bpm: 104, root: 50, scale: PHRYGIAN, chords: [0, 1, 0, 6], lead: 'marimba', arp: 'kalimba', pad: true, bass: true, density: [0.35, 0.85], arpDensity: 0.65, swing: 0, volume: 1.1, echo: 0.22 },
+  // The Deep Tide: slow, echoing kalimba and bells far below.
+  abyssal: { bpm: 56, root: 57, scale: AEOLIAN, chords: [0, 5, 3, 4], lead: 'kalimba', arp: 'bell', pad: true, bass: true, density: [0.12, 0.5], arpDensity: 0.3, swing: 0, volume: 1.05, echo: 0.55 },
   // Glassy, hushed bells in B minor.
   blizzard: { bpm: 62, root: 59, scale: AEOLIAN, chords: [0, 5, 2, 6], lead: 'bell', arp: null, pad: true, bass: false, density: [0.08, 0.4], arpDensity: 0, swing: 0, volume: 1, echo: 0.45 },
 };
