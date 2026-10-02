@@ -22,7 +22,7 @@ import { UI } from '../ui/UI';
 
 const SAVE_KEY = 'kindred-grove.save.v1';
 const SETTINGS_KEY = 'kindred-grove.settings';
-const SPIN_HINT_KEY = 'kindred-grove.hint.controls';
+const SPIN_HINT_KEY = 'kindred-grove.hint.globe';
 const LIVE_TICK_S = 0.25;
 const AWAY_REPORT_MS = 90_000;
 
@@ -76,7 +76,7 @@ export class Game {
     this.world.start();
     if (!this.storage.load(SPIN_HINT_KEY)) {
       this.storage.save(SPIN_HINT_KEY, '1');
-      setTimeout(() => this.ui.toast('👆 Drag to spin your island. Press and hold a creature to pick it up and carry it!', 'info', undefined, 6500), 4000);
+      setTimeout(() => this.ui.showControls(), 2500);
     }
   }
 
@@ -455,7 +455,7 @@ export class Game {
     this.ui.closeSheet();
     const nest = NESTS[r.egg.nest ?? 0];
     this.world.focus(nest, 12);
-    this.world.burstAt(nest.x, this.world.groundAt(nest.x, nest.z) + 0.8, nest.z, '#bff4ff', 24);
+    this.world.burst(this.world.at(nest.x, nest.z, 0.8, 'home'), '#bff4ff', 24);
     this.ui.toast('A new egg settles into a warm nest. What could be inside?', 'discovery');
     for (const n of r.notes) this.ui.toast(`📝 Journal: ${n}`);
     this.notifications.schedule(`egg-${r.egg.id}`, this.now() + r.egg.incubationMs, 'Something is moving inside an egg…', 'Come see what hatches.');

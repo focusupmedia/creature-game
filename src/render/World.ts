@@ -1,9 +1,9 @@
 import * as THREE from 'three';
 import { BASKET, NESTS } from '../content/layout';
-import { ISLAND_ORDER, inWater, isBlocked, islandGeo, onLand } from '../content/islands';
+import { ISLAND_ORDER, inWater, isBlocked, islandAt, islandGeo, onLand } from '../content/islands';
 import { EVENTS, LURES, SPOTS } from '../content/world';
 import type { Creature, Egg, EventKind, GameEvent, GameState, IslandId, LegendaryKind } from '../core/types';
-import { groundAt, groundNormal, groundY } from '../content/terrain';
+import { globeCenter, globeNormal, globePoint, globeRadius, globeToMap } from '../content/globe';
 import { CameraRig } from './CameraRig';
 import { CreatureActor, type ActorContext, type FxKind } from './CreatureActor';
 import { animateDigSpot, buildDigSpot, disposeDigSpot, type DigSpotView } from './digSpots';
@@ -16,6 +16,13 @@ import { Portraits } from './portraits';
 import { Reveal, type RevealPhase } from './Reveal';
 import { buildIsland, type IslandView } from './sanctuary';
 import { Sky } from './sky';
+
+const Y_UP = new THREE.Vector3(0, 1, 0);
+const TMP_N = new THREE.Vector3();
+const TMP_Q = new THREE.Quaternion();
+const SHAKE = new THREE.Quaternion();
+const TMP_V2 = new THREE.Vector3();
+const Z_AXIS = new THREE.Vector3(0, 0, 1);
 
 export type Pick =
   | { kind: 'creature'; id: string }
@@ -79,11 +86,13 @@ export class World {
   private dropShadow: THREE.Mesh;
   private digViews = new Map<string, DigSpotView & { island: IslandId; x: number; z: number }>();
   private legendaryFx: LegendaryFx;
+  private legendaryIsland: IslandId = 'home';
 
   constructor(private container: HTMLElement) {
     this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    this.renderer.shadowMap.enabled = true;
+    // No cast shadows: on little globes they stretch into streaks. Creatures carry blob shadows.
+    this.renderer.shadowMap.enabled = false;
     this.renderer.shadowMap.type = THREE.PCFShadowMap;
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     container.appendChild(this.renderer.domElement);
@@ -91,16 +100,15 @@ export class World {
     this.scene.fog = new THREE.Fog('#bfe6ff', 45, 110);
     this.rig = new CameraRig(this.renderer.domElement);
     this.rig.onTap = (x, y) => this.handleTap(x, y);
-    this.rig.ground = (x, z) => this.groundAt(x, z);
     this.rig.onHold = (x, y) => this.holdAt(x, y);
     this.rig.onCarry = (x, y) => this.carryMove(x, y);
     this.rig.onCarryEnd = () => this.carryEnd();
     this.hoverRing = new THREE.Mesh(new THREE.RingGeometry(0.7, 0.92, 32), new THREE.MeshBasicMaterial({ color: '#ffe27a', transparent: true, opacity: 0.9, depthWrite: false }));
-    this.hoverRing.rotation.x = -Math.PI / 2;
+    this.hoverRing.geometry.rotateX(-Math.PI / 2);
     this.hoverRing.visible = false;
     this.scene.add(this.hoverRing);
     this.dropShadow = new THREE.Mesh(new THREE.CircleGeometry(0.45, 20), new THREE.MeshBasicMaterial({ color: '#1b2a4a', transparent: true, opacity: 0.25, depthWrite: false }));
-    this.dropShadow.rotation.x = -Math.PI / 2;
+    this.dropShadow.geometry.rotateX(-Math.PI / 2);
     this.dropShadow.visible = false;
     this.scene.add(this.dropShadow);
     this.legendaryFx = new LegendaryFx(this.scene);
@@ -169,17 +177,11 @@ export class World {
   /** Move the camera to another island. Its creatures load in; the old island's unload. */
   travelTo(id: IslandId, instant = false): void {
     this.current = id;
-    const g = islandGeo(id, this.sizes[id] ?? 0);
-    this.rig.center.set(g.ox, 0, g.oz);
-    this.rig.bound = Math.max(5, g.r - 2);
-    this.rig.overflow.set(0, 0);
-    if (instant) {
-      this.rig.focus.set(g.ox, 0, g.oz);
-    } else {
-      this.rig.flyTo({ x: g.ox, z: g.oz }, Math.max(this.rig.distance, 26));
-    }
+    const g = this.geoOf(id);
+    this.rig.setGlobe(globeCenter(g), globeRadius(g), instant);
     if (this.selected && this.actors.get(this.selected)?.geo.id !== id) this.select(null);
   }
+
 
   islandCenter(id: IslandId): { x: number; z: number } {
     const g = islandGeo(id, this.sizes[id] ?? 0);
@@ -211,7 +213,7 @@ export class World {
       this.scene.add(fresh.group);
       if (view && isl.owned) {
         const g = islandGeo(id, isl.size);
-        this.burst(new THREE.Vector3(g.ox, groundY(g, g.ox, g.oz) + 1, g.oz), '#fff6c8', 40, 3);
+        this.burst(this.at(g.ox, g.oz, 1, id), '#fff6c8', 40, 3);
       }
       if (id === this.current) this.travelTo(id, true);
     }
@@ -230,11 +232,14 @@ export class World {
         const mutated = this.actorKeys.get(c.id)?.split('|')[0] !== c.mutations.join(',');
         actor.dispose(this.scene);
         const fresh = this.addActor(c);
-        if (sameIsland) fresh.root.position.copy(pos);
+        if (sameIsland) {
+          fresh.position.copy(pos);
+          fresh.place();
+        }
         if (mutated) {
           fresh.celebrate();
           fresh.note('Just changed! ✨');
-          this.burst(pos.clone().setY(pos.y + 0.6), '#fff4b0', 26);
+          this.burst(this.above(pos, 0.6, c.island), '#fff4b0', 26);
         }
       } else {
         actor.creature = c;
@@ -242,7 +247,7 @@ export class World {
     }
     for (const [id, a] of this.actors) {
       if (!alive.has(id)) {
-        if (a.root.visible) this.burst(a.position.clone().setY(a.position.y + 0.5), '#ffffff', 14);
+        if (a.root.visible) this.burst(this.above(a.position, 0.5, a.geo.id), '#ffffff', 14);
         a.dispose(this.scene);
         this.actors.delete(id);
       }
@@ -271,7 +276,7 @@ export class World {
         dish.marker.scale.setScalar(1);
         if (spot.island === this.current) {
           this.lureCtx.push({ id: spot.id, x: spot.x, z: spot.z, attracts: lure.attracts });
-          if (Math.random() < 0.08) this.burst(new THREE.Vector3(spot.x, this.groundAt(spot.x, spot.z) + 0.4, spot.z), lure.color, 1, 0.6);
+          if (Math.random() < 0.08) this.burst(this.at(spot.x, spot.z, 0.4), lure.color, 1, 0.6);
         }
       } else {
         dish.bait.visible = false;
@@ -287,15 +292,13 @@ export class World {
     for (const d of state.digSpots) {
       if (this.digViews.has(d.id)) continue;
       const v = { ...buildDigSpot(d.kind, d.id, this.time), island: d.island, x: d.x, z: d.z };
-      v.root.position.set(d.x, this.groundAt(d.x, d.z), d.z);
-      const n = groundNormal(islandGeo(d.island, this.sizes[d.island] ?? 0), d.x, d.z);
-      v.root.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(n.x, n.y, n.z));
+      this.place(v.root, d.x, d.z, 0, 0, d.island);
       this.scene.add(v.root);
       this.digViews.set(d.id, v);
     }
     for (const [id, v] of this.digViews) {
       if (!digAlive.has(id)) {
-        if (v.island === this.current) this.burst(v.root.position.clone().setY(v.root.position.y + 0.3), '#fff3b0', 8);
+        if (v.island === this.current) this.burst(this.at(v.x, v.z, 0.3, v.island), '#fff3b0', 8);
         this.scene.remove(v.root);
         disposeDigSpot(v);
         this.digViews.delete(id);
@@ -318,14 +321,16 @@ export class World {
       hit.position.y = 0.3;
       hit.userData.pick = { kind: 'gift', id: g.id };
       group.add(gem, sparkle, hit);
-      group.position.set(g.x, this.groundAt(g.x, g.z), g.z);
       group.userData.island = g.island ?? 'home';
+      group.userData.x = g.x;
+      group.userData.z = g.z;
+      this.place(group, g.x, g.z, 0, 0, group.userData.island);
       this.scene.add(group);
       this.gifts.set(g.id, group);
     }
     for (const [id, group] of this.gifts) {
       if (!giftAlive.has(id)) {
-        if (group.visible) this.burst(group.position.clone().setY(group.position.y + 0.4), '#ffe58a', 10);
+        if (group.visible) this.burst(this.at(group.userData.x, group.userData.z, 0.4, group.userData.island), '#ffe58a', 10);
         this.scene.remove(group);
         this.gifts.delete(id);
         this.hiddenGifts.delete(id);
@@ -341,15 +346,16 @@ export class World {
     for (const d of state.placedDecor) {
       if (this.decor.has(d.id)) continue;
       const g = buildDecor(d.decor);
-      g.position.set(d.x, this.groundAt(d.x, d.z), d.z);
-      g.rotation.y = d.rot;
+      g.userData.x = d.x;
+      g.userData.z = d.z;
+      this.place(g, d.x, d.z, 0, d.rot, 'home');
       const hit = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 0.8, 1.5, 6), new THREE.MeshBasicMaterial({ visible: false }));
       hit.position.y = 0.75;
       hit.userData.pick = { kind: 'decor', id: d.id };
       g.add(hit);
       this.scene.add(g);
       this.decor.set(d.id, g);
-      this.burst(g.position.clone().setY(g.position.y + 0.5), '#ffffff', 16);
+      this.burst(this.at(g.userData.x, g.userData.z, 0.5, 'home'), '#ffffff', 16);
     }
     for (const [id, g] of this.decor) {
       if (!decorAlive.has(id)) {
@@ -379,17 +385,21 @@ export class World {
       const root = entry.model.root;
       if (e.nest !== null) {
         const n = NESTS[e.nest];
-        root.position.set(n.x, 0.42 + this.groundAt(n.x, n.z), n.z);
+        this.place(root, n.x, n.z, 0.42, 0, 'home', SHAKE.set(0, 0, 0, 1));
+        root.userData.x = n.x;
+        root.userData.z = n.z;
         entry.model.shell.userData.pick = { kind: 'nest', index: e.nest };
       } else {
-        root.position.set(BASKET.x + (basketIdx - 1) * 0.28, 0.12 + this.groundAt(BASKET.x, BASKET.z), BASKET.z);
+        this.place(root, BASKET.x + (basketIdx - 1) * 0.28, BASKET.z, 0.12, 0, 'home');
+        root.userData.x = BASKET.x + (basketIdx - 1) * 0.28;
+        root.userData.z = BASKET.z;
         entry.model.shell.userData.pick = { kind: 'basket' };
         basketIdx++;
       }
       const ready = e.progressMs >= e.incubationMs;
       const prog = e.progressMs / e.incubationMs;
       const shake = ready ? 0.12 : prog > 0.8 ? 0.05 : 0;
-      root.rotation.z = Math.sin(this.time * (ready ? 14 : 9) + e.seed) * shake * (Math.sin(this.time * 1.3 + e.seed) > 0.3 ? 1 : 0.15);
+      root.quaternion.multiply(SHAKE.setFromAxisAngle(Z_AXIS, Math.sin(this.time * (ready ? 14 : 9) + e.seed) * shake * (Math.sin(this.time * 1.3 + e.seed) > 0.3 ? 1 : 0.15)));
       const gm = entry.model.glow.material as THREE.SpriteMaterial;
       gm.opacity = ready ? 0.6 + Math.sin(this.time * 4) * 0.25 : 0.1 * prog;
       if (entry.model.prismatic) entry.model.mat.color.setHSL((this.time * 0.2) % 1, 0.5, 0.75);
@@ -427,7 +437,7 @@ export class World {
         const spot = SPOTS[ev.spot];
         const a = this.actors.get(ev.creature.id) ?? this.addActor(ev.creature);
         a.note(`Just arrived at the ${spot.name}`);
-        a.arrive(spot, () => this.burst(a.position.clone().setY(a.position.y + 0.6), '#ffffff', 12));
+        a.arrive(spot, () => this.burst(this.above(a.position, 0.6, a.geo.id), '#ffffff', 12));
         break;
       }
       case 'gift': {
@@ -437,7 +447,7 @@ export class World {
           this.hiddenGifts.add(ev.gift.id);
           a.digAt(ev.gift.x, ev.gift.z, () => {
             this.hiddenGifts.delete(ev.gift.id);
-            this.burst(new THREE.Vector3(ev.gift.x, this.groundAt(ev.gift.x, ev.gift.z) + 0.3, ev.gift.z), ev.gift.shards || ev.gift.item ? '#d9c6ff' : '#ffe58a', 16, 1.4);
+            this.burst(this.at(ev.gift.x, ev.gift.z, 0.3, ev.gift.island), ev.gift.shards || ev.gift.item ? '#d9c6ff' : '#ffe58a', 16, 1.4);
           }, ev.gift.via === 'puddle' ? 'splash' : ev.gift.via === 'bush' ? 'leaf' : 'dirt');
         }
         break;
@@ -447,16 +457,16 @@ export class World {
         if (!a) break;
         a.note(EVENTS[ev.event].touch.bubble);
         if (!a.root.visible) break;
-        const at = a.position.clone().setY(a.position.y + 0.3);
+        const at = this.above(a.position, 0.3, a.geo.id);
         if (ev.event === 'storm') {
           this.sky.strike(at);
           this.burst(at, '#fff27a', 22, 2);
         } else if (ev.event === 'eclipse' || ev.event === 'fullmoon') {
-          this.sky.moonbeam(a.position);
+          this.sky.moonbeam(a.worldPosition);
         } else if (ev.event === 'starry') {
           this.sky.fallingStar(at, () => this.burst(at, '#fff1a8', 26, 1.8));
         } else {
-          this.burst(a.position.clone().setY(a.position.y + 0.6), '#ffffff', 30, 1.4);
+          this.burst(this.above(a.position, 0.6, a.geo.id), '#ffffff', 30, 1.4);
         }
         break;
       }
@@ -482,8 +492,9 @@ export class World {
     return { x: r.left + ((v.x + 1) / 2) * r.width, y: r.top + ((1 - v.y) / 2) * r.height, visible: v.z < 1 && Math.abs(v.x) < 1.2 && Math.abs(v.y) < 1.2 };
   }
 
+  /** Distance from the camera to the globe's surface. */
   get zoom(): number {
-    return this.rig.distance;
+    return this.rig.distance - this.rig.radius;
   }
 
   creatureHead(id: string): THREE.Vector3 | null {
@@ -516,21 +527,61 @@ export class World {
   /** A legendary event begins: angels over this island, or the volcano / deep tide on theirs. */
   legendaryStart(kind: LegendaryKind, island: IslandId | null): void {
     const id = island ?? this.current;
-    const g = islandGeo(id, this.sizes[id] ?? 0);
-    this.legendaryFx.start(kind, new THREE.Vector3(g.ox, 0, g.oz), g.r);
+    const g = this.geoOf(id);
+    this.legendaryIsland = id;
+    const c = globeCenter(g);
+    this.legendaryFx.start(kind, new THREE.Vector3(g.ox, 0, g.oz), g.r, new THREE.Vector3(c.x, c.y, c.z));
   }
 
   legendaryEnd(): void {
     this.legendaryFx.leave();
   }
 
-  /** Height of the (domed) ground at a world point. */
-  groundAt(x: number, z: number): number {
-    return groundAt(x, z, this.sizes);
+  private geoOf(id: IslandId = this.current) {
+    return islandGeo(id, this.sizes[id] ?? 0);
   }
 
+  /** World position of an island map point, `alt` above the globe's surface. */
+  at(x: number, z: number, alt = 0, island: IslandId = this.current): THREE.Vector3 {
+    const w = globePoint(this.geoOf(island), x, z, alt);
+    return new THREE.Vector3(w.x, w.y, w.z);
+  }
+
+  /** Screen position of an island map point; hidden when it is on the far side of its globe. */
+  pinScreen(x: number, z: number, alt: number): { x: number; y: number; visible: boolean } {
+    const id = islandAt(x, z, this.sizes) ?? this.current;
+    const w = this.at(x, z, alt, id);
+    const sp = this.toScreen(w.x, w.y, w.z);
+    return { ...sp, visible: sp.visible && this.facesCamera(w, id) };
+  }
+
+  /** Is a point on a globe's near side (not hidden behind the planet)? */
+  facesCamera(w: THREE.Vector3, island: IslandId = this.current): boolean {
+    const c = globeCenter(this.geoOf(island));
+    TMP_N.set(w.x - c.x, w.y - c.y, w.z - c.z).normalize();
+    const cam = this.rig.camera.position;
+    return TMP_N.dot(TMP_V2.set(cam.x - w.x, cam.y - w.y, cam.z - w.z).normalize()) > -0.05;
+  }
+
+  /** World position just above a map position whose y is its height above ground. */
+  above(p: THREE.Vector3, extra = 0, island: IslandId = this.current): THREE.Vector3 {
+    return this.at(p.x, p.z, p.y + extra, island);
+  }
+
+  /** Stand an object on a globe at a map point: upright to the surface, turned by `yaw`. */
+  place(o: THREE.Object3D, x: number, z: number, alt = 0, yaw = 0, island: IslandId = this.current, extra?: THREE.Quaternion): void {
+    const g = this.geoOf(island);
+    const n = globeNormal(g, x, z);
+    o.position.copy(this.at(x, z, alt, island));
+    o.quaternion.setFromUnitVectors(Y_UP, TMP_N.set(n.x, n.y, n.z));
+    if (yaw) o.quaternion.multiply(TMP_Q.setFromAxisAngle(Y_UP, yaw));
+    if (extra) o.quaternion.multiply(extra);
+  }
+
+  /** Turn the globe to show a map point (distances are from the surface). */
   focus(p: { x: number; z: number }, distance?: number): void {
-    this.rig.flyTo(p, distance);
+    const n = globeNormal(this.geoOf(), p.x, p.z);
+    this.rig.lookAtDir(n, distance === undefined ? this.rig.distance : this.rig.radius + distance * 0.85);
   }
 
   emote(id: string, text: string): void {
@@ -576,18 +627,19 @@ export class World {
     const rect = this.renderer.domElement.getBoundingClientRect();
     const ndc = new THREE.Vector2(((x - rect.left) / rect.width) * 2 - 1, -((y - rect.top) / rect.height) * 2 + 1);
     this.raycaster.setFromCamera(ndc, this.rig.camera);
+    const g = this.geoOf();
     const hit = this.raycaster.intersectObject(view.ground, false)[0];
-    if (hit) return hit.point;
-    // past the rim: slide along a plane at rim height, then keep it over the island
-    const p = new THREE.Vector3();
-    if (!this.raycaster.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), p)) return null;
-    const g = islandGeo(this.current, this.sizes[this.current] ?? 0);
-    const dx = p.x - g.ox;
-    const dz = p.z - g.oz;
-    const len = Math.hypot(dx, dz);
-    const max = g.r - 0.6;
-    if (len > max) p.set(g.ox + (dx / len) * max, 0, g.oz + (dz / len) * max);
-    return p;
+    let dir: THREE.Vector3;
+    if (hit) dir = hit.point.clone();
+    else {
+      // off the globe's edge: use the closest point of the globe's silhouette
+      const c = globeCenter(g);
+      const ray = this.raycaster.ray;
+      dir = ray.closestPointToPoint(new THREE.Vector3(c.x, c.y, c.z), new THREE.Vector3());
+    }
+    const c = globeCenter(g);
+    const m = globeToMap(g, { x: dir.x - c.x, y: dir.y - c.y, z: dir.z - c.z });
+    return new THREE.Vector3(m.x, 0, m.z);
   }
 
   private holdAt(x: number, y: number): boolean {
@@ -602,7 +654,7 @@ export class World {
     actor.pickUp();
     this.carry = { actor, hover: null };
     this.select(null);
-    this.burst(actor.position.clone().setY(actor.position.y + 0.3), '#ffffff', 8, 0.8);
+    this.burst(this.above(actor.position, 0.3), '#ffffff', 8, 0.8);
     this.onCarryStart(actor.id);
     return true;
   }
@@ -666,9 +718,8 @@ export class World {
   private updateCarry(): void {
     if (!this.carry) return;
     const { actor, hover } = this.carry;
-    const gy = this.groundAt(actor.position.x, actor.position.z);
     this.dropShadow.visible = true;
-    this.dropShadow.position.set(actor.position.x, gy + 0.04, actor.position.z);
+    this.place(this.dropShadow, actor.position.x, actor.position.z, 0.05);
     let at: { x: number; z: number } | null = null;
     if (hover?.kind === 'dig') at = this.digViews.get(hover.id) ?? null;
     if (hover?.kind === 'creature') {
@@ -677,7 +728,7 @@ export class World {
     }
     this.hoverRing.visible = !!at;
     if (at) {
-      this.hoverRing.position.set(at.x, this.groundAt(at.x, at.z) + 0.06, at.z);
+      this.place(this.hoverRing, at.x, at.z, 0.07);
       this.hoverRing.scale.setScalar(1 + Math.sin(this.time * 8) * 0.08);
       (this.hoverRing.material as THREE.MeshBasicMaterial).color.set(hover?.kind === 'creature' ? '#ff8fc8' : '#ffe27a');
     }
@@ -695,13 +746,19 @@ export class World {
         (o.material as THREE.Material).opacity = 0.55;
       }
     });
-    this.ghost.position.set(this.rig.focus.x, this.groundAt(this.rig.focus.x, this.rig.focus.z), this.rig.focus.z);
+    const r = this.renderer.domElement.getBoundingClientRect();
+    const mid = this.pointerGround(r.left + r.width / 2, r.top + r.height / 2) ?? new THREE.Vector3(this.geoOf().ox, 0, this.geoOf().oz);
+    this.ghost.userData.x = mid.x;
+    this.ghost.userData.z = mid.z;
+    this.place(this.ghost, mid.x, mid.z);
     this.scene.add(this.ghost);
   }
 
   moveGhost(x: number, z: number): boolean {
     if (!this.ghost) return false;
-    this.ghost.position.set(x, this.groundAt(x, z), z);
+    this.ghost.userData.x = x;
+    this.ghost.userData.z = z;
+    this.place(this.ghost, x, z);
     return this.validPlacement(x, z);
   }
 
@@ -711,7 +768,7 @@ export class World {
   }
 
   ghostPosition(): { x: number; z: number } | null {
-    return this.ghost ? { x: this.ghost.position.x, z: this.ghost.position.z } : null;
+    return this.ghost ? { x: this.ghost.userData.x as number, z: this.ghost.userData.z as number } : null;
   }
 
   cancelPlacement(): void {
@@ -790,14 +847,13 @@ export class World {
       return;
     }
     this.rig.update(dt);
-    this.checkEdgePush();
     const darkness = this.sky.darkness;
     const visible = [...this.actors.values()].filter((a) => a.root.visible);
     const ctx: ActorContext = { darkness, sky: this.skyKind, lures: this.lureCtx, actors: visible, now: this.nowMs, fx: this.fx };
     // Only the island you're on is simulated visually; others are "unloaded".
     for (const a of visible) a.update(dt, this.time, ctx);
     this.updateCarry();
-    this.legendaryFx.update(dt, (x, z) => this.groundAt(x, z));
+    this.legendaryFx.update(dt, (x, z, alt) => this.at(x, z, alt, this.legendaryIsland));
     for (const v of this.digViews.values()) if (v.root.visible) animateDigSpot(v, this.time);
 
     const windy = this.skyKind === 'storm' || this.skyKind === 'blizzard';
@@ -860,24 +916,5 @@ export class World {
   }
 
   /** Swiping hard past the island's edge hops toward the neighbouring island in that direction. */
-  private checkEdgePush(): void {
-    const o = this.rig.overflow;
-    if (o.length() < 3.5) return;
-    const from = islandGeo(this.current, this.sizes[this.current] ?? 0);
-    const dir = new THREE.Vector2(o.x, o.y).normalize();
-    let best: IslandId | null = null;
-    let bestDot = 0.6;
-    for (const id of ISLAND_ORDER) {
-      if (id === this.current) continue;
-      const g = islandGeo(id, this.sizes[id] ?? 0);
-      const to = new THREE.Vector2(g.ox - from.ox, g.oz - from.oz).normalize();
-      const d = to.dot(dir);
-      if (d > bestDot) {
-        bestDot = d;
-        best = id;
-      }
-    }
-    o.set(0, 0);
-    if (best) this.onEdgePush(best);
-  }
+
 }

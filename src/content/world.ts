@@ -132,8 +132,8 @@ const L = ISLANDS.lagoon;
 const B = ISLANDS.beach;
 const D = ISLANDS.desert;
 export const SPOTS: Record<string, SpotDef> = {
-  glade: { id: 'glade', island: 'home', name: 'Mossy Glade', x: -3.6, z: 2.4, affinity: { Grove: 1.5, Mystic: 1.3 }, water: false },
-  pond: { id: 'pond', island: 'home', name: 'Pond Edge', x: 3.3, z: 0.6, affinity: { Tide: 2, Amphibian: 1.5 }, water: true },
+  glade: { id: 'glade', island: 'home', name: 'Mossy Glade', x: -2.4, z: 4.9, affinity: { Grove: 1.5, Mystic: 1.3 }, water: false },
+  pond: { id: 'pond', island: 'home', name: 'Pond Edge', x: 3.0, z: 2.7, affinity: { Tide: 2, Amphibian: 1.5 }, water: true },
   vent: { id: 'vent', island: 'volcano', name: 'Lava Vent', x: V.ox + 0.6, z: V.oz + 1.4, affinity: { Ember: 2, Dragon: 1.5 }, water: false },
   ash: { id: 'ash', island: 'volcano', name: 'Ash Field', x: V.ox - 4.2, z: V.oz + 0.2, affinity: { Ember: 1.3, Reptile: 1.5 }, water: false },
   reef: { id: 'reef', island: 'lagoon', name: 'Coral Reef', x: L.ox - 2.2, z: L.oz + 1.2, affinity: { Reef: 2, Fish: 1.5 }, water: true },

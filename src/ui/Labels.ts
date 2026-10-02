@@ -153,7 +153,7 @@ export class WorldLabels {
 
     for (const p of this.pins) {
       const mode = p.when() ? p.mode() : 'hidden';
-      const sp = w.toScreen(p.pos[0], p.pos[1] + w.groundAt(p.pos[0], p.pos[2]), p.pos[2]);
+      const sp = w.pinScreen(p.pos[0], p.pos[2], p.pos[1]);
       const farText = p.far && near < 0.5 && mode !== 'hidden' ? p.far() : undefined;
       let opacity = mode === 'hidden' || !sp.visible ? 0 : mode === 'always' ? 1 : near;
       if (p.far && near < 0.5) opacity = farText && sp.visible ? 1 : 0;
@@ -179,7 +179,7 @@ export class WorldLabels {
         return;
       }
       const sp = w.toScreen(head.x, head.y, head.z);
-      this.bubble.style.opacity = sp.visible ? '1' : '0';
+      this.bubble.style.opacity = sp.visible && w.facesCamera(head, c.island) ? '1' : '0';
       this.bubble.style.transform = `translate(-50%, -100%) translate(${sp.x.toFixed(1)}px, ${sp.y.toFixed(1)}px)`;
       const name = displayName(c);
       const line = w.creatureActivity(c.id);

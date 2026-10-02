@@ -407,6 +407,20 @@ export class UI {
     });
   }
 
+  /** How to get around a globe. Shown the first time, and from Settings. */
+  showControls(): void {
+    this.modal((m, close) => {
+      const row = (icon: string, title: string, text: string) => h('div', { class: 'ctl-row' }, h('span', { class: 'ctl-ico' }, icon), h('div', null, h('b', null, title), h('div', { class: 'muted' }, text)));
+      m.append(h('h2', null, 'Getting around'),
+        row('👆', 'Drag', 'Roll your island globe any way to look all around it.'),
+        row('🤏', 'Pinch (or mouse wheel)', 'Zoom in close or pull back.'),
+        row('🔄', 'Two-finger twist', 'Spin the globe.'),
+        row('✋', 'Press and hold a creature', 'Pick it up and carry it. Drop it on another creature to breed, or on a dig spot.'),
+        row('👉', 'Tap', 'Choose things: creatures, nests, the shop, lure spots.'),
+        h('div', { class: 'btns' }, h('button', { class: 'btn', onClick: close }, 'Got it!')));
+    });
+  }
+
   // ---- legendary events
 
   /** Clouds sweep across the screen and the light changes while a legendary event lasts. */
@@ -840,6 +854,7 @@ export class UI {
         h('button', { class: 'btn small secondary', onClick: () => { g.setSound(!g.audio.enabled); this.rerender(); } }, g.audio.enabled ? 'On' : 'Off')));
       b.append(h('div', { class: 'item' }, h('div', { class: 'grow name' }, 'Music'),
         h('button', { class: 'btn small secondary', onClick: () => { g.setMusic(!g.audio.musicEnabled); this.rerender(); } }, g.audio.musicEnabled ? 'On' : 'Off')));
+      b.append(h('button', { class: 'btn secondary small', onClick: () => this.showControls() }, '👆 How to get around'));
       b.append(h('div', { class: 'section-title' }, 'Playtest tools'));
       b.append(h('p', { class: 'muted' }, 'These exist to test the prototype quickly and will not ship.'));
       const speed = h('div', { class: 'btns' }, ...[1, 10, 60].map((x) =>

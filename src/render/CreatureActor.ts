@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { species } from '../content/species';
 import { inWater, isBlocked, onLand, randomLand, randomWater, type Geo } from '../content/islands';
-import { groundY } from '../content/terrain';
+import { globeNormal, globePoint, globeStep } from '../content/globe';
 import { creatureTraits, currentScale, displayName } from '../core/creatures';
 import type { Creature, EventKind, Personality, Trait } from '../core/types';
 import { animateGlow, animatePrismatic, buildCreature, disposeCreature, type CreatureModel } from './creatureModels';
@@ -34,6 +34,13 @@ type State = 'arrive' | 'wander' | 'idle' | 'eat' | 'sleep' | 'nap' | 'shelter' 
 
 const CARRY_HEIGHT = 1.4;
 
+const UP = new THREE.Vector3();
+const FWD = new THREE.Vector3();
+const RIGHT = new THREE.Vector3();
+const BASIS = new THREE.Matrix4();
+const SHADOW_GEO = new THREE.CircleGeometry(1, 20).rotateX(-Math.PI / 2);
+const SHADOW_MAT = new THREE.MeshBasicMaterial({ color: '#1b2a4a', transparent: true, opacity: 0.22, depthWrite: false });
+
 const SPEED: Record<string, number> = { hop: 1.1, walk: 0.7, scuttle: 1.0, fly: 1.3, swim: 0.8, slither: 0.6, waddle: 0.45, float: 0.55 };
 
 interface Temper { speed: number; idle: number; nap: number; social: number; squabble: number; lure: number }
@@ -52,6 +59,8 @@ export class CreatureActor {
   readonly hit: THREE.Mesh;
   readonly traits: Trait[];
   state: State = 'idle';
+  /** Where it is on the island map (x, z) and how high above the ground (y). The globe wrap happens in place(). */
+  readonly p = new THREE.Vector3();
   private target = new THREE.Vector3();
   private timer = 0;
   private hopT = 0;
@@ -69,6 +78,7 @@ export class CreatureActor {
   private fall = 0;
   private fxTimer = 0;
   private ring: THREE.Mesh;
+  private shadow: THREE.Mesh;
   private noteText = '';
   private noteAt = -999;
   private nightOwl: boolean;
@@ -99,8 +109,14 @@ export class CreatureActor {
     this.ring.position.y = 0.03;
     this.ring.visible = false;
     this.root.add(this.ring);
+    // a soft blob shadow that stays on the ground even when it flies or is carried
+    this.shadow = new THREE.Mesh(SHADOW_GEO, SHADOW_MAT);
+    this.shadow.scale.setScalar(Math.max(0.35, h * 0.45));
+    this.shadow.renderOrder = -1;
+    this.root.add(this.shadow);
     const start = this.isSwimmer ? randomWater(geo, Math.random) : randomLand(geo, Math.random);
-    this.root.position.set(start.x, groundY(geo, start.x, start.z), start.z);
+    this.p.set(start.x, 0, start.z);
+    this.place();
     this.pickWander();
     scene.add(this.root);
   }
@@ -108,7 +124,10 @@ export class CreatureActor {
   get id(): string { return this.creature.id; }
   get isFlyer(): boolean { return this.model.movement === 'fly' || this.model.movement === 'float'; }
   get isSwimmer(): boolean { return this.model.movement === 'swim'; }
-  get position(): THREE.Vector3 { return this.root.position; }
+  /** Map position (x, z) plus height above ground (y). */
+  get position(): THREE.Vector3 { return this.p; }
+  /** Where it really is in the 3D world. */
+  get worldPosition(): THREE.Vector3 { return this.root.position; }
 
   setSelected(on: boolean): void {
     this.ring.visible = on;
@@ -143,7 +162,8 @@ export class CreatureActor {
 
   /** World-space point just above the creature's head. */
   headPosition(out: THREE.Vector3): THREE.Vector3 {
-    return out.copy(this.root.position).setY(this.root.position.y + this.model.height * this.root.scale.y + 0.25);
+    const w = globePoint(this.geo, this.p.x, this.p.z, this.p.y + this.model.height * this.root.scale.y + 0.25);
+    return out.set(w.x, w.y, w.z);
   }
 
   /** Enter from the island edge (or splash into the water) and walk to a lure. */
@@ -151,13 +171,13 @@ export class CreatureActor {
     const g = this.geo;
     if (this.isSwimmer) {
       const p = randomWater(g, Math.random);
-      this.root.position.set(p.x, 0, p.z);
+      this.p.set(p.x, 0, p.z);
       this.target.set(spot.x - 0.6, 0, spot.z);
       this.clampToWater(this.target);
     } else {
       const a = Math.atan2(spot.z - g.oz, spot.x - g.ox) + (Math.random() - 0.5) * 1.2;
-      this.root.position.set(g.ox + Math.cos(a) * (g.r - 0.6), 0, g.oz + Math.sin(a) * (g.r - 0.6));
-      const off = new THREE.Vector3(spot.x - this.root.position.x, 0, spot.z - this.root.position.z).normalize().multiplyScalar(0.8);
+      this.p.set(g.ox + Math.cos(a) * (g.r - 0.6), 0, g.oz + Math.sin(a) * (g.r - 0.6));
+      const off = new THREE.Vector3(spot.x - this.p.x, 0, spot.z - this.p.z).normalize().multiplyScalar(0.8);
       this.target.set(spot.x - off.x, 0, spot.z - off.z);
     }
     this.state = 'arrive';
@@ -199,14 +219,14 @@ export class CreatureActor {
 
   carryTo(x: number, z: number): void {
     this.face(new THREE.Vector3(x, 0, z), 0.05);
-    this.root.position.x = x;
-    this.root.position.z = z;
+    this.p.x = x;
+    this.p.z = z;
   }
 
   /** Put down where it hangs. Walkers hop back onto land, swimmers back into water. */
   putDown(): void {
     const g = this.geo;
-    const p = this.root.position;
+    const p = this.p;
     const bad = this.isSwimmer ? !inWater(g, p.x, p.z, -0.3) : !onLand(g, p.x, p.z, 0.5) || (!this.amphibious && !this.isFlyer && inWater(g, p.x, p.z, 0.1));
     this.fall = CARRY_HEIGHT;
     this.state = 'idle';
@@ -269,7 +289,7 @@ export class CreatureActor {
         this.fxTimer -= dt;
         if (this.fxTimer <= 0) {
           this.fxTimer = 0.22;
-          ctx.fx(this.digStyle, this.root.position.clone().add(new THREE.Vector3(Math.sin(this.heading) * 0.3, 0.1, Math.cos(this.heading) * 0.3)));
+          ctx.fx(this.digStyle, this.p.clone().add(new THREE.Vector3(Math.sin(this.heading) * 0.3, 0.1, Math.cos(this.heading) * 0.3)));
         }
         if (this.timer <= 0) {
           const done = this.onDug;
@@ -300,7 +320,7 @@ export class CreatureActor {
         this.fxTimer -= dt;
         if (this.fxTimer <= 0 && this.partner && this.creature.id < this.partner.creature.id) {
           this.fxTimer = 0.35;
-          ctx.fx('dust', this.root.position.clone().lerp(this.partner.position, 0.5).setY(this.root.position.y + 0.25));
+          ctx.fx('dust', this.p.clone().lerp(this.partner.position, 0.5).setY(this.p.y + 0.25));
         }
         if (Math.random() < dt * 0.8) this.emote(Math.random() < 0.6 ? '💢' : '😤', 1);
         if (this.timer <= 0) {
@@ -329,9 +349,9 @@ export class CreatureActor {
 
     // ---- animate
     const mv = m.movement;
-    const ground = groundY(this.geo, this.root.position.x, this.root.position.z);
+    const ground = 0;
     const moving = (this.state === 'wander' || this.state === 'arrive' || this.state === 'shelter')
-      && Math.hypot(this.root.position.x - this.target.x, this.root.position.z - this.target.z) > 0.15;
+      && Math.hypot(this.p.x - this.target.x, this.p.z - this.target.z) > 0.15;
     const body = m.body;
     body.position.y = 0;
     body.rotation.set(0, 0, 0);
@@ -360,18 +380,18 @@ export class CreatureActor {
       m.wings.forEach((w, i) => (w.rotation.z = flap * 0.7 * (i % 2 ? -1 : 1)));
       const resting = this.state === 'sleep' || this.state === 'nap' || this.state === 'eat' || this.state === 'dig';
       const targetY = ground + (resting ? 0.25 : this.flyHeight + Math.sin(this.phase * 1.7) * 0.15);
-      this.root.position.y += (targetY - this.root.position.y) * Math.min(1, dt * 2);
+      this.p.y += (targetY - this.p.y) * Math.min(1, dt * 2);
       if (m.tail) m.tail.rotation.y = Math.sin(this.phase * 2.5) * 0.3;
     } else if (mv === 'float') {
       // long floaters (the Cloud Serpent) ripple along their length
       m.segments.forEach((seg, i) => (seg.position.y = Math.sin(this.phase * 2.2 - i * 0.6) * 0.12));
       const targetY = ground + (this.state === 'sleep' || this.state === 'nap' ? 0.5 : this.flyHeight) + Math.sin(this.phase * 1.3) * 0.2;
-      this.root.position.y += (targetY - this.root.position.y) * Math.min(1, dt * 1.5);
+      this.p.y += (targetY - this.p.y) * Math.min(1, dt * 1.5);
       if (m.tail) m.tail.rotation.z = Math.sin(this.phase * 2) * 0.3;
       m.wings.forEach((w, i) => (w.rotation.z = Math.sin(this.phase * 2.5) * 0.4 * (i % 2 ? -1 : 1)));
       m.legs.forEach((l, i) => (l.rotation.x = Math.sin(this.phase * 2.2 + i) * 0.35));
     } else if (mv === 'swim') {
-      this.root.position.y = ground - 0.1 + Math.sin(this.phase * 2) * 0.03;
+      this.p.y = ground - 0.1 + Math.sin(this.phase * 2) * 0.03;
       if (m.tail) m.tail.rotation.y = Math.sin(this.phase * (moving ? 10 : 4)) * 0.5;
       m.wings.forEach((w, i) => (w.rotation.y = Math.sin(this.phase * 8 + i * Math.PI) * 0.5));
     } else if (mv === 'slither') {
@@ -381,18 +401,18 @@ export class CreatureActor {
     }
     if (mv !== 'fly' && mv !== 'float' && mv !== 'swim') {
       // amphibians wade: sink a little in water
-      this.root.position.y = ground + (this.amphibious && inWater(this.geo, this.root.position.x, this.root.position.z, -0.3) ? -0.12 : 0);
+      this.p.y = ground + (this.amphibious && inWater(this.geo, this.p.x, this.p.z, -0.3) ? -0.12 : 0);
     }
     if (m.tail && mv === 'hop') m.tail.rotation.y = Math.sin(this.phase * 3) * 0.25;
     if (this.state === 'carried') {
       // dangling in the air: legs paddle, body sways
-      this.root.position.y = ground + CARRY_HEIGHT + Math.sin(this.phase * 5) * 0.06;
+      this.p.y = ground + CARRY_HEIGHT + Math.sin(this.phase * 5) * 0.06;
       body.rotation.z = Math.sin(this.phase * 7) * 0.15;
       m.legs.forEach((leg, i) => (leg.rotation.x = Math.sin(this.phase * 16 + i * Math.PI) * 0.7));
       m.wings.forEach((w, i) => (w.rotation.z = Math.sin(this.phase * 14) * 0.6 * (i % 2 ? -1 : 1)));
     } else if (this.fall > 0) {
       this.fall = Math.max(0, this.fall - dt * 7);
-      if (!this.isFlyer) this.root.position.y += this.fall;
+      if (!this.isFlyer) this.p.y += this.fall;
     }
 
     // species flourishes
@@ -421,7 +441,7 @@ export class CreatureActor {
       body.rotation.x = -0.15;
     } else if (this.state === 'celebrate') {
       body.position.y += Math.abs(Math.sin(this.phase * 8)) * 0.35;
-      this.root.rotation.y += dt * 4;
+      this.heading += dt * 4;
       if (this.timer <= 0) this.decide(ctx, asleepTime);
     } else if (this.state === 'lookup') {
       body.rotation.x = -0.35;
@@ -455,6 +475,30 @@ export class CreatureActor {
     em.opacity = Math.max(0, Math.min(1, this.emoteLife * 2));
     this.emoteSprite.position.y = m.height + 0.35 / Math.max(0.5, this.scaleNow) + (2 - Math.max(0, this.emoteLife)) * 0.1;
     if (this.ring.visible) (this.ring.material as THREE.MeshBasicMaterial).opacity = 0.6 + Math.sin(time * 5) * 0.3;
+    this.place();
+  }
+
+  /** Stand on the globe: up along the surface normal, facing the heading. */
+  place(): void {
+    const g = this.geo;
+    const { x, z, y } = this.p;
+    const w = globePoint(g, x, z, y);
+    const n = globeNormal(g, x, z);
+    const e = 0.05;
+    const a = globePoint(g, x + Math.sin(this.heading) * e, z + Math.cos(this.heading) * e, y);
+    UP.set(n.x, n.y, n.z);
+    FWD.set(a.x - w.x, a.y - w.y, a.z - w.z);
+    FWD.addScaledVector(UP, -FWD.dot(UP));
+    if (FWD.lengthSq() < 1e-10) FWD.set(0, 0, 1).addScaledVector(UP, -UP.z);
+    FWD.normalize();
+    RIGHT.crossVectors(UP, FWD);
+    BASIS.makeBasis(RIGHT, UP, FWD);
+    this.root.quaternion.setFromRotationMatrix(BASIS);
+    this.root.position.set(w.x, w.y, w.z);
+    const s = this.root.scale.y || 1;
+    this.shadow.position.y = (-y + 0.03) / s;
+    (this.shadow.material as THREE.MeshBasicMaterial).opacity = 0.22;
+    this.shadow.scale.setScalar(Math.max(0.35, this.model.height * 0.45) * Math.max(0.4, 1 - y * 0.25));
   }
 
   private decide(ctx: ActorContext, asleepTime: boolean): void {
@@ -549,7 +593,7 @@ export class CreatureActor {
       const edge = { x: g.ox + Math.cos(a) * (g.r - 1.6), z: g.oz + Math.sin(a) * (g.r - 1.6) };
       if (!isBlocked(g, edge.x, edge.z) && !inWater(g, edge.x, edge.z, 0.4)) p = edge;
     }
-    const cur = this.root.position;
+    const cur = this.p;
     const d = Math.hypot(p.x - cur.x, p.z - cur.z);
     const reach = this.creature.personality === 'energetic' ? 6 : 4;
     const k = d > reach ? reach / d : 1;
@@ -572,21 +616,20 @@ export class CreatureActor {
   }
 
   private dist2(p: { x: number; z: number }): number {
-    return (p.x - this.root.position.x) ** 2 + (p.z - this.root.position.z) ** 2;
+    return (p.x - this.p.x) ** 2 + (p.z - this.p.z) ** 2;
   }
 
   private face(p: THREE.Vector3, dt: number): void {
-    const want = Math.atan2(p.x - this.root.position.x, p.z - this.root.position.z);
+    const want = Math.atan2(p.x - this.p.x, p.z - this.p.z);
     let diff = want - this.heading;
     while (diff > Math.PI) diff -= Math.PI * 2;
     while (diff < -Math.PI) diff += Math.PI * 2;
     this.heading += diff * Math.min(1, dt * 6);
-    this.root.rotation.y = this.heading;
   }
 
   /** Steer toward target; returns true when arrived. */
   private moveToward(dt: number, speedMul: number): boolean {
-    const pos = this.root.position;
+    const pos = this.p;
     const to = new THREE.Vector3(this.target.x - pos.x, 0, this.target.z - pos.z);
     const d = to.length();
     if (d < 0.12) return true;
@@ -606,7 +649,8 @@ export class CreatureActor {
     }
     let speed = (SPEED[this.model.movement] ?? 0.7) * speedMul * this.temper.speed;
     if (this.model.movement === 'hop') speed *= 0.4 + Math.sin((this.hopT % 1) * Math.PI) * 1.2;
-    const step = Math.min(d, speed * dt);
+    // keep real walking speed even where the globe wrap stretches the map
+    const step = Math.min(d, speed * dt * globeStep(this.geo, pos.x, pos.z, to.x, to.z));
     const nx = pos.x + to.x * step;
     const nz = pos.z + to.z * step;
     const g = this.geo;

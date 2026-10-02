@@ -131,8 +131,9 @@ export function islandGeo(id: IslandId, size = 0): Geo {
   return g;
 }
 
+/** Islands are globes, so almost everywhere is land: only a small cap at the bottom pole is out of bounds. */
 export function onLand(g: Geo, x: number, z: number, margin = 0.8): boolean {
-  return Math.hypot(x - g.ox, z - g.oz) < g.r - margin;
+  return Math.hypot(x - g.ox, z - g.oz) < g.r * 0.975 - margin * 0.1;
 }
 
 export function inWater(g: Geo, x: number, z: number, margin = 0): boolean {
@@ -147,14 +148,15 @@ export function isBlocked(g: Geo, x: number, z: number, pad = 0.3): boolean {
 export function randomLand(g: Geo, rand: () => number): { x: number; z: number } {
   for (let i = 0; i < 60; i++) {
     const a = rand() * Math.PI * 2;
-    const r = Math.sqrt(rand()) * (g.r - 1.2);
+    // area-uniform on the map is area-uniform on the globe: all the way round
+    const r = Math.sqrt(rand()) * g.r * 0.95;
     const x = g.ox + Math.cos(a) * r;
     const z = g.oz + Math.sin(a) * r;
     if (!inWater(g, x, z, 0.4) && !isBlocked(g, x, z)) return { x, z };
   }
-  // Mostly-water islands: walk the shore.
+  // Mostly-water islands: walk the underside.
   const a = rand() * Math.PI * 2;
-  return { x: g.ox + Math.cos(a) * (g.r - 1.4), z: g.oz + Math.sin(a) * (g.r - 1.4) };
+  return { x: g.ox + Math.cos(a) * g.r * 0.9, z: g.oz + Math.sin(a) * g.r * 0.9 };
 }
 
 export function randomWater(g: Geo, rand: () => number): { x: number; z: number } {

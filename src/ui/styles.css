@@ -443,3 +443,7 @@ input.rename { font-family: var(--display); font-size: 22px; border: var(--outli
 .rarity.r-legendary { background: linear-gradient(90deg, #ffb02a, #ff7a2a); }
 .rarity.r-mythical { background: linear-gradient(90deg, #ff6fc8, #8a6aff, #3ad0ff); }
 .rarity.r-outlier { background: linear-gradient(90deg, #ff9f1a, #ff5f9a); margin-left: 3px; }
+
+/* ---- controls guide */
+.ctl-row { display: flex; gap: 12px; align-items: center; text-align: left; margin: 10px 0; }
+.ctl-row .ctl-ico { font-size: 28px; width: 44px; height: 44px; flex: none; display: grid; place-items: center; background: var(--sky-1); border: var(--outline); border-radius: 12px; }

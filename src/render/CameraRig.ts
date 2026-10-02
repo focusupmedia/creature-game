@@ -1,47 +1,45 @@
 import * as THREE from 'three';
 
-// Diorama camera: drag to spin the island (and tilt), two fingers to pan,
-// pinch / wheel to zoom and twist to rotate, tap to select. On a mouse, right-
-// or middle-drag (or shift-drag) pans. Spin and pan have inertia; pan is
-// clamped to the island so the player can never lose the sanctuary.
+// Globe camera: the current island is a little planet and the camera orbits
+// it. One finger (or the mouse) rolls the globe in any direction so you can
+// look anywhere, two fingers pinch to zoom and twist to spin, the wheel zooms,
+// a tap selects, and press-and-hold picks a creature up. Rolling has inertia.
+
+const UP_LIMIT = 1.4;
+const DOWN_LIMIT = -1.35;
 
 export class CameraRig {
   readonly camera: THREE.PerspectiveCamera;
-  readonly focus = new THREE.Vector3(0, 0, 0);
-  distance = 27;
-  yaw = 0;
-  pitch = 0.95; // radians above horizon
-  minDist = 7;
-  maxDist = 30;
-  bound = 8;
-  /** Centre of the island the camera is exploring; panning is clamped around it. */
+  /** Centre of the globe being viewed. */
   readonly center = new THREE.Vector3();
-  /** How hard the player has been pushing past the island edge (for island hopping). */
-  readonly overflow = new THREE.Vector2();
+  radius = 4.75;
+  /** Distance from the globe centre. */
+  distance = 18;
+  yaw = 0;
+  pitch = 0.85;
   onTap: (x: number, y: number) => void = () => {};
-  /** Ground height under the focus point, so the camera rides over the dome. */
-  ground: (x: number, z: number) => number = () => 0;
-  private focusY = 0;
-  private spin = 0;
-  private panMode = false;
   /** Press and hold (without moving) to pick something up; return true to start carrying it. */
   onHold: (x: number, y: number) => boolean = () => false;
   onCarry: (x: number, y: number) => void = () => {};
   onCarryEnd: (x: number, y: number) => void = () => {};
-  private carrying = false;
-  private holdTried = true;
-  private lastPos = { x: 0, y: 0 };
+  /** Called once the first time the player rolls the globe themselves. */
+  onFirstRoll: () => void = () => {};
 
   private pointers = new Map<number, { x: number; y: number }>();
   private vel = new THREE.Vector2();
   private downAt = 0;
   private downPos = { x: 0, y: 0 };
+  private lastPos = { x: 0, y: 0 };
   private moved = 0;
   private pinchStart = 0;
   private distStart = 0;
   private angleStart = 0;
   private yawStart = 0;
-  private fly: { from: THREE.Vector3; to: THREE.Vector3; d0: number; d1: number; t: number } | null = null;
+  private carrying = false;
+  private holdTried = true;
+  private rolled = false;
+  private portrait = true;
+  private fly: { c0: THREE.Vector3; c1: THREE.Vector3; y0: number; y1: number; p0: number; p1: number; d0: number; d1: number; t: number } | null = null;
 
   constructor(private el: HTMLElement) {
     this.camera = new THREE.PerspectiveCamera(38, 1, 0.1, 400);
@@ -57,20 +55,55 @@ export class CameraRig {
     this.apply();
   }
 
+  get minDist(): number {
+    return this.radius + 2.4;
+  }
+
+  get maxDist(): number {
+    return this.radius * 4.6 + (this.portrait ? 12 : 8);
+  }
+
+  /** A comfortable overview of the whole globe. */
+  get overview(): number {
+    return this.radius * 3.1 + (this.portrait ? 10 : 6);
+  }
+
   resize(w: number, h: number): void {
     this.camera.aspect = w / h;
-    // Portrait phones see far less width: widen the lens and allow pulling back
-    // far enough to take in the whole sanctuary.
-    const portrait = w < h;
-    this.camera.fov = portrait ? 52 : 38;
-    this.maxDist = portrait ? 36 : 30;
-    this.distance = Math.min(this.distance, this.maxDist);
+    this.portrait = w < h;
+    this.camera.fov = this.portrait ? 52 : 38;
+    this.distance = THREE.MathUtils.clamp(this.distance, this.minDist, this.maxDist);
     this.camera.updateProjectionMatrix();
   }
 
-  /** Smoothly frame a point (used for reveals, arrivals, tutorials). */
-  flyTo(p: { x: number; z: number }, distance = this.distance): void {
-    this.fly = { from: this.focus.clone(), to: new THREE.Vector3(p.x, 0, p.z), d0: this.distance, d1: distance, t: 0 };
+  /** Switch to another globe (instantly, or with a smooth flight). */
+  setGlobe(center: THREE.Vector3Like, radius: number, instant: boolean): void {
+    this.radius = radius;
+    if (instant) {
+      this.fly = null;
+      this.center.set(center.x, center.y, center.z);
+      this.yaw = 0;
+      this.pitch = 0.7;
+      this.distance = this.overview;
+    } else {
+      this.startFly(new THREE.Vector3(center.x, center.y, center.z), 0, 0.7, this.overview);
+    }
+  }
+
+  /** Smoothly turn the globe so a surface direction faces the camera. */
+  lookAtDir(n: THREE.Vector3Like, distance = this.distance): void {
+    const yaw = Math.atan2(n.x, n.z);
+    // view from a little above the point so the horizon shows
+    const pitch = THREE.MathUtils.clamp(Math.asin(THREE.MathUtils.clamp(n.y, -1, 1)) * 0.8 + 0.3, DOWN_LIMIT, UP_LIMIT);
+    this.startFly(this.center.clone(), Math.abs(n.x) + Math.abs(n.z) < 0.05 ? this.yaw : yaw, pitch, THREE.MathUtils.clamp(distance, this.minDist, this.maxDist));
+  }
+
+  private startFly(c1: THREE.Vector3, yaw: number, pitch: number, distance: number): void {
+    let y1 = yaw;
+    while (y1 - this.yaw > Math.PI) y1 -= Math.PI * 2;
+    while (y1 - this.yaw < -Math.PI) y1 += Math.PI * 2;
+    this.vel.set(0, 0);
+    this.fly = { c0: this.center.clone(), c1, y0: this.yaw, y1, p0: this.pitch, p1: pitch, d0: this.distance, d1: distance, t: 0 };
   }
 
   private down = (e: PointerEvent) => {
@@ -78,15 +111,13 @@ export class CameraRig {
     this.el.setPointerCapture(e.pointerId);
     this.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
     this.vel.set(0, 0);
-    this.spin = 0;
     this.fly = null;
     if (this.pointers.size === 1) {
       this.downAt = performance.now();
       this.downPos = { x: e.clientX, y: e.clientY };
-      this.moved = 0;
-      this.panMode = e.pointerType === 'mouse' && (e.button === 1 || e.button === 2 || e.shiftKey);
-      this.holdTried = this.panMode;
       this.lastPos = { x: e.clientX, y: e.clientY };
+      this.moved = 0;
+      this.holdTried = e.pointerType === 'mouse' && e.button !== 0;
     } else if (this.pointers.size === 2) {
       this.holdTried = true;
       const [a, b] = [...this.pointers.values()];
@@ -97,6 +128,12 @@ export class CameraRig {
       this.moved = 999;
     }
   };
+
+  /** Radians per pixel: gentler when zoomed in close. */
+  private get rollRate(): number {
+    const zoom = THREE.MathUtils.clamp((this.distance - this.minDist) / (this.overview - this.minDist), 0.3, 1.2);
+    return (3.2 / Math.max(320, this.el.clientWidth)) * zoom;
+  }
 
   private move = (e: PointerEvent) => {
     const prev = this.pointers.get(e.pointerId);
@@ -113,25 +150,14 @@ export class CameraRig {
       const dy = cur.y - prev.y;
       this.moved += Math.abs(dx) + Math.abs(dy);
       if (this.moved > 8) this.holdTried = true;
-      if (this.panMode) {
-        this.panPixels(dx, dy);
-        this.vel.set(dx, dy);
-      } else {
-        // spin the island around the point you're looking at, and tilt
-        this.spin = -dx * this.spinRate;
-        this.yaw += this.spin;
-        this.pitch = THREE.MathUtils.clamp(this.pitch + dy * 0.004, 0.55, 1.3);
+      if (this.moved > 12 && !this.rolled) {
+        this.rolled = true;
+        this.onFirstRoll();
       }
+      this.roll(dx, dy);
+      this.vel.set(dx, dy);
     } else if (this.pointers.size === 2) {
       const [a, b] = [...this.pointers.values()];
-      // two-finger drag pans by the movement of the midpoint
-      const other = [...this.pointers.entries()].find(([id]) => id !== e.pointerId)?.[1];
-      if (other) {
-        const mdx = (cur.x - prev.x) / 2;
-        const mdy = (cur.y - prev.y) / 2;
-        this.panPixels(mdx, mdy);
-        this.vel.set(mdx, mdy);
-      }
       const d = Math.hypot(a.x - b.x, a.y - b.y);
       this.distance = THREE.MathUtils.clamp(this.distStart * (this.pinchStart / Math.max(1, d)), this.minDist, this.maxDist);
       const ang = Math.atan2(b.y - a.y, b.x - a.x);
@@ -139,8 +165,10 @@ export class CameraRig {
     }
   };
 
-  private get spinRate(): number {
-    return 2.4 / Math.max(320, this.el.clientWidth);
+  private roll(dx: number, dy: number): void {
+    const r = this.rollRate;
+    this.yaw -= dx * r;
+    this.pitch = THREE.MathUtils.clamp(this.pitch + dy * r, DOWN_LIMIT, UP_LIMIT);
   }
 
   private up = (e: PointerEvent) => {
@@ -155,7 +183,7 @@ export class CameraRig {
       return;
     }
     this.holdTried = true;
-    if (this.pointers.size > 0) this.spin = 0;
+    if (this.pointers.size > 0) this.vel.set(0, 0);
     if (this.pointers.size === 0 && this.moved < 10 && performance.now() - this.downAt < 450) {
       this.vel.set(0, 0);
       this.onTap(this.downPos.x, this.downPos.y);
@@ -164,66 +192,43 @@ export class CameraRig {
 
   private wheel = (e: WheelEvent) => {
     e.preventDefault();
+    this.fly = null;
     this.distance = THREE.MathUtils.clamp(this.distance * (1 + Math.sign(e.deltaY) * 0.1), this.minDist, this.maxDist);
   };
-
-  private panPixels(dx: number, dy: number): void {
-    const scale = this.distance / Math.max(400, this.el.clientHeight) * 1.6;
-    const right = new THREE.Vector3(Math.cos(this.yaw), 0, -Math.sin(this.yaw));
-    const fwd = new THREE.Vector3(Math.sin(this.yaw), 0, Math.cos(this.yaw));
-    this.focus.addScaledVector(right, -dx * scale);
-    this.focus.addScaledVector(fwd, -dy * scale);
-    const ox = this.focus.x - this.center.x;
-    const oz = this.focus.z - this.center.z;
-    const len = Math.hypot(ox, oz);
-    if (len > this.bound) {
-      const k = this.bound / len;
-      this.overflow.x += ox - ox * k;
-      this.overflow.y += oz - oz * k;
-      this.focus.x = this.center.x + ox * k;
-      this.focus.z = this.center.z + oz * k;
-    }
-  }
 
   update(dt: number): void {
     if (this.pointers.size === 1 && !this.holdTried && performance.now() - this.downAt > 280) {
       this.holdTried = true;
       if (this.onHold(this.lastPos.x, this.lastPos.y)) {
         this.carrying = true;
-        this.spin = 0;
         this.vel.set(0, 0);
       }
     }
-    this.overflow.multiplyScalar(Math.pow(0.15, dt));
     if (this.pointers.size === 0 && this.vel.lengthSq() > 0.01) {
-      this.panPixels(this.vel.x, this.vel.y);
-      this.vel.multiplyScalar(Math.pow(0.02, dt));
-    }
-    if (this.pointers.size === 0 && Math.abs(this.spin) > 0.0002) {
-      this.yaw += this.spin;
-      this.spin *= Math.pow(0.04, dt);
+      this.roll(this.vel.x, this.vel.y);
+      this.vel.multiplyScalar(Math.pow(0.03, dt));
     }
     if (this.fly) {
-      this.fly.t = Math.min(1, this.fly.t + dt * 1.2);
-      const k = 1 - Math.pow(1 - this.fly.t, 3);
-      this.focus.lerpVectors(this.fly.from, this.fly.to, k);
-      this.distance = this.fly.d0 + (this.fly.d1 - this.fly.d0) * k;
-      if (this.fly.t >= 1) this.fly = null;
+      const f = this.fly;
+      f.t = Math.min(1, f.t + dt * 1.1);
+      const k = 1 - Math.pow(1 - f.t, 3);
+      this.center.lerpVectors(f.c0, f.c1, k);
+      this.yaw = f.y0 + (f.y1 - f.y0) * k;
+      this.pitch = f.p0 + (f.p1 - f.p0) * k;
+      this.distance = f.d0 + (f.d1 - f.d0) * k;
+      if (f.t >= 1) this.fly = null;
     }
     this.apply();
   }
 
   private apply(): void {
-    // Closer zoom tilts the view lower, like leaning in over a diorama.
-    const t = (this.distance - this.minDist) / (this.maxDist - this.minDist);
-    const pitch = this.pitch * (0.7 + 0.3 * t) + 0.12;
     const c = this.camera;
-    this.focusY += (this.ground(this.focus.x, this.focus.z) - this.focusY) * 0.12;
+    const cp = Math.cos(this.pitch);
     c.position.set(
-      this.focus.x + Math.sin(this.yaw) * Math.cos(pitch) * this.distance,
-      this.focusY + Math.sin(pitch) * this.distance,
-      this.focus.z + Math.cos(this.yaw) * Math.cos(pitch) * this.distance,
+      this.center.x + Math.sin(this.yaw) * cp * this.distance,
+      this.center.y + Math.sin(this.pitch) * this.distance,
+      this.center.z + Math.cos(this.yaw) * cp * this.distance,
     );
-    c.lookAt(this.focus.x, this.focusY + 0.5, this.focus.z);
+    c.lookAt(this.center);
   }
 }

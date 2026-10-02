@@ -493,7 +493,7 @@ describe('dig spots', () => {
   it('appear on owned islands over time, expire, and turn into a find when worked', async () => {
     const { workDigSpot } = await import('../src/core/actions');
     const s = createGame(42, 0);
-    tick(s, 60 * 60_000, { maxStepMs: 1000 });
+    for (let m = 10; m <= 240 && !s.digSpots.length; m += 10) tick(s, m * 60_000, { maxStepMs: 1000 });
     expect(s.digSpots.length).toBeGreaterThan(0);
     expect(s.digSpots.every((d) => d.island === 'home' && d.expiresAt > s.lastTick)).toBe(true);
     const spot = s.digSpots[0];

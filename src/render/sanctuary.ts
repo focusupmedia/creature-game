@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { BASKET, FONT, NESTS, POND, ROCKS, SHOP_STALL, TREES } from '../content/layout';
 import { ISLANDS, inWater, isBlocked, islandGeo, type Geo } from '../content/islands';
-import { groundNormal, groundY } from '../content/terrain';
+import { globeCenter, globeNormal, globePoint, globeRadius } from '../content/globe';
 import { SPOTS } from '../content/world';
 import { mulberry32 } from '../core/rng';
 import type { IslandId } from '../core/types';
@@ -14,11 +14,12 @@ import { buildShopkeeper } from './creatureModels';
 
 const UP = new THREE.Vector3(0, 1, 0);
 
-/** Matrix that stands something on the domed ground: lifted to the surface and leaning with it. */
+/** Matrix that stands something on the globe: moved to the surface and turned to its normal. */
 function standMatrix(terrain: Geo, x: number, z: number): THREE.Matrix4 {
-  const n = groundNormal(terrain, x, z);
+  const n = globeNormal(terrain, x, z);
+  const p = globePoint(terrain, x, z);
   const q = new THREE.Quaternion().setFromUnitVectors(UP, new THREE.Vector3(n.x, n.y, n.z));
-  return new THREE.Matrix4().compose(new THREE.Vector3(x, groundY(terrain, x, z), z), q, new THREE.Vector3(1, 1, 1));
+  return new THREE.Matrix4().compose(new THREE.Vector3(p.x, p.y, p.z), q, new THREE.Vector3(1, 1, 1));
 }
 
 /** Lift and tilt an object placed at ground level (its position's y is its height above the ground). */
@@ -28,29 +29,44 @@ function standOn(o: THREE.Object3D, terrain: Geo): void {
 }
 
 /**
- * 'stand' (default) lifts a part onto the dome and leans it with the slope;
- * 'drape' bends a flat part over the dome vertex by vertex; 'fixed' keeps raw coordinates.
+ * 'stand' (default) moves a part onto the globe, upright to its surface;
+ * 'drape' bends a part over the globe vertex by vertex (wide flat things, the volcano);
+ * 'fixed' keeps raw coordinates.
  */
 type Fit = 'stand' | 'drape' | 'fixed';
 
 class Merger {
   private parts: THREE.BufferGeometry[] = [];
-  /** The island whose dome parts stand on; null keeps everything flat. */
+  /** The island whose globe parts stand on; null keeps everything flat. */
   terrain: Geo | null = null;
+  /** While set, standing parts are placed as one rigid piece around this point (buildings). */
+  anchor: { x: number; z: number } | null = null;
+
+  /** Build a multi-part structure that stands on the globe as one piece. */
+  piece(x: number, z: number, build: () => void): void {
+    this.anchor = { x, z };
+    build();
+    this.anchor = null;
+  }
 
   add(geo: THREE.BufferGeometry, color: string, pos: THREE.Vector3Like, rot: THREE.Vector3Like = { x: 0, y: 0, z: 0 }, scale: THREE.Vector3Like = { x: 1, y: 1, z: 1 }, fit: Fit = 'stand'): void {
     const g = geo.index ? geo.toNonIndexed() : geo.clone();
     g.deleteAttribute('uv');
     const t = this.terrain && fit !== 'fixed' ? this.terrain : null;
+    const stand = fit === 'stand' && !!t;
+    const at = this.anchor ?? pos;
     const local = new THREE.Matrix4().compose(
-      new THREE.Vector3(fit === 'stand' && t ? 0 : pos.x, pos.y, fit === 'stand' && t ? 0 : pos.z),
+      new THREE.Vector3(stand ? pos.x - at.x : pos.x, pos.y, stand ? pos.z - at.z : pos.z),
       new THREE.Quaternion().setFromEuler(new THREE.Euler(rot.x, rot.y, rot.z)),
       new THREE.Vector3(scale.x, scale.y, scale.z),
     );
-    g.applyMatrix4(fit === 'stand' && t ? standMatrix(t, pos.x, pos.z).multiply(local) : local);
+    g.applyMatrix4(stand ? standMatrix(t, at.x, at.z).multiply(local) : local);
     if (fit === 'drape' && t) {
       const p = g.getAttribute('position');
-      for (let i = 0; i < p.count; i++) p.setY(i, p.getY(i) + groundY(t, p.getX(i), p.getZ(i)));
+      for (let i = 0; i < p.count; i++) {
+        const w = globePoint(t, p.getX(i), p.getZ(i), p.getY(i));
+        p.setXYZ(i, w.x, w.y, w.z);
+      }
     }
     const c = new THREE.Color(color);
     const n = g.getAttribute('position').count;
@@ -130,72 +146,34 @@ export interface IslandView {
 
 const mix = (a: string, b: string, t: number) => `#${new THREE.Color(a).lerp(new THREE.Color(b), t).getHexString()}`;
 
-/** Floating island body: grassy (or sandy, or ashy) top, cliff lip, rocky underside. */
-function islandBody(M: Merger, g: Geo, pal: (typeof ISLANDS)['home']['palette'], rand: () => number, soft: Merger = M): void {
+/** Soft colour patches give the globe's ground some shading and depth. */
+function islandPatches(g: Geo, pal: (typeof ISLANDS)['home']['palette'], rand: () => number, soft: Merger): void {
   const R = g.r;
-  const fixed = 'fixed' as const;
-  const none = { x: 0, y: 0, z: 0 };
-  const one = { x: 1, y: 1, z: 1 };
-  M.add(new THREE.CylinderGeometry(R, R * 0.97, 0.6, 64, 1, true), pal.top, { x: g.ox, y: -0.3, z: g.oz }, none, one, fixed);
-  M.add(new THREE.CylinderGeometry(R * 0.985, R * 0.9, 0.7, 64, 1), pal.lip, { x: g.ox, y: -0.95, z: g.oz }, none, one, fixed);
-  const under = new THREE.ConeGeometry(R * 0.9, 6.5 * Math.min(1.3, R / 9.5), 16, 3);
-  const pos = under.getAttribute('position');
-  for (let i = 0; i < pos.count; i++) {
-    if (pos.getY(i) < 3.2) {
-      pos.setX(i, pos.getX(i) * (0.85 + rand() * 0.3));
-      pos.setZ(i, pos.getZ(i) * (0.85 + rand() * 0.3));
-    }
-  }
-  M.add(under, pal.under, { x: g.ox, y: -1.3 - 3.25 * Math.min(1.3, R / 9.5), z: g.oz }, { x: Math.PI, y: 0, z: 0 }, one, fixed);
-  for (let i = 0; i < 9; i++) {
+  for (let i = 0; i < 22; i++) {
     const a = rand() * Math.PI * 2;
-    const r = R * (0.3 + rand() * 0.4);
-    M.add(new THREE.DodecahedronGeometry(0.6 + rand() * 0.6, 0), pal.rock, { x: g.ox + Math.cos(a) * r, y: -1.6 - rand() * 2.5, z: g.oz + Math.sin(a) * r }, none, one, fixed);
-  }
-  // Soft colour patches on the ground give it shading and depth.
-  for (let i = 0; i < 14; i++) {
-    const a = rand() * Math.PI * 2;
-    const r = Math.sqrt(rand()) * (R - 1.8);
+    const r = Math.sqrt(rand()) * (R - 0.8);
     const x = g.ox + Math.cos(a) * r;
     const z = g.oz + Math.sin(a) * r;
     const s = 1.2 + rand() * 1.8;
-    // keep patches clear of ponds and lava: they would show through on the dome's slope
+    // keep patches clear of ponds and lava
     if ([...g.water, ...g.lava].some((c) => Math.hypot(x - c.x, z - c.z) < c.r + s * 1.1)) continue;
-    soft.add(new THREE.RingGeometry(0.001, s, 18, 4), i % 3 ? pal.patch : mix(pal.top, '#ffffff', 0.12), { x, y: 0.025 + i * 0.0006, z }, { x: -Math.PI / 2, y: 0, z: 0 }, { x: 1, y: 0.75 + rand() * 0.5, z: 1 }, 'drape');
+    soft.add(new THREE.RingGeometry(0.001, s, 20, 6), i % 3 ? pal.patch : mix(pal.top, '#ffffff', 0.12), { x, y: 0.04 + i * 0.0006, z }, { x: -Math.PI / 2, y: 0, z: 0 }, { x: 1, y: 0.75 + rand() * 0.5, z: 1 }, 'drape');
   }
 }
 
-/** The domed top of an island: a smooth polar grid following groundY. Also the tap target for the ground. */
-function domeCap(g: Geo, color: string, flat: boolean): THREE.Mesh {
-  const rings = 34;
-  const segs = 80;
-  const pos: number[] = [];
-  const idx: number[] = [];
-  pos.push(g.ox, flat ? 0 : groundY(g, g.ox, g.oz), g.oz);
-  for (let r = 1; r <= rings; r++) {
-    const rr = (r / rings) * g.r;
-    for (let s = 0; s < segs; s++) {
-      const a = (s / segs) * Math.PI * 2;
-      const x = g.ox + Math.cos(a) * rr;
-      const z = g.oz + Math.sin(a) * rr;
-      pos.push(x, flat ? 0 : groundY(g, x, z), z);
-    }
-  }
-  for (let s = 0; s < segs; s++) idx.push(0, 1 + ((s + 1) % segs), 1 + s);
-  for (let r = 1; r < rings; r++) {
-    const a0 = 1 + (r - 1) * segs;
-    const b0 = 1 + r * segs;
-    for (let s = 0; s < segs; s++) {
-      const s1 = (s + 1) % segs;
-      idx.push(a0 + s, a0 + s1, b0 + s, a0 + s1, b0 + s1, b0 + s);
-    }
-  }
-  const geo = new THREE.BufferGeometry();
-  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-  geo.setIndex(idx);
-  geo.computeVertexNormals();
-  const mesh = new THREE.Mesh(geo, toon(color));
-  mesh.receiveShadow = true;
+/** A wide flat disc laid over the globe (pond rims, lure-spot pads, sand rings). */
+function flatDisc(M: Merger, r: number, color: string, x: number, z: number, alt = 0.02): void {
+  M.add(new THREE.RingGeometry(0.001, r, 36, Math.max(3, Math.ceil(r * 3))), color, { x, y: alt, z }, { x: -Math.PI / 2, y: 0, z: 0 }, { x: 1, y: 1, z: 1 }, 'drape');
+}
+
+/** The globe itself. Also the tap target for the ground. */
+function globeMesh(g: Geo, color: string): THREE.Mesh {
+  const c = globeCenter(g);
+  const mesh = new THREE.Mesh(new THREE.SphereGeometry(globeRadius(g), 72, 48), toon(color));
+  mesh.position.set(c.x, c.y, c.z);
+  // Cast shadows stretch into long streaks across a curved world; creatures
+  // carry a soft blob shadow instead.
+  mesh.receiveShadow = false;
   return mesh;
 }
 
@@ -236,7 +214,7 @@ function lureSpots(M: Merger, islandId: IslandId, pickables: THREE.Object3D[], g
         M.add(new THREE.CylinderGeometry(0.06, 0.06, 0.4, 5), '#7b5236', { x: spot.x + dx, y: 0.05, z: spot.z + dz });
       }
     } else {
-      M.add(new THREE.CylinderGeometry(1.0, 1.0, 0.04, 24), '#f4dfa0', { x: spot.x, y: 0.01, z: spot.z });
+      flatDisc(M, 1.0, '#f4dfa0', spot.x, spot.z, 0.03);
       for (let i = 0; i < 8; i++) {
         const a = (i / 8) * Math.PI * 2;
         M.add(new THREE.DodecahedronGeometry(0.15, 0), '#c9c2a8', { x: spot.x + Math.cos(a) * 1.0, y: 0.07, z: spot.z + Math.sin(a) * 1.0 });
@@ -276,12 +254,20 @@ function lureSpots(M: Merger, islandId: IslandId, pickables: THREE.Object3D[], g
   return out;
 }
 
-function waterDisc(c: { x: number; z: number; r: number }, color: string, emissive: string, y = 0.06): THREE.Mesh {
+/** Water (or lava) laid over the globe's curve. Built in world space, so it is already placed. */
+function waterDisc(g: Geo, c: { x: number; z: number; r: number }, color: string, emissive: string, y = 0.06): THREE.Mesh {
   const mat = new THREE.MeshToonMaterial({ color, transparent: true, opacity: 0.92, emissive, emissiveIntensity: 0.3 });
-  const m = new THREE.Mesh(new THREE.CircleGeometry(c.r, 48), mat);
-  m.rotation.x = -Math.PI / 2;
-  m.position.set(c.x, y, c.z);
+  const geo = new THREE.RingGeometry(0.001, c.r, 48, Math.max(4, Math.ceil(c.r * 4)));
+  geo.rotateX(-Math.PI / 2);
+  const p = geo.getAttribute('position');
+  for (let i = 0; i < p.count; i++) {
+    const w = globePoint(g, c.x + p.getX(i), c.z + p.getZ(i), y);
+    p.setXYZ(i, w.x, w.y, w.z);
+  }
+  geo.computeVertexNormals();
+  const m = new THREE.Mesh(geo, mat);
   m.receiveShadow = true;
+  m.userData.placed = true;
   return m;
 }
 
@@ -304,9 +290,11 @@ function tree(view: IslandView, M: Merger, t: { x: number; z: number; s: number 
 
 function palm(view: IslandView, M: Merger, x: number, z: number, s: number, rand: () => number): void {
   const lean = (rand() - 0.5) * 0.4;
-  for (let i = 0; i < 5; i++) {
-    M.add(new THREE.CylinderGeometry(0.13 * s, 0.16 * s, 0.5 * s, 7), i % 2 ? '#b07a44' : '#9a6638', { x: x + lean * i * 0.25, y: 0.25 * s + i * 0.48 * s, z });
-  }
+  M.piece(x, z, () => {
+    for (let i = 0; i < 5; i++) {
+      M.add(new THREE.CylinderGeometry(0.13 * s, 0.16 * s, 0.5 * s, 7), i % 2 ? '#b07a44' : '#9a6638', { x: x + lean * i * 0.25, y: 0.25 * s + i * 0.48 * s, z });
+    }
+  });
   const crown = new THREE.Group();
   crown.position.set(x, 2.5 * s, z);
   standOn(crown, view.groundGeo);
@@ -335,7 +323,7 @@ export function buildIsland(id: IslandId, size: number, owned: boolean): IslandV
   const G = new Merger();
   const view: IslandView = {
     id, key: `${owned}:${size}`, group, water: [], lava: [], canopies: [], spotDishes: {}, pickables: [], groundGeo: g,
-    ground: domeCap(g, owned ? def.palette.top : mix(def.palette.top, '#c8dcf0', def.status === 'soon' ? 0.6 : 0.4), false),
+    ground: globeMesh(g, owned ? def.palette.top : mix(def.palette.top, '#c8dcf0', def.status === 'soon' ? 0.6 : 0.4)),
   };
   view.ground.userData.pick = { kind: 'ground', island: id };
   group.add(view.ground);
@@ -347,18 +335,18 @@ export function buildIsland(id: IslandId, size: number, owned: boolean): IslandV
     const fog = '#c8dcf0';
     const pal = { ...def.palette };
     for (const k of Object.keys(pal) as (keyof typeof pal)[]) pal[k] = mix(pal[k], fog, def.status === 'soon' ? 0.6 : 0.4);
-    islandBody(M, g, pal, rand);
+    islandPatches(g, pal, rand, M);
     for (let i = 0; i < 4; i++) {
       const a = rand() * Math.PI * 2;
       const r = g.r * (0.3 + rand() * 0.45);
       M.add(new THREE.IcosahedronGeometry(1 + rand() * 0.6, 0), mix(id === 'volcano' ? '#5a4a4a' : '#5fc23f', fog, 0.5), { x: g.ox + Math.cos(a) * r, y: 1.1, z: g.oz + Math.sin(a) * r });
     }
-    if (id === 'volcano') M.add(new THREE.ConeGeometry(3.4, 4.2, 9, 1, true), mix('#4a3434', fog, 0.4), { x: g.ox, y: 2.1, z: g.oz - 3.6 });
+    if (id === 'volcano') M.add(new THREE.ConeGeometry(3.4, 4.2, 12, 1, true), mix('#4a3434', fog, 0.4), { x: g.ox, y: 0.9, z: g.oz - 3.6 });
     group.add(M.build());
     return view;
   }
 
-  islandBody(M, g, def.palette, rand, G);
+  islandPatches(g, def.palette, rand, G);
   const clear: { x: number; z: number; r: number }[] = Object.values(SPOTS).filter((s) => s.island === id).map((s) => ({ x: s.x, z: s.z, r: 1.9 }));
 
   if (id === 'home') buildHome(view, M, g, rand, clear);
@@ -391,7 +379,8 @@ export function buildIsland(id: IslandId, size: number, owned: boolean): IslandV
     const r = Math.sqrt(rand()) * (g.r - 1);
     const fx = g.ox + Math.cos(a) * r;
     const fz = g.oz + Math.sin(a) * r;
-    fp.set([fx, groundY(g, fx, fz) + 0.4 + rand() * 1.8, fz], i * 3);
+    const w = globePoint(g, fx, fz, 0.4 + rand() * 1.8);
+    fp.set([w.x, w.y, w.z], i * 3);
   }
   const fgeo = new THREE.BufferGeometry();
   fgeo.setAttribute('position', new THREE.BufferAttribute(fp, 3));
@@ -413,13 +402,13 @@ function buildHome(view: IslandView, M: Merger, g: Geo, rand: () => number, clea
   );
 
   // pond
-  M.add(new THREE.CylinderGeometry(POND.r + 0.15, POND.r + 0.15, 0.05, 32), '#5f8e4a', { x: POND.x, y: 0.0, z: POND.z });
+  flatDisc(M, POND.r + 0.15, '#5f8e4a', POND.x, POND.z, 0.03);
   for (let i = 0; i < 16; i++) {
     const a = (i / 16) * Math.PI * 2 + rand() * 0.2;
     M.add(new THREE.DodecahedronGeometry(0.22 + rand() * 0.12, 0), i % 3 ? '#a3a59c' : '#8b8e86',
       { x: POND.x + Math.cos(a) * (POND.r + 0.1), y: 0.05, z: POND.z + Math.sin(a) * (POND.r + 0.1) }, { x: 0, y: 0, z: 0 }, { x: 1, y: 0.6, z: 1 });
   }
-  const water = waterDisc(POND, '#36c6ff', '#1a8fd0');
+  const water = waterDisc(g, POND, '#36c6ff', '#1a8fd0');
   group.add(water);
   view.water.push(water);
   for (const [dx, dz] of [[-0.8, 0.6], [0.6, -0.9], [0.9, 0.7]]) {
@@ -435,8 +424,8 @@ function buildHome(view: IslandView, M: Merger, g: Geo, rand: () => number, clea
   // stepping-stone path toward the font and nests
   for (let i = 0; i < 9; i++) {
     const t = i / 8;
-    const x = 0.4 * (1 - t) + FONT.x * t + Math.sin(i) * 0.3;
-    const z = 1.5 * (1 - t) + (FONT.z + 1.4) * t;
+    const x = 0.8 * (1 - t) + FONT.x * t + Math.sin(i) * 0.3;
+    const z = 3.4 * (1 - t) + (FONT.z + 1.4) * t;
     M.add(new THREE.CylinderGeometry(0.32, 0.36, 0.06, 8), '#f4dfa0', { x, y: 0.01, z }, { x: 0, y: rand(), z: 0 });
   }
 
@@ -453,7 +442,8 @@ function buildHome(view: IslandView, M: Merger, g: Geo, rand: () => number, clea
     M.add(new THREE.SphereGeometry(r.s * 0.55, 6, 4), '#6fae55', { x: r.x + 0.1, y: r.s * 0.75, z: r.z }, { x: 0, y: 0, z: 0 }, { x: 1, y: 0.35, z: 1 });
   }
 
-  // the Kindred Font (combining)
+  // the Kindred Font (combining): stands as one piece
+  M.anchor = { x: FONT.x, z: FONT.z };
   const font = new THREE.Group();
   font.position.set(FONT.x, 0, FONT.z);
   M.add(new THREE.CylinderGeometry(1.15, 1.25, 0.12, 10), '#e8dcc0', { x: FONT.x, y: 0.06, z: FONT.z });
@@ -479,6 +469,8 @@ function buildHome(view: IslandView, M: Merger, g: Geo, rand: () => number, clea
   font.add(fontHit);
   pickables.push(fontHit);
   group.add(font);
+
+  M.anchor = null;
 
   // nests
   const nests: THREE.Group[] = [];
@@ -524,7 +516,8 @@ function buildHome(view: IslandView, M: Merger, g: Geo, rand: () => number, clea
   pickables.push(bHit);
   group.add(basket);
 
-  // the shop cottage
+  // the shop cottage: stands as one piece
+  M.anchor = { x: SHOP_STALL.x, z: SHOP_STALL.z };
   const stall = new THREE.Group();
   stall.position.set(SHOP_STALL.x, 0, SHOP_STALL.z);
   const SX = SHOP_STALL.x;
@@ -578,6 +571,7 @@ function buildHome(view: IslandView, M: Merger, g: Geo, rand: () => number, clea
   stall.add(sHit);
   pickables.push(sHit);
   group.add(stall);
+  M.anchor = null;
 
   view.home = { font, fontWater, nests, nestLocks, stall, basket };
 }
@@ -587,26 +581,30 @@ function buildHome(view: IslandView, M: Merger, g: Geo, rand: () => number, clea
 function buildVolcano(view: IslandView, M: Merger, g: Geo, rand: () => number): void {
   const { ox, oz } = g;
   // the volcano: layered cone with a glowing crater
-  M.add(new THREE.CylinderGeometry(1.5, 3.4, 3.8, 10), '#5a4040', { x: ox, y: 1.9, z: oz - 3.6 });
-  M.add(new THREE.CylinderGeometry(1.2, 1.55, 0.5, 10), '#4a3434', { x: ox, y: 4.0, z: oz - 3.6 });
+  // Stood upright on the globe and sunk a little so its wide base meets the curve.
+  const sink = 1.2;
+  M.anchor = { x: ox, z: oz - 3.6 };
+  M.add(new THREE.CylinderGeometry(1.5, 3.4, 3.8, 14), '#5a4040', { x: ox, y: 1.9 - sink, z: oz - 3.6 });
+  M.add(new THREE.CylinderGeometry(1.2, 1.55, 0.5, 14), '#4a3434', { x: ox, y: 4.0 - sink, z: oz - 3.6 });
   for (let i = 0; i < 5; i++) {
     const a = (i / 5) * Math.PI * 2 + 0.3;
-    M.add(new THREE.BoxGeometry(0.35, 2.4, 0.2), '#ff7a2a', { x: ox + Math.cos(a) * 2.1, y: 2.4, z: oz - 3.6 + Math.sin(a) * 2.1 },
+    M.add(new THREE.BoxGeometry(0.35, 2.4, 0.2), '#ff7a2a', { x: ox + Math.cos(a) * 2.1, y: 2.4 - sink, z: oz - 3.6 + Math.sin(a) * 2.1 },
       { x: Math.sin(a) * 0.5, y: -a, z: -Math.cos(a) * 0.5 });
   }
+  M.anchor = null;
   const crater = new THREE.Mesh(new THREE.CircleGeometry(1.15, 20), new THREE.MeshToonMaterial({ color: '#ffb02a', emissive: '#ff6a00', emissiveIntensity: 1 }));
   crater.rotation.x = -Math.PI / 2;
-  crater.position.set(ox, 4.27, oz - 3.6);
+  crater.position.set(ox, 4.27 - sink, oz - 3.6);
   view.group.add(crater);
   view.lava.push(crater);
   const smoke = glowSprite('#ff9a4a', 4, 0.5);
-  smoke.position.set(ox, 5.2, oz - 3.6);
+  smoke.position.set(ox, 5.2 - sink, oz - 3.6);
   view.group.add(smoke);
 
   // lava pools
   for (const c of g.lava) {
-    M.add(new THREE.CylinderGeometry(c.r + 0.2, c.r + 0.25, 0.08, 20), '#2a2228', { x: c.x, y: 0.02, z: c.z });
-    const lava = waterDisc(c, '#ff8a1a', '#ff4a00', 0.07);
+    flatDisc(M, c.r + 0.25, '#2a2228', c.x, c.z, 0.03);
+    const lava = waterDisc(g, c, '#ff8a1a', '#ff4a00', 0.07);
     (lava.material as THREE.MeshToonMaterial).emissiveIntensity = 0.9;
     (lava.material as THREE.MeshToonMaterial).transparent = false;
     view.group.add(lava);
@@ -614,8 +612,10 @@ function buildVolcano(view: IslandView, M: Merger, g: Geo, rand: () => number): 
   }
   // obsidian spires and warm rocks
   for (const o of g.obstacles.slice(3)) {
-    M.add(new THREE.ConeGeometry(0.55, 1.8, 5), '#2f2a3a', { x: o.x, y: 0.9, z: o.z }, { x: 0, y: rand(), z: 0 });
-    M.add(new THREE.ConeGeometry(0.35, 1.1, 5), '#3f3850', { x: o.x + 0.45, y: 0.55, z: o.z + 0.2 }, { x: 0, y: rand(), z: 0.15 });
+    M.piece(o.x, o.z, () => {
+      M.add(new THREE.ConeGeometry(0.55, 1.8, 5), '#2f2a3a', { x: o.x, y: 0.9, z: o.z }, { x: 0, y: rand(), z: 0 });
+      M.add(new THREE.ConeGeometry(0.35, 1.1, 5), '#3f3850', { x: o.x + 0.45, y: 0.55, z: o.z + 0.2 }, { x: 0, y: rand(), z: 0.15 });
+    });
   }
   for (let i = 0; i < 10; i++) {
     const a = rand() * Math.PI * 2;
@@ -631,8 +631,8 @@ function buildVolcano(view: IslandView, M: Merger, g: Geo, rand: () => number): 
 
 function buildLagoon(view: IslandView, M: Merger, g: Geo, rand: () => number): void {
   const lagoon = g.water[0];
-  M.add(new THREE.CylinderGeometry(lagoon.r + 0.35, lagoon.r + 0.35, 0.04, 48), '#7fe0d0', { x: lagoon.x, y: 0.01, z: lagoon.z });
-  const water = waterDisc(lagoon, '#2ad0e8', '#0fa0c8');
+  flatDisc(M, lagoon.r + 0.35, '#7fe0d0', lagoon.x, lagoon.z, 0.03);
+  const water = waterDisc(g, lagoon, '#2ad0e8', '#0fa0c8');
   view.group.add(water);
   view.water.push(water);
   // coral and rocks under the water
@@ -673,13 +673,13 @@ function buildLagoon(view: IslandView, M: Merger, g: Geo, rand: () => number): v
 function buildBeach(view: IslandView, M: Merger, g: Geo, rand: () => number): void {
   // tide pools ringed with rocks
   for (const c of g.water) {
-    M.add(new THREE.CylinderGeometry(c.r + 0.25, c.r + 0.25, 0.04, 32), '#e8d6a0', { x: c.x, y: 0.01, z: c.z });
+    flatDisc(M, c.r + 0.25, '#e8d6a0', c.x, c.z, 0.03);
     for (let i = 0; i < 12; i++) {
       const a = (i / 12) * Math.PI * 2 + rand() * 0.3;
       M.add(new THREE.DodecahedronGeometry(0.18 + rand() * 0.12, 0), i % 3 ? '#c8b89a' : '#a89a80',
         { x: c.x + Math.cos(a) * (c.r + 0.1), y: 0.05, z: c.z + Math.sin(a) * (c.r + 0.1) }, { x: 0, y: rand(), z: 0 }, { x: 1, y: 0.6, z: 1 });
     }
-    const water = waterDisc(c, '#4fd8f0', '#1aa8d0');
+    const water = waterDisc(g, c, '#4fd8f0', '#1aa8d0');
     view.group.add(water);
     view.water.push(water);
   }
@@ -691,6 +691,7 @@ function buildBeach(view: IslandView, M: Merger, g: Geo, rand: () => number): vo
   // a beach umbrella and towel: somebody was here before you
   const ux = g.ox - 4.2;
   const uz = g.oz + 2.6;
+  M.anchor = { x: ux, z: uz };
   M.add(new THREE.BoxGeometry(1.1, 0.02, 0.6), '#ff7a8a', { x: ux + 0.6, y: 0.02, z: uz + 0.3 }, { x: 0, y: 0.3, z: 0 });
   for (let i = 0; i < 4; i++) M.add(new THREE.BoxGeometry(0.12, 0.021, 0.6), '#ffffff', { x: ux + 0.3 + i * 0.22, y: 0.025, z: uz + 0.3 }, { x: 0, y: 0.3, z: 0 });
   M.add(new THREE.CylinderGeometry(0.03, 0.03, 1.6, 6), '#f4efe4', { x: ux, y: 0.8, z: uz }, { x: 0.1, y: 0, z: 0.1 });
@@ -699,6 +700,7 @@ function buildBeach(view: IslandView, M: Merger, g: Geo, rand: () => number): vo
     const seg = new THREE.ConeGeometry(0.9, 0.35, 3, 1, true, a, Math.PI / 4);
     M.add(seg, i % 2 ? '#ffffff' : '#ff9ec4', { x: ux + 0.08, y: 1.6, z: uz + 0.08 });
   }
+  M.anchor = null;
   // shells, starfish and little sand ripples
   for (let i = 0; i < 14; i++) {
     const a = rand() * Math.PI * 2;
@@ -722,6 +724,10 @@ function buildBeach(view: IslandView, M: Merger, g: Geo, rand: () => number): vo
 // ---------------------------------------------------------------- Dune Hollow
 
 function cactus(M: Merger, x: number, z: number, s: number, rand: () => number): void {
+  M.piece(x, z, () => cactusParts(M, x, z, s, rand));
+}
+
+function cactusParts(M: Merger, x: number, z: number, s: number, rand: () => number): void {
   M.add(new THREE.CylinderGeometry(0.22 * s, 0.25 * s, 1.4 * s, 8), '#5fae4a', { x, y: 0.7 * s, z });
   M.add(new THREE.SphereGeometry(0.22 * s, 8, 6), '#5fae4a', { x, y: 1.4 * s, z });
   for (const side of [1, -1]) {
@@ -737,8 +743,8 @@ function cactus(M: Merger, x: number, z: number, s: number, rand: () => number):
 function buildDesert(view: IslandView, M: Merger, g: Geo, rand: () => number): void {
   // the oasis
   const oasis = g.water[0];
-  M.add(new THREE.CylinderGeometry(oasis.r + 0.45, oasis.r + 0.45, 0.04, 32), '#9fbf5a', { x: oasis.x, y: 0.01, z: oasis.z });
-  const water = waterDisc(oasis, '#3ac8e8', '#1a98c8');
+  flatDisc(M, oasis.r + 0.45, '#9fbf5a', oasis.x, oasis.z, 0.03);
+  const water = waterDisc(g, oasis, '#3ac8e8', '#1a98c8');
   view.group.add(water);
   view.water.push(water);
   for (let i = 0; i < 8; i++) {
@@ -751,10 +757,12 @@ function buildDesert(view: IslandView, M: Merger, g: Geo, rand: () => number): v
   for (const o of g.obstacles.slice(0, 3)) cactus(M, o.x, o.z, 0.9 + rand() * 0.3, rand);
   // a sandstone arch (shelter from storms)
   const arch = g.shelters[0];
-  for (const side of [1, -1]) {
-    M.add(new THREE.BoxGeometry(0.5, 1.6, 0.6), '#d89a5a', { x: arch.x + side * 0.75, y: 0.8, z: arch.z }, { x: 0, y: 0, z: side * 0.06 });
-  }
-  M.add(new THREE.BoxGeometry(2.1, 0.45, 0.65), '#e0a868', { x: arch.x, y: 1.75, z: arch.z });
+  M.piece(arch.x, arch.z, () => {
+    for (const side of [1, -1]) {
+      M.add(new THREE.BoxGeometry(0.5, 1.6, 0.6), '#d89a5a', { x: arch.x + side * 0.75, y: 0.8, z: arch.z }, { x: 0, y: 0, z: side * 0.06 });
+    }
+    M.add(new THREE.BoxGeometry(2.1, 0.45, 0.65), '#e0a868', { x: arch.x, y: 1.75, z: arch.z });
+  });
   // soft dunes and scattered pebbles
   for (let i = 0; i < 7; i++) {
     const a = rand() * Math.PI * 2;
@@ -762,7 +770,7 @@ function buildDesert(view: IslandView, M: Merger, g: Geo, rand: () => number): v
     const x = g.ox + Math.cos(a) * r;
     const z = g.oz + Math.sin(a) * r;
     if (inWater(g, x, z, 1.2) || isBlocked(g, x, z, 0.8)) continue;
-    M.add(new THREE.SphereGeometry(1, 12, 6), i % 2 ? '#f6cc78' : '#eebc62', { x, y: -0.1, z }, { x: 0, y: rand() * 3, z: 0 }, { x: 1.2 + rand(), y: 0.3, z: 0.8 + rand() * 0.5 });
+    M.add(new THREE.SphereGeometry(1, 12, 6), i % 2 ? '#f6cc78' : '#eebc62', { x, y: -0.1, z }, { x: 0, y: rand() * 3, z: 0 }, { x: 1.2 + rand(), y: 0.3, z: 0.8 + rand() * 0.5 }, 'drape');
   }
   for (let i = 0; i < 10; i++) {
     const a = rand() * Math.PI * 2;
