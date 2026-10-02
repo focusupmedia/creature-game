@@ -363,6 +363,8 @@ export class CreatureActor {
       this.root.position.y += (targetY - this.root.position.y) * Math.min(1, dt * 2);
       if (m.tail) m.tail.rotation.y = Math.sin(this.phase * 2.5) * 0.3;
     } else if (mv === 'float') {
+      // long floaters (the Cloud Serpent) ripple along their length
+      m.segments.forEach((seg, i) => (seg.position.y = Math.sin(this.phase * 2.2 - i * 0.6) * 0.12));
       const targetY = ground + (this.state === 'sleep' || this.state === 'nap' ? 0.5 : this.flyHeight) + Math.sin(this.phase * 1.3) * 0.2;
       this.root.position.y += (targetY - this.root.position.y) * Math.min(1, dt * 1.5);
       if (m.tail) m.tail.rotation.z = Math.sin(this.phase * 2) * 0.3;

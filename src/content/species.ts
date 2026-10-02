@@ -179,6 +179,101 @@ export const SPECIES: SpeciesDef[] = [
     hint: 'What would a dragon become if a falling star touched it?',
     eggColors: ['#1e2468', '#fff1a8'],
   },
+  // ---- monkeys and kin
+  {
+    id: 'mossmonkey', name: 'Mossmonkey', traits: ['Primate', 'Grove'], rarity: 'common',
+    activity: 'day', movement: 'walk', origin: 'wild',
+    blurb: 'Swings from branch to branch and steals your hat. Gives it back, mostly.',
+    hint: 'Something cheeky chatters in the forest canopy by day.',
+    eggColors: ['#a0703e', '#8fd06a'],
+  },
+  {
+    id: 'lanternlemur', name: 'Lanternlemur', traits: ['Primate', 'Mystic', 'Grove'], rarity: 'uncommon',
+    activity: 'night', movement: 'walk', origin: 'wild',
+    blurb: 'Its huge eyes glow like lanterns. It uses them to read bedtime stories.',
+    hint: 'Two little lights watch the forest after dark. Something strange might tempt them.',
+    eggColors: ['#9a96b0', '#ffd86a'],
+  },
+  {
+    id: 'cindermonk', name: 'Cindermonk', traits: ['Primate', 'Ember'], rarity: 'rare',
+    activity: 'day', movement: 'walk', origin: 'wild',
+    blurb: 'A tiny fire monkey with a tail like a sparkler. Very proud of it.',
+    hint: 'A warm, mischievous shape is sometimes seen near the lava.',
+    eggColors: ['#c8502a', '#ffd23d'],
+  },
+  // ---- Sunny Shore
+  {
+    id: 'flamingle', name: 'Flamingle', traits: ['Bird', 'Shore'], rarity: 'common',
+    activity: 'day', movement: 'walk', origin: 'wild',
+    blurb: 'Stands on one leg for hours. Nobody has ever seen it switch.',
+    hint: 'A pink shape stands very still by the sea.',
+    eggColors: ['#ff9ec4', '#ffffff'],
+  },
+  {
+    id: 'pouchbill', name: 'Pouchbill', traits: ['Bird', 'Shore', 'Tide'], rarity: 'common',
+    activity: 'day', movement: 'waddle', origin: 'wild',
+    blurb: 'Keeps a snack, a shell and a very surprised crab in its pouch.',
+    hint: 'A big beak waddles along the tideline.',
+    eggColors: ['#f4efe4', '#ffb84d'],
+  },
+  {
+    id: 'mistheron', name: 'Mistheron', traits: ['Bird', 'Tide', 'Mystic'], rarity: 'uncommon',
+    activity: 'any', movement: 'walk', origin: 'hybrid',
+    blurb: 'Steps out of the sea fog without a sound, and back into it.',
+    hint: 'Shore birds who share the tide might raise something misty.',
+    eggColors: ['#c8d8e8', '#7a8ab0'],
+  },
+  // ---- Dune Hollow
+  {
+    id: 'sandpincer', name: 'Sandpincer', traits: ['Arachnid', 'Sand'], rarity: 'common',
+    activity: 'night', movement: 'scuttle', origin: 'wild',
+    blurb: 'Waves its claws to say hello. Its tail is only for show. Probably.',
+    hint: 'Something clicks across the dunes at night.',
+    eggColors: ['#e0a850', '#7a4a2a'],
+  },
+  {
+    id: 'dunecoil', name: 'Dunecoil', traits: ['Reptile', 'Sand'], rarity: 'common',
+    activity: 'day', movement: 'slither', origin: 'wild',
+    blurb: 'Sidewinds across hot sand, leaving tidy little S shapes behind.',
+    hint: 'Strange S-shaped tracks cross the warm sand.',
+    eggColors: ['#e8c890', '#b07a3a'],
+  },
+  {
+    id: 'sunhood', name: 'Sunhood', traits: ['Reptile', 'Sand', 'Mystic'], rarity: 'rare',
+    activity: 'day', movement: 'slither', origin: 'hybrid',
+    blurb: 'When it spreads its hood, a golden sun shines on it. It loves an audience.',
+    hint: 'Desert creatures with claws and scales might share a sunny secret.',
+    eggColors: ['#f2c46a', '#ff7a2a'],
+  },
+  // ---- Mythical: found only in special moments
+  {
+    id: 'cloudserpent', name: 'Cloud Serpent', traits: ['Dragon', 'Spirit', 'Storm'], rarity: 'mythical',
+    activity: 'any', movement: 'float', origin: 'hybrid',
+    blurb: 'A long sky dragon that rides the thunder. It grants one wish a year, but only small ones.',
+    hint: 'Two dragons, and thunder overhead.',
+    eggColors: ['#3aa86a', '#ffd23d'],
+  },
+  {
+    id: 'phoenix', name: 'Phoenix', traits: ['Bird', 'Ember', 'Spirit'], rarity: 'mythical',
+    activity: 'any', movement: 'fly', origin: 'hybrid',
+    blurb: 'Burns bright, then rests as embers, then rises again. It is never sad about it.',
+    hint: 'A bird and a creature of fire, kindred under a darkened sun.',
+    eggColors: ['#ff5a2a', '#ffd23d'],
+  },
+  {
+    id: 'kraken', name: 'Kraken', traits: ['Reef', 'Tide', 'Spirit'], rarity: 'mythical',
+    activity: 'night', movement: 'swim', origin: 'wild', onlyDuring: 'fullmoon', onlyAt: ['reef'],
+    blurb: 'Far smaller than the stories say. Far friendlier too. Hugs with all eight arms.',
+    hint: 'Something stirs beneath the coral when the moon is full.',
+    eggColors: ['#7a4ad0', '#ff8fc8'],
+  },
+  {
+    id: 'qilin', name: 'Qilin', traits: ['Dragon', 'Mammal', 'Mystic'], rarity: 'mythical',
+    activity: 'any', movement: 'walk', origin: 'hybrid',
+    blurb: 'Walks so gently that flowers bloom in its hoofprints.',
+    hint: 'A dragon and a gentle magical creature, beneath a sky full of falling stars.',
+    eggColors: ['#7fd6c8', '#ffd86a'],
+  },
 ];
 
 export const SPECIES_BY_ID: Record<string, SpeciesDef> = Object.fromEntries(SPECIES.map((s) => [s.id, s]));

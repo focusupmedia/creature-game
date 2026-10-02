@@ -56,6 +56,14 @@ export const LURES: Record<string, LureDef> = {
     id: 'saltkelp', name: 'Saltkelp Lure', attracts: 'Reef', durationMin: 6, expectedVisitors: 2.4,
     price: 45, scent: 'Briny and fresh, like a wave breaking on coral.', color: '#2ad0c8',
   },
+  seaspray: {
+    id: 'seaspray', name: 'Seaspray Lure', attracts: 'Shore', durationMin: 6, expectedVisitors: 2.4,
+    price: 50, scent: 'Salty breeze and sun-warmed shells. Feathers ruffle nearby.', color: '#ff9ec4',
+  },
+  sunbaked: {
+    id: 'sunbaked', name: 'Sunbaked Lure', attracts: 'Sand', durationMin: 6, expectedVisitors: 2.2,
+    price: 55, scent: 'Hot dust and cactus flowers. Something clicks in the dunes.', color: '#f2b04a',
+  },
   moonpetal: {
     id: 'moonpetal', name: 'Moonpetal Lure', attracts: 'Mystic', durationMin: 8, expectedVisitors: 1.8,
     price: 60, scent: 'Faintly silver, faintly cold. It smells like a secret.', color: '#b9a6ff',
@@ -65,12 +73,18 @@ export const LURES: Record<string, LureDef> = {
 // ---------------------------------------------------------------- lure spots
 const V = ISLANDS.volcano;
 const L = ISLANDS.lagoon;
+const B = ISLANDS.beach;
+const D = ISLANDS.desert;
 export const SPOTS: Record<string, SpotDef> = {
   glade: { id: 'glade', island: 'home', name: 'Mossy Glade', x: -3.6, z: 2.4, affinity: { Grove: 1.5, Mystic: 1.3 }, water: false },
   pond: { id: 'pond', island: 'home', name: 'Pond Edge', x: 3.3, z: 0.6, affinity: { Tide: 2, Amphibian: 1.5 }, water: true },
   vent: { id: 'vent', island: 'volcano', name: 'Lava Vent', x: V.ox + 0.6, z: V.oz + 1.4, affinity: { Ember: 2, Dragon: 1.5 }, water: false },
   ash: { id: 'ash', island: 'volcano', name: 'Ash Field', x: V.ox - 4.2, z: V.oz + 0.2, affinity: { Ember: 1.3, Reptile: 1.5 }, water: false },
   reef: { id: 'reef', island: 'lagoon', name: 'Coral Reef', x: L.ox - 2.2, z: L.oz + 1.2, affinity: { Reef: 2, Fish: 1.5 }, water: true },
+  tidepool: { id: 'tidepool', island: 'beach', name: 'Tide Pool', x: B.ox - 2.4, z: B.oz + 1.8, affinity: { Shore: 1.5, Tide: 2, Fish: 1.3 }, water: true },
+  dunegrass: { id: 'dunegrass', island: 'beach', name: 'Dune Grass', x: B.ox + 2.0, z: B.oz + 3.0, affinity: { Shore: 2, Bird: 1.5 }, water: false },
+  oasis: { id: 'oasis', island: 'desert', name: 'Oasis', x: D.ox - 1.6, z: D.oz - 1.8, affinity: { Sand: 1.5, Tide: 1.5 }, water: true },
+  sandpit: { id: 'sandpit', island: 'desert', name: 'Sand Pit', x: D.ox + 2.4, z: D.oz + 0.8, affinity: { Sand: 2, Reptile: 1.5, Arachnid: 1.5 }, water: false },
   shallows: { id: 'shallows', island: 'lagoon', name: 'Shallows', x: L.ox + 2.6, z: L.oz - 1.4, affinity: { Reef: 1.3, Amphibian: 2, Spirit: 1.5 }, water: true },
 };
 
@@ -164,6 +178,12 @@ export const RESONANCES: ResonanceRule[] = [
   { id: 'r-lilyhop', requires: ['Amphibian', 'Bloom'], result: 'lilyhop', chance: 0.35 },
   { id: 'r-shellshroom', requires: ['Reptile', 'Fungus'], result: 'shellshroom', chance: 0.4 },
   { id: 'r-starwyrm', requires: ['Dragon', 'Starlit'], result: 'starwyrm', chance: 0.25 },
+  { id: 'r-mistheron', requires: ['Bird', 'Shore', 'Tide'], result: 'mistheron', chance: 0.35 },
+  { id: 'r-sunhood', requires: ['Reptile', 'Arachnid', 'Sand'], result: 'sunhood', chance: 0.25 },
+  // Mythicals: only in a special moment, with the sky's trait counting in full.
+  { id: 'r-cloudserpent', requires: ['Dragon', 'Storm'], both: 'Dragon', sky: 'storm', result: 'cloudserpent', chance: 0.35 },
+  { id: 'r-phoenix', requires: ['Bird', 'Ember'], sky: 'eclipse', result: 'phoenix', chance: 0.35 },
+  { id: 'r-qilin', requires: ['Dragon', 'Mammal', 'Mystic'], sky: 'starry', result: 'qilin', chance: 0.35 },
 ];
 
 // ---------------------------------------------------------------- dig spots
@@ -184,15 +204,15 @@ export interface DigKindDef {
 
 export const DIG_KINDS: Record<DigKind, DigKindDef> = {
   dust: {
-    name: 'Sparkly dust', verb: 'Dug up', icon: '✨', islands: { home: 3, volcano: 4, lagoon: 3 },
+    name: 'Sparkly dust', verb: 'Dug up', icon: '✨', islands: { home: 3, volcano: 4, lagoon: 3, beach: 3, desert: 5 },
     glimmer: [12, 28], shardChance: 0.12, itemChance: 0.06, items: ['warmstone', 'rootswell'], eggChance: 0.03,
   },
   puddle: {
-    name: 'Bubbling puddle', verb: 'Fished up', icon: '🫧', islands: { home: 2, lagoon: 3 },
+    name: 'Bubbling puddle', verb: 'Fished up', icon: '🫧', islands: { home: 2, lagoon: 3, beach: 3, desert: 1 },
     glimmer: [8, 22], shardChance: 0.08, itemChance: 0.08, items: ['rootswell'], eggChance: 0.01,
   },
   bush: {
-    name: 'Berry bush', verb: 'Foraged', icon: '🫐', islands: { home: 3, lagoon: 1, volcano: 1 },
+    name: 'Berry bush', verb: 'Foraged', icon: '🫐', islands: { home: 3, lagoon: 1, volcano: 1, beach: 1, desert: 1 },
     glimmer: [6, 16], shardChance: 0.05, itemChance: 0.12, items: ['rootswell', 'warmstone'], eggChance: 0,
   },
 };

@@ -637,10 +637,15 @@ export class UI {
         h('button', { class: this.journalTab === id ? 'on' : '', onClick: () => { this.journalTab = id; this.rerender(); } }, label);
       b.append(h('div', { class: 'tabs' }, tab('creatures', '🐾 Creatures'), tab('mutations', '✨ Mutations'), tab('notes', `📝 Notes (${s.journal.notes.length})`)));
       if (this.journalTab === 'creatures') {
-        for (const [title, origin] of [['Wild', 'wild'], ['Created', 'hybrid']] as const) {
+        const sections: [string, (x: (typeof SPECIES)[number]) => boolean][] = [
+          ['Wild', (x) => x.origin === 'wild' && x.rarity !== 'mythical'],
+          ['Created', (x) => x.origin === 'hybrid' && x.rarity !== 'mythical'],
+          ['✦ Mythical', (x) => x.rarity === 'mythical'],
+        ];
+        for (const [title, keep] of sections) {
           b.append(h('div', { class: 'section-title' }, title));
           const grid = h('div', { class: 'grid' });
-          for (const sp of SPECIES.filter((x) => x.origin === origin)) {
+          for (const sp of SPECIES.filter(keep)) {
             const entry = s.journal.species[sp.id];
             const el = h('button', { class: 'tile', onClick: () => this.showSpeciesEntry(sp.id) },
               img(this.game.world.portraits.get(sp.id, [], !entry)),
@@ -848,7 +853,9 @@ export class UI {
         if (p === 'burst') prompt.remove();
         if (p !== 'show') return;
         const sp = species(creature.species);
-        top.replaceChildren(h('div', { class: `title ${isNew ? 'new' : ''}` }, isNew ? (sp.origin === 'hybrid' ? 'New creation!' : 'New discovery!') : 'It hatched!'));
+        const mythic = sp.rarity === 'mythical';
+        top.replaceChildren(h('div', { class: `title ${isNew ? 'new' : ''} ${mythic ? 'mythic' : ''}` },
+          mythic ? (isNew ? '✦ A MYTHICAL creature! ✦' : '✦ Mythical! ✦') : isNew ? (sp.origin === 'hybrid' ? 'New creation!' : 'New discovery!') : 'It hatched!'));
         const muts = creature.mutations.filter((m) => !sp.traits.includes(MUTATIONS[m].trait));
         bottom.replaceChildren(h('div', { class: 'card' },
           h('h3', null, speciesTitle(creature)),

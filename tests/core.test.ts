@@ -395,7 +395,11 @@ describe('islands', () => {
     expect(s.islands.volcano.owned).toBe(true);
     s.shards = 500;
     expect(buyIsland(s, 'lagoon', 'shards').ok).toBe(true);
-    expect(buyIsland(s, 'beach', 'glimmer').ok).toBe(false);
+    expect(buyIsland(s, 'beach', 'glimmer').ok).toBe(true);
+    // a starter pair to breed from, living on the new island
+    const starters = s.creatures.filter((c) => c.island === 'beach').map((c) => c.species).sort();
+    expect(starters).toEqual(['flamingle', 'pouchbill']);
+    s.glimmer = 5000;
     const cap = islandCapacity(s, 'home');
     expect(upgradeIsland(s, 'home', 'glimmer').ok).toBe(true);
     expect(islandCapacity(s, 'home')).toBeGreaterThan(cap);
@@ -439,7 +443,7 @@ describe('save', () => {
     for (const c of v1.creatures) { delete c.island; delete c.size; delete c.growMs; delete c.personality; }
     for (const k of ['vent', 'ash', 'reef', 'shallows']) delete v1.spots[k];
     const s = deserialize(JSON.stringify(v1));
-    expect(s.version).toBe(3);
+    expect(s.version).toBe(4);
     expect(s.digSpots).toEqual([]);
     expect(s.islands.home.owned).toBe(true);
     expect(s.creatures.every((c) => c.island === 'home' && c.size > 0.9 && c.growMs === 0 && !!c.personality)).toBe(true);
@@ -500,5 +504,38 @@ describe('dig spots', () => {
     expect(s.digSpots.some((d) => d.id === spot.id)).toBe(false);
     expect(s.gifts).toContain(r.gift);
     expect(workDigSpot(s, spot.id, walker.id).ok).toBe(false);
+  });
+});
+
+describe('mythicals', () => {
+  it('Cloud Serpent only comes from two dragons in a thunderstorm', async () => {
+    const { combine } = await import('../src/core/genetics');
+    const s = createGame(5, 0);
+    const mk = (sp: string) => ({ ...s.creatures[0], id: sp + Math.random(), species: sp, mutations: [] as never[] });
+    const a = mk('emberdrake');
+    const b = mk('emberdrake');
+    const count = (sky: 'storm' | null) => {
+      let n = 0;
+      for (let i = 0; i < 400; i++) {
+        s.rng = i * 7919;
+        if (combine(a, b, new StateRng(s), sky).species === 'cloudserpent') n++;
+      }
+      return n;
+    };
+    expect(count(null)).toBe(0);
+    expect(count('storm')).toBeGreaterThan(60);
+    // one dragon is not enough
+    const c = mk('cinderskink');
+    s.rng = 1;
+    let any = false;
+    for (let i = 0; i < 300; i++) { s.rng = i * 31; if (combine(a, c, new StateRng(s), 'storm').species === 'cloudserpent') any = true; }
+    expect(any).toBe(false);
+  });
+
+  it('the Kraken only answers the Coral Reef under a full moon', () => {
+    const at = (spot: string, sky: 'fullmoon' | null) => arrivalWeights('saltkelp', spot, true, sky).some(([sp]) => sp.id === 'kraken');
+    expect(at('reef', 'fullmoon')).toBe(true);
+    expect(at('reef', null)).toBe(false);
+    expect(at('shallows', 'fullmoon')).toBe(false);
   });
 });

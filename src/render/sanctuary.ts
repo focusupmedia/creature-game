@@ -364,6 +364,8 @@ export function buildIsland(id: IslandId, size: number, owned: boolean): IslandV
   if (id === 'home') buildHome(view, M, g, rand, clear);
   if (id === 'volcano') buildVolcano(view, M, g, rand);
   if (id === 'lagoon') buildLagoon(view, M, g, rand);
+  if (id === 'beach') buildBeach(view, M, g, rand);
+  if (id === 'desert') buildDesert(view, M, g, rand);
 
   view.spotDishes = lureSpots(M, id, view.pickables, group, id === 'volcano' ? '#4a3a3a' : '#8d8f86');
 
@@ -663,5 +665,111 @@ function buildLagoon(view: IslandView, M: Merger, g: Geo, rand: () => number): v
     const a = 0.6 + i * 1.9 + rand() * 0.4;
     const r = g.r - 1.3;
     palm(view, M, g.ox + Math.cos(a) * r, g.oz + Math.sin(a) * r, 0.8 + rand() * 0.2, rand);
+  }
+}
+
+// ---------------------------------------------------------------- Sunny Shore
+
+function buildBeach(view: IslandView, M: Merger, g: Geo, rand: () => number): void {
+  // tide pools ringed with rocks
+  for (const c of g.water) {
+    M.add(new THREE.CylinderGeometry(c.r + 0.25, c.r + 0.25, 0.04, 32), '#e8d6a0', { x: c.x, y: 0.01, z: c.z });
+    for (let i = 0; i < 12; i++) {
+      const a = (i / 12) * Math.PI * 2 + rand() * 0.3;
+      M.add(new THREE.DodecahedronGeometry(0.18 + rand() * 0.12, 0), i % 3 ? '#c8b89a' : '#a89a80',
+        { x: c.x + Math.cos(a) * (c.r + 0.1), y: 0.05, z: c.z + Math.sin(a) * (c.r + 0.1) }, { x: 0, y: rand(), z: 0 }, { x: 1, y: 0.6, z: 1 });
+    }
+    const water = waterDisc(c, '#4fd8f0', '#1aa8d0');
+    view.group.add(water);
+    view.water.push(water);
+  }
+  // rocks and palms (palms double as shelters)
+  for (const o of g.obstacles.slice(0, 2)) {
+    M.add(new THREE.DodecahedronGeometry(o.r, 0), '#d0b090', { x: o.x, y: o.r * 0.4, z: o.z }, { x: rand(), y: rand(), z: rand() }, { x: 1, y: 0.75, z: 1 });
+  }
+  for (const s of g.shelters) palm(view, M, s.x, s.z, 1 + rand() * 0.2, rand);
+  // a beach umbrella and towel: somebody was here before you
+  const ux = g.ox - 4.2;
+  const uz = g.oz + 2.6;
+  M.add(new THREE.BoxGeometry(1.1, 0.02, 0.6), '#ff7a8a', { x: ux + 0.6, y: 0.02, z: uz + 0.3 }, { x: 0, y: 0.3, z: 0 });
+  for (let i = 0; i < 4; i++) M.add(new THREE.BoxGeometry(0.12, 0.021, 0.6), '#ffffff', { x: ux + 0.3 + i * 0.22, y: 0.025, z: uz + 0.3 }, { x: 0, y: 0.3, z: 0 });
+  M.add(new THREE.CylinderGeometry(0.03, 0.03, 1.6, 6), '#f4efe4', { x: ux, y: 0.8, z: uz }, { x: 0.1, y: 0, z: 0.1 });
+  for (let i = 0; i < 8; i++) {
+    const a = (i / 8) * Math.PI * 2;
+    const seg = new THREE.ConeGeometry(0.9, 0.35, 3, 1, true, a, Math.PI / 4);
+    M.add(seg, i % 2 ? '#ffffff' : '#ff9ec4', { x: ux + 0.08, y: 1.6, z: uz + 0.08 });
+  }
+  // shells, starfish and little sand ripples
+  for (let i = 0; i < 14; i++) {
+    const a = rand() * Math.PI * 2;
+    const r = 1.5 + rand() * (g.r - 2.5);
+    const x = g.ox + Math.cos(a) * r;
+    const z = g.oz + Math.sin(a) * r;
+    if (inWater(g, x, z, 0.4) || isBlocked(g, x, z, 0.3)) continue;
+    if (i % 3 === 0) M.add(new THREE.ConeGeometry(0.14, 0.06, 5), '#ff8f6a', { x, y: 0.03, z }, { x: 0, y: rand(), z: 0 });
+    else M.add(new THREE.SphereGeometry(0.08, 6, 4, 0, Math.PI), i % 2 ? '#fff0d6' : '#ffd0e2', { x, y: 0.02, z }, { x: -Math.PI / 2, y: rand() * 3, z: 0 });
+  }
+  for (let i = 0; i < 6; i++) {
+    const a = rand() * Math.PI * 2;
+    const r = 2 + rand() * (g.r - 3);
+    const x = g.ox + Math.cos(a) * r;
+    const z = g.oz + Math.sin(a) * r;
+    if (inWater(g, x, z, 0.8)) continue;
+    M.add(new THREE.TorusGeometry(0.5 + rand() * 0.3, 0.025, 3, 16, Math.PI * 0.6), '#f0d090', { x, y: 0.01, z }, { x: -Math.PI / 2, y: 0, z: rand() * 3 });
+  }
+}
+
+// ---------------------------------------------------------------- Dune Hollow
+
+function cactus(M: Merger, x: number, z: number, s: number, rand: () => number): void {
+  M.add(new THREE.CylinderGeometry(0.22 * s, 0.25 * s, 1.4 * s, 8), '#5fae4a', { x, y: 0.7 * s, z });
+  M.add(new THREE.SphereGeometry(0.22 * s, 8, 6), '#5fae4a', { x, y: 1.4 * s, z });
+  for (const side of [1, -1]) {
+    if (rand() < 0.3) continue;
+    const h = (0.55 + rand() * 0.35) * s;
+    M.add(new THREE.CylinderGeometry(0.11 * s, 0.11 * s, 0.35 * s, 6), '#5fae4a', { x: x + side * 0.28 * s, y: h, z }, { x: 0, y: 0, z: Math.PI / 2 });
+    M.add(new THREE.CylinderGeometry(0.11 * s, 0.11 * s, 0.4 * s, 6), '#5fae4a', { x: x + side * 0.44 * s, y: h + 0.18 * s, z });
+    M.add(new THREE.SphereGeometry(0.11 * s, 6, 4), '#5fae4a', { x: x + side * 0.44 * s, y: h + 0.38 * s, z });
+  }
+  M.add(new THREE.SphereGeometry(0.09 * s, 6, 4), '#ff7ab0', { x, y: 1.62 * s, z });
+}
+
+function buildDesert(view: IslandView, M: Merger, g: Geo, rand: () => number): void {
+  // the oasis
+  const oasis = g.water[0];
+  M.add(new THREE.CylinderGeometry(oasis.r + 0.45, oasis.r + 0.45, 0.04, 32), '#9fbf5a', { x: oasis.x, y: 0.01, z: oasis.z });
+  const water = waterDisc(oasis, '#3ac8e8', '#1a98c8');
+  view.group.add(water);
+  view.water.push(water);
+  for (let i = 0; i < 8; i++) {
+    const a = 3.6 + i * 0.16;
+    M.add(new THREE.CylinderGeometry(0.03, 0.04, 0.8 + rand() * 0.4, 5), '#6f9a3a',
+      { x: oasis.x + Math.cos(a) * (oasis.r + 0.05), y: 0.4, z: oasis.z + Math.sin(a) * (oasis.r + 0.05) }, { x: rand() * 0.2, y: 0, z: rand() * 0.2 - 0.1 });
+  }
+  palm(view, M, g.shelters[1].x, g.shelters[1].z, 1.05, rand);
+  // cacti with little pink flowers
+  for (const o of g.obstacles.slice(0, 3)) cactus(M, o.x, o.z, 0.9 + rand() * 0.3, rand);
+  // a sandstone arch (shelter from storms)
+  const arch = g.shelters[0];
+  for (const side of [1, -1]) {
+    M.add(new THREE.BoxGeometry(0.5, 1.6, 0.6), '#d89a5a', { x: arch.x + side * 0.75, y: 0.8, z: arch.z }, { x: 0, y: 0, z: side * 0.06 });
+  }
+  M.add(new THREE.BoxGeometry(2.1, 0.45, 0.65), '#e0a868', { x: arch.x, y: 1.75, z: arch.z });
+  // soft dunes and scattered pebbles
+  for (let i = 0; i < 7; i++) {
+    const a = rand() * Math.PI * 2;
+    const r = 2.5 + rand() * (g.r - 3.5);
+    const x = g.ox + Math.cos(a) * r;
+    const z = g.oz + Math.sin(a) * r;
+    if (inWater(g, x, z, 1.2) || isBlocked(g, x, z, 0.8)) continue;
+    M.add(new THREE.SphereGeometry(1, 12, 6), i % 2 ? '#f6cc78' : '#eebc62', { x, y: -0.1, z }, { x: 0, y: rand() * 3, z: 0 }, { x: 1.2 + rand(), y: 0.3, z: 0.8 + rand() * 0.5 });
+  }
+  for (let i = 0; i < 10; i++) {
+    const a = rand() * Math.PI * 2;
+    const r = 1 + rand() * (g.r - 2);
+    const x = g.ox + Math.cos(a) * r;
+    const z = g.oz + Math.sin(a) * r;
+    if (inWater(g, x, z, 0.4) || isBlocked(g, x, z, 0.3)) continue;
+    M.add(new THREE.DodecahedronGeometry(0.12 + rand() * 0.12, 0), i % 2 ? '#c09060' : '#a87a4a', { x, y: 0.06, z }, { x: rand(), y: rand(), z: rand() });
   }
 }

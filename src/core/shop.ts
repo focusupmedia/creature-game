@@ -22,6 +22,8 @@ export function generateShop(seed: number, rotation: number, t: number, owned: I
   // Island scents are always stocked once you own the island.
   if (owned.includes('volcano')) add({ kind: 'lure', ref: 'emberpepper', price: 45, currency: 'glimmer', qty: 1, stock: 99 });
   if (owned.includes('lagoon')) add({ kind: 'lure', ref: 'saltkelp', price: 45, currency: 'glimmer', qty: 1, stock: 99 });
+  if (owned.includes('beach')) add({ kind: 'lure', ref: 'seaspray', price: 50, currency: 'glimmer', qty: 1, stock: 99 });
+  if (owned.includes('desert')) add({ kind: 'lure', ref: 'sunbaked', price: 55, currency: 'glimmer', qty: 1, stock: 99 });
 
   const item = pick(Object.values(ITEMS));
   add({ kind: 'item', ref: item.id, price: item.price, currency: 'glimmer', qty: 1, stock: 2 });

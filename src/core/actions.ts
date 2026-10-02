@@ -219,6 +219,12 @@ export function buyIsland(state: GameState, id: IslandId, currency: 'glimmer' | 
   if (wallet < price) return fail(currency === 'glimmer' ? 'Not enough coins.' : 'Not enough Starshards.');
   if (currency === 'glimmer') state.glimmer -= price; else state.shards -= price;
   state.islands[id] = { owned: true, size: 0 };
+  // A starter pair to breed from; the rest of the island's creatures come from lures and breeding.
+  const t = state.lastTick;
+  for (const sp of def.starters ?? []) {
+    state.creatures.push(makeCreature(state, sp, [], t, `Was waiting on ${def.name} when you arrived.`, { island: id }));
+    recordSpecies(state, sp, t);
+  }
   return { ok: true };
 }
 

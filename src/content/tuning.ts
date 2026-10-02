@@ -18,7 +18,7 @@ export const TUNING = {
   firstStormAtMin: 7,
   forecastLeadMin: 1.5,
 
-  rarityWeight: { common: 10, uncommon: 4, rare: 1.2, legendary: 0.3 } as Record<string, number>,
+  rarityWeight: { common: 10, uncommon: 4, rare: 1.2, legendary: 0.3, mythical: 0.8 } as Record<string, number>,
   prismaticChance: 0.005,
   /** Combining two of the same species can awaken Giant. */
   purebredGiantChance: 0.12,
@@ -28,7 +28,7 @@ export const TUNING = {
   /** Hybrid rule chance multiplier when a required trait only comes from the sky. */
   skyResonanceFactor: 0.5,
 
-  incubationMin: { common: 2, uncommon: 5, rare: 12, legendary: 30 } as Record<string, number>,
+  incubationMin: { common: 2, uncommon: 5, rare: 12, legendary: 30, mythical: 45 } as Record<string, number>,
   /** Extra minutes per mutation the egg carries. */
   incubationPerMutationMin: 1.5,
   freeNests: 2,

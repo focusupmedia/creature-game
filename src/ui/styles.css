@@ -408,3 +408,6 @@ input.rename { font-family: var(--display); font-size: 22px; border: var(--outli
 .shop-tab .icon { width: 32px; height: 32px; }
 .shop-tab .lbl { font-size: 12px; -webkit-text-stroke-width: 3px; text-shadow: 0 2px 0 var(--ink); line-height: 1; }
 .shop-tab.on { background: linear-gradient(180deg, var(--orange-1), var(--orange-2)); transform: translateY(2px); box-shadow: inset 0 -4px 0 rgba(160, 70, 0, .35), 0 2px 0 var(--ink); }
+
+.reveal-ui .title.mythic { background: linear-gradient(90deg, #ffe27a, #ff9ec4, #8fffe0, #ffe27a); background-size: 300% 100%; -webkit-background-clip: text; background-clip: text; color: transparent; animation: mythic-shine 3s linear infinite; }
+@keyframes mythic-shine { to { background-position: 300% 0; } }

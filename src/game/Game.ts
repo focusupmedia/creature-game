@@ -361,11 +361,14 @@ export class Game {
     this.analytics.track('island_bought', { island: id, currency });
     // the shop starts stocking the island's lure right away
     refreshShop(this.state, this.now());
-    this.state.lures[id === 'volcano' ? 'emberpepper' : 'saltkelp'] = (this.state.lures[id === 'volcano' ? 'emberpepper' : 'saltkelp'] ?? 0) + 2;
+    const lure = Object.values(LURES).find((l) => l.attracts === ISLANDS[id].habitat)?.id;
+    if (lure) this.state.lures[lure] = (this.state.lures[lure] ?? 0) + 2;
     this.saveSoon();
     this.ui.closeSheet();
     setTimeout(() => this.travel(id), 50);
-    this.ui.toast(`${ISLANDS[id].icon} ${ISLANDS[id].name} is yours! Here are 2 free lures to get started.`, 'discovery', undefined, 5000);
+    const starters = (ISLANDS[id].starters ?? []).map((sp) => species(sp).name);
+    const welcome = starters.length ? ` A ${starters.join(' and a ')} were waiting for you. Try breeding them!` : '';
+    this.ui.toast(`${ISLANDS[id].icon} ${ISLANDS[id].name} is yours! Here are 2 free lures to get started.${welcome}`, 'discovery', undefined, 6500);
   }
 
   upgradeIsland(id: IslandId, currency: 'glimmer' | 'shards'): void {

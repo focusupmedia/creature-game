@@ -37,6 +37,12 @@ const MIGRATIONS: Record<number, Migration> = {
   2: (raw) => {
     raw.digSpots = [];
   },
+  // v3 → v4: Sunny Shore and Dune Hollow lure spots.
+  3: (raw) => {
+    const spots = (raw.spots ?? {}) as Record<string, unknown>;
+    for (const k of ['tidepool', 'dunegrass', 'oasis', 'sandpit']) spots[k] ??= null;
+    raw.spots = spots;
+  },
 };
 
 export function serialize(state: GameState, t: number): string {

@@ -2,7 +2,7 @@
 // spots and native creatures. All coordinates in the game are world coordinates:
 // an island's local layout is offset by (ox, oz).
 
-import type { IslandId, Trait } from '../core/types';
+import type { IslandId, SpeciesId, Trait } from '../core/types';
 import { FONT, NESTS, POND, ROCKS, SHOP_STALL, TREES, BASKET } from './layout';
 
 export interface Circle { x: number; z: number; r: number }
@@ -26,6 +26,8 @@ export interface IslandDef {
   obstacles: Circle[];
   /** Places creatures run to in bad weather. */
   shelters: { x: number; z: number; s: number }[];
+  /** A pair you get when you unlock the island, to breed from. */
+  starters?: SpeciesId[];
 }
 
 export const SIZE_NAMES = ['Small', 'Medium', 'Large'];
@@ -77,18 +79,24 @@ export const ISLANDS: Record<IslandId, IslandDef> = {
     shelters: [{ x: -6.6, z: -3, s: 0.9 }, { x: 6.8, z: -2.4, s: 0.9 }, { x: 0.5, z: -7.2, s: 0.9 }],
   },
   beach: {
-    id: 'beach', name: 'Sunny Shore', icon: '🏖️', habitat: 'Sand', status: 'soon',
-    blurb: 'Coming soon: golden sand and tide pools.',
-    ox: -36, oz: 14, baseRadius: 8, price: { coins: 0, gems: 0 },
+    id: 'beach', name: 'Sunny Shore', icon: '🏖️', habitat: 'Shore', status: 'buyable',
+    blurb: 'Golden sand, warm tide pools and a lazy sea breeze. Shore birds wade here.',
+    ox: -36, oz: 14, baseRadius: 8.5, price: { coins: 3200, gems: 320 },
     palette: { top: '#ffe6a8', patch: '#ffdc90', lip: '#e8b46a', under: '#c88e58', rock: '#d0b090', grass: '#6fc23f' },
-    water: [], obstacles: [], shelters: [],
+    water: [{ x: -2.4, z: 1.8, r: 1.6 }, { x: 3.0, z: -2.2, r: 1.1 }],
+    obstacles: [{ x: 4.6, z: 2.8, r: 0.7 }, { x: -4.8, z: -2.6, r: 0.6 }, { x: -1.5, z: -5.2, r: 0.5 }, { x: 5.2, z: -3.6, r: 0.5 }],
+    shelters: [{ x: -1.5, z: -5.2, s: 1 }, { x: 5.2, z: -3.6, s: 0.9 }],
+    starters: ['flamingle', 'pouchbill'],
   },
   desert: {
-    id: 'desert', name: 'Dune Hollow', icon: '🏜️', habitat: 'Sand', status: 'soon',
-    blurb: 'Coming soon: windswept dunes and secret oases.',
-    ox: 36, oz: 14, baseRadius: 8, price: { coins: 0, gems: 0 },
+    id: 'desert', name: 'Dune Hollow', icon: '🏜️', habitat: 'Sand', status: 'buyable',
+    blurb: 'Windswept dunes, a cool little oasis and tracks you can\'t quite explain.',
+    ox: 36, oz: 14, baseRadius: 8.5, price: { coins: 4200, gems: 420 },
     palette: { top: '#f2c46a', patch: '#e8b45a', lip: '#d08a40', under: '#b06a34', rock: '#c09060', grass: '#9fbf3f' },
-    water: [], obstacles: [], shelters: [],
+    water: [{ x: -1.6, z: -1.8, r: 1.7 }],
+    obstacles: [{ x: 3.6, z: -3.2, r: 0.5 }, { x: 4.8, z: 1.6, r: 0.5 }, { x: -4.6, z: 2.4, r: 0.5 }, { x: 1.6, z: 4.4, r: 0.9 }, { x: -3.8, z: -3.4, r: 0.5 }],
+    shelters: [{ x: 1.6, z: 4.4, s: 1 }, { x: -3.8, z: -3.4, s: 1 }],
+    starters: ['sandpincer', 'dunecoil'],
   },
 };
 

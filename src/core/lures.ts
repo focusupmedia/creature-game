@@ -14,6 +14,8 @@ export function arrivalWeights(lureId: string, spotId: SpotId, dark: boolean, sk
   for (const sp of WILD_SPECIES) {
     if (!sp.traits.includes(lure.attracts)) continue;
     if (sp.movement === 'swim' && !spot.water) continue;
+    if (sp.onlyDuring && sp.onlyDuring !== sky) continue;
+    if (sp.onlyAt && !sp.onlyAt.includes(spotId)) continue;
     if (sp.activity === 'day' && dark) continue;
     if (sp.activity === 'night' && !dark) continue;
     let w = TUNING.rarityWeight[sp.rarity] ?? 1;

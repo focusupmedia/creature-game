@@ -4,9 +4,9 @@
 
 export type Trait =
   // Habitats — what lures and places attract
-  | 'Grove' | 'Tide' | 'Bloom' | 'Mystic' | 'Ember' | 'Reef' | 'Sand'
+  | 'Grove' | 'Tide' | 'Bloom' | 'Mystic' | 'Ember' | 'Reef' | 'Sand' | 'Shore'
   // Kinds — body plans
-  | 'Amphibian' | 'Reptile' | 'Insect' | 'Bird' | 'Fish' | 'Mammal' | 'Fungus' | 'Spirit' | 'Dragon'
+  | 'Amphibian' | 'Reptile' | 'Insect' | 'Bird' | 'Fish' | 'Mammal' | 'Fungus' | 'Spirit' | 'Dragon' | 'Primate' | 'Arachnid'
   // Mutation traits — acquired, never native
   | 'Lunar' | 'Storm' | 'Giant' | 'Prismatic' | 'Starlit' | 'Frost';
 
@@ -20,7 +20,7 @@ export type IslandId = 'home' | 'volcano' | 'lagoon' | 'beach' | 'desert';
 export type Personality = 'energetic' | 'lazy' | 'shy' | 'curious' | 'grumpy' | 'friendly';
 export type EventKind = 'storm' | 'eclipse' | 'starry' | 'fullmoon' | 'blizzard';
 
-export type Rarity = 'common' | 'uncommon' | 'rare' | 'legendary';
+export type Rarity = 'common' | 'uncommon' | 'rare' | 'legendary' | 'mythical';
 export type Activity = 'day' | 'night' | 'any';
 export type Movement = 'hop' | 'walk' | 'scuttle' | 'fly' | 'swim' | 'slither' | 'waddle' | 'float';
 
@@ -38,6 +38,10 @@ export interface SpeciesDef {
   hint: string;
   /** Egg shell colors [base, pattern]. */
   eggColors: [string, string];
+  /** Wild species that only answer a lure during this sky event... */
+  onlyDuring?: EventKind;
+  /** ...and only at these lure spots. */
+  onlyAt?: SpotId[];
 }
 
 export interface MutationDef {
@@ -86,6 +90,10 @@ export interface ResonanceRule {
   requires: Trait[];
   result: SpeciesId;
   chance: number;
+  /** Only while this sky event is overhead (its trait then counts in full). */
+  sky?: EventKind;
+  /** Both parents must carry this trait. */
+  both?: Trait;
 }
 
 export interface EventDef {

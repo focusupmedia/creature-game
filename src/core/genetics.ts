@@ -51,7 +51,7 @@ function relatives(a: Creature, b: Creature): [SpeciesId, number][] {
   const ta = new Set(creatureTraits(a));
   const tb = new Set(creatureTraits(b));
   return WILD_SPECIES
-    .filter((s) => s.rarity !== 'legendary' && s.id !== a.species && s.id !== b.species)
+    .filter((s) => s.rarity !== 'legendary' && s.rarity !== 'mythical' && !s.onlyDuring && s.id !== a.species && s.id !== b.species)
     .map((s): [SpeciesId, number] => {
       const withA = s.traits.some((t) => ta.has(t));
       const withB = s.traits.some((t) => tb.has(t));
@@ -68,10 +68,13 @@ export function combine(a: Creature, b: Creature, rng: StateRng, sky: EventKind 
   // 1. Resonance: a hybrid may form if the parents (plus the sky) carry the right traits.
   let chosen: ResonanceRule | undefined;
   let skyLent: Trait | undefined;
-  const rules = [...RESONANCES].sort((x, y) => y.requires.length - x.requires.length);
+  // Special-moment (mythical) rules first, then the most specific.
+  const rules = [...RESONANCES].sort((x, y) => Number(!!y.sky) - Number(!!x.sky) || y.requires.length - x.requires.length);
   for (const rule of rules) {
     if (rule.result === a.species && rule.result === b.species) continue;
-    const missing = rule.requires.filter((t) => !parentTraits.has(t));
+    if (rule.sky && rule.sky !== sky) continue;
+    if (rule.both && !(creatureTraits(a).includes(rule.both) && creatureTraits(b).includes(rule.both))) continue;
+    const missing = rule.requires.filter((t) => !parentTraits.has(t) && !(rule.sky && t === skyTrait));
     let chance = rule.chance;
     if (missing.length === 1 && missing[0] === skyTrait) chance *= TUNING.skyResonanceFactor;
     else if (missing.length > 0) continue;
@@ -88,7 +91,7 @@ export function combine(a: Creature, b: Creature, rng: StateRng, sky: EventKind 
   const known = opts.known;
   if (opts.forceNew && known && known.has(sp)) {
     // Prefer a hybrid the keeper qualifies for, then an undiscovered relative.
-    const hybrid = RESONANCES.find((r) => !known.has(r.result) && r.requires.every((t) => parentTraits.has(t)));
+    const hybrid = RESONANCES.find((r) => !r.sky && !r.both && !known.has(r.result) && r.requires.every((t) => parentTraits.has(t)));
     const fresh = relatives(a, b).filter(([id]) => !known.has(id));
     if (hybrid) {
       chosen = hybrid;
@@ -149,6 +152,7 @@ export function eggClues(e: { species: SpeciesId; mutations: MutationId[]; witne
   if (has('starlit')) clues.push('Tiny lights twinkle across the shell.');
   if (has('frost')) clues.push('It is cold, and frost keeps forming on it.');
   if (has('prismatic')) clues.push('The shell shifts color as you turn it.');
-  if (sp.rarity === 'rare' || sp.rarity === 'legendary') clues.push('It takes its time. Whatever is inside is in no hurry.');
+  if (sp.rarity === 'mythical') clues.push('It hums. The air around it feels like the moment before thunder.');
+  else if (sp.rarity === 'rare' || sp.rarity === 'legendary') clues.push('It takes its time. Whatever is inside is in no hurry.');
   return clues;
 }
