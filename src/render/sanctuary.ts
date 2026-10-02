@@ -1,0 +1,356 @@
+import * as THREE from 'three';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+import { BASKET, FONT, ISLAND_RADIUS, NESTS, POND, ROCKS, SHOP_STALL, TREES, inPond, blocked } from '../content/layout';
+import { SPOTS } from '../content/world';
+import { mulberry32 } from '../core/rng';
+import { glowSprite, glowTexture, toon, vertexToon } from './materials';
+
+// Static diorama. Everything that never moves is merged into one vertex-colored
+// mesh (one draw call); animated or interactive bits stay separate.
+
+class Merger {
+  private parts: THREE.BufferGeometry[] = [];
+
+  add(geo: THREE.BufferGeometry, color: string, pos: THREE.Vector3Like, rot: THREE.Vector3Like = { x: 0, y: 0, z: 0 }, scale: THREE.Vector3Like = { x: 1, y: 1, z: 1 }): void {
+    const g = geo.index ? geo.toNonIndexed() : geo.clone();
+    g.deleteAttribute('uv');
+    const m = new THREE.Matrix4().compose(
+      new THREE.Vector3(pos.x, pos.y, pos.z),
+      new THREE.Quaternion().setFromEuler(new THREE.Euler(rot.x, rot.y, rot.z)),
+      new THREE.Vector3(scale.x, scale.y, scale.z),
+    );
+    g.applyMatrix4(m);
+    const c = new THREE.Color(color);
+    const n = g.getAttribute('position').count;
+    const colors = new Float32Array(n * 3);
+    for (let i = 0; i < n; i++) {
+      colors[i * 3] = c.r;
+      colors[i * 3 + 1] = c.g;
+      colors[i * 3 + 2] = c.b;
+    }
+    g.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+    this.parts.push(g);
+  }
+
+  build(): THREE.Mesh {
+    const merged = mergeGeometries(this.parts, false)!;
+    merged.computeVertexNormals();
+    const mesh = new THREE.Mesh(merged, vertexToon());
+    mesh.receiveShadow = true;
+    mesh.castShadow = true;
+    return mesh;
+  }
+}
+
+export interface Sanctuary {
+  group: THREE.Group;
+  water: THREE.Mesh;
+  canopies: THREE.Object3D[];
+  spotDishes: Record<string, { root: THREE.Group; bait: THREE.Mesh; glow: THREE.Sprite; marker: THREE.Sprite }>;
+  font: THREE.Group;
+  fontWater: THREE.Mesh;
+  nests: THREE.Group[];
+  nestLocks: THREE.Sprite[];
+  stall: THREE.Group;
+  basket: THREE.Group;
+  clouds: THREE.Group;
+  fireflies: THREE.Points;
+  pickables: THREE.Object3D[];
+  ground: THREE.Mesh;
+}
+
+export function buildSanctuary(): Sanctuary {
+  const group = new THREE.Group();
+  const M = new Merger();
+  const rand = mulberry32(1234);
+  const pickables: THREE.Object3D[] = [];
+
+  // ---- island body
+  const top = new THREE.CylinderGeometry(ISLAND_RADIUS, ISLAND_RADIUS * 0.97, 0.6, 56, 1);
+  M.add(top, '#8fd16a', { x: 0, y: -0.3, z: 0 });
+  const lip = new THREE.CylinderGeometry(ISLAND_RADIUS * 0.985, ISLAND_RADIUS * 0.9, 0.7, 56, 1);
+  M.add(lip, '#9a6b45', { x: 0, y: -0.95, z: 0 });
+  const under = new THREE.ConeGeometry(ISLAND_RADIUS * 0.9, 6.5, 14, 3);
+  const pos = under.getAttribute('position');
+  for (let i = 0; i < pos.count; i++) {
+    const y = pos.getY(i);
+    if (y < 3.2) {
+      pos.setX(i, pos.getX(i) * (0.85 + rand() * 0.3));
+      pos.setZ(i, pos.getZ(i) * (0.85 + rand() * 0.3));
+    }
+  }
+  M.add(under, '#7a5236', { x: 0, y: -4.55, z: 0 }, { x: Math.PI, y: 0, z: 0 });
+  for (let i = 0; i < 9; i++) {
+    const a = rand() * Math.PI * 2;
+    const r = 3 + rand() * 4;
+    M.add(new THREE.DodecahedronGeometry(0.6 + rand() * 0.6, 0), '#6b6f73', { x: Math.cos(a) * r, y: -1.6 - rand() * 2.5, z: Math.sin(a) * r });
+  }
+
+  // invisible flat ground for picking taps on the world
+  const ground = new THREE.Mesh(new THREE.CircleGeometry(ISLAND_RADIUS, 32), new THREE.MeshBasicMaterial({ visible: false }));
+  ground.rotation.x = -Math.PI / 2;
+  ground.position.y = 0.01;
+  ground.userData.pick = { kind: 'ground' };
+  group.add(ground);
+
+  // ---- pond
+  M.add(new THREE.CylinderGeometry(POND.r + 0.15, POND.r + 0.15, 0.05, 32), '#5f8e4a', { x: POND.x, y: 0.0, z: POND.z });
+  for (let i = 0; i < 16; i++) {
+    const a = (i / 16) * Math.PI * 2 + rand() * 0.2;
+    M.add(new THREE.DodecahedronGeometry(0.22 + rand() * 0.12, 0), i % 3 ? '#a3a59c' : '#8b8e86',
+      { x: POND.x + Math.cos(a) * (POND.r + 0.1), y: 0.05, z: POND.z + Math.sin(a) * (POND.r + 0.1) }, { x: 0, y: 0, z: 0 }, { x: 1, y: 0.6, z: 1 });
+  }
+  const waterMat = new THREE.MeshToonMaterial({ color: '#4fb3d9', transparent: true, opacity: 0.88, emissive: '#1d5f8a', emissiveIntensity: 0.25 });
+  const water = new THREE.Mesh(new THREE.CircleGeometry(POND.r, 40), waterMat);
+  water.rotation.x = -Math.PI / 2;
+  water.position.set(POND.x, 0.06, POND.z);
+  water.receiveShadow = true;
+  group.add(water);
+  for (const [dx, dz] of [[-0.8, 0.6], [0.6, -0.9], [0.9, 0.7]]) {
+    M.add(new THREE.CylinderGeometry(0.28, 0.28, 0.02, 10), '#5fbf5a', { x: POND.x + dx, y: 0.08, z: POND.z + dz });
+  }
+  M.add(new THREE.SphereGeometry(0.08, 6, 4), '#ffd1e3', { x: POND.x + 0.62, y: 0.12, z: POND.z - 0.88 });
+  for (let i = 0; i < 7; i++) {
+    const a = 2.2 + i * 0.18;
+    M.add(new THREE.CylinderGeometry(0.03, 0.04, 0.9 + rand() * 0.4, 5), '#6a9a43',
+      { x: POND.x + Math.cos(a) * (POND.r - 0.1), y: 0.45, z: POND.z + Math.sin(a) * (POND.r - 0.1) }, { x: rand() * 0.2, y: 0, z: rand() * 0.2 - 0.1 });
+  }
+
+  // ---- paths (stepping stones from center toward the font and nests)
+  for (let i = 0; i < 9; i++) {
+    const t = i / 8;
+    const x = 0.4 * (1 - t) + FONT.x * t + Math.sin(i) * 0.3;
+    const z = 1.5 * (1 - t) + (FONT.z + 1.4) * t;
+    M.add(new THREE.CylinderGeometry(0.32, 0.36, 0.06, 8), '#d9cfa8', { x, y: 0.01, z }, { x: 0, y: rand(), z: 0 });
+  }
+
+  // ---- trees
+  const canopies: THREE.Object3D[] = [];
+  for (const t of TREES) {
+    M.add(new THREE.CylinderGeometry(0.2 * t.s, 0.32 * t.s, 2.2 * t.s, 7), '#7b5236', { x: t.x, y: 1.1 * t.s, z: t.z });
+    const canopy = new THREE.Group();
+    canopy.position.set(t.x, 2.2 * t.s, t.z);
+    const greens = ['#4f9e45', '#5fb24e', '#3f8a3f'];
+    for (let i = 0; i < 3; i++) {
+      const blob = new THREE.Mesh(new THREE.IcosahedronGeometry((1.2 - i * 0.18) * t.s, 0), toon(greens[i]));
+      blob.position.set((rand() - 0.5) * 0.6 * t.s, i * 0.65 * t.s, (rand() - 0.5) * 0.6 * t.s);
+      blob.rotation.set(rand(), rand(), rand());
+      blob.castShadow = true;
+      canopy.add(blob);
+    }
+    group.add(canopy);
+    canopies.push(canopy);
+  }
+  for (const r of ROCKS) {
+    M.add(new THREE.DodecahedronGeometry(r.s, 0), '#9ea3a0', { x: r.x, y: r.s * 0.35, z: r.z }, { x: rand(), y: rand(), z: rand() }, { x: 1, y: 0.7, z: 1 });
+    M.add(new THREE.SphereGeometry(r.s * 0.55, 6, 4), '#6fae55', { x: r.x + 0.1, y: r.s * 0.75, z: r.z }, { x: 0, y: 0, z: 0 }, { x: 1, y: 0.35, z: 1 });
+  }
+
+  // ---- grass tufts & flowers
+  const tuft = new THREE.ConeGeometry(0.08, 0.35, 4);
+  const flowerColors = ['#ffd1e3', '#fff3a6', '#c9b6ff', '#ffffff', '#ffb38a'];
+  let placed = 0;
+  for (let i = 0; i < 400 && placed < 170; i++) {
+    const a = rand() * Math.PI * 2;
+    const r = Math.sqrt(rand()) * (ISLAND_RADIUS - 0.4);
+    const x = Math.cos(a) * r;
+    const z = Math.sin(a) * r;
+    if (inPond(x, z, 0.3) || blocked(x, z, 0.1)) continue;
+    if (Math.hypot(x - FONT.x, z - FONT.z) < 1.8) continue;
+    placed++;
+    if (rand() < 0.3) {
+      M.add(new THREE.CylinderGeometry(0.015, 0.015, 0.25, 3), '#5e9a45', { x, y: 0.12, z });
+      M.add(new THREE.SphereGeometry(0.07, 6, 4), flowerColors[Math.floor(rand() * flowerColors.length)], { x, y: 0.27, z });
+    } else {
+      for (let j = 0; j < 3; j++) {
+        M.add(tuft, j === 1 ? '#6fbf4f' : '#5aa845', { x: x + (j - 1) * 0.07, y: 0.15, z: z + (rand() - 0.5) * 0.08 }, { x: (j - 1) * 0.3, y: 0, z: (rand() - 0.5) * 0.4 });
+      }
+    }
+  }
+
+  // ---- lure spots
+  const spotDishes: Sanctuary['spotDishes'] = {};
+  for (const spot of Object.values(SPOTS)) {
+    const root = new THREE.Group();
+    root.position.set(spot.x, 0, spot.z);
+    if (spot.water) {
+      M.add(new THREE.BoxGeometry(1.4, 0.08, 0.9), '#a0764e', { x: spot.x, y: 0.12, z: spot.z });
+      for (const [dx, dz] of [[-0.6, -0.4], [0.6, -0.4], [-0.6, 0.4], [0.6, 0.4]]) {
+        M.add(new THREE.CylinderGeometry(0.06, 0.06, 0.4, 5), '#7b5236', { x: spot.x + dx, y: 0.05, z: spot.z + dz });
+      }
+    } else {
+      for (let i = 0; i < 8; i++) {
+        const a = (i / 8) * Math.PI * 2;
+        M.add(new THREE.DodecahedronGeometry(0.16, 0), '#b7b9ae', { x: spot.x + Math.cos(a) * 0.85, y: 0.08, z: spot.z + Math.sin(a) * 0.85 });
+      }
+      M.add(new THREE.CylinderGeometry(0.9, 0.9, 0.03, 20), '#6aaa4d', { x: spot.x, y: 0.01, z: spot.z });
+    }
+    const dish = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.22, 0.14, 12), toon('#8d8f86'));
+    dish.position.y = spot.water ? 0.22 : 0.08;
+    dish.castShadow = true;
+    root.add(dish);
+    const bait = new THREE.Mesh(new THREE.SphereGeometry(0.24, 10, 6), toon('#ffffff'));
+    bait.scale.set(1, 0.45, 1);
+    bait.position.y = dish.position.y + 0.08;
+    bait.visible = false;
+    root.add(bait);
+    const glow = glowSprite('#ffffff', 2.2, 0);
+    glow.position.y = 0.5;
+    root.add(glow);
+    const marker = glowSprite('#ffffff', 1.4, 0.0);
+    marker.position.y = 0.3;
+    root.add(marker);
+    const hit = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 0.8, 10), new THREE.MeshBasicMaterial({ visible: false }));
+    hit.position.y = 0.4;
+    hit.userData.pick = { kind: 'spot', id: spot.id };
+    root.add(hit);
+    pickables.push(hit);
+    group.add(root);
+    spotDishes[spot.id] = { root, bait, glow, marker };
+  }
+
+  // ---- the Kindred Font (combining)
+  const font = new THREE.Group();
+  font.position.set(FONT.x, 0, FONT.z);
+  M.add(new THREE.CylinderGeometry(1.15, 1.25, 0.12, 10), '#c9c2a8', { x: FONT.x, y: 0.06, z: FONT.z });
+  M.add(new THREE.CylinderGeometry(0.3, 0.42, 0.6, 8), '#b4ad95', { x: FONT.x, y: 0.42, z: FONT.z });
+  M.add(new THREE.CylinderGeometry(0.75, 0.5, 0.35, 10), '#cfc8ae', { x: FONT.x, y: 0.85, z: FONT.z });
+  for (const s of [1, -1]) {
+    M.add(new THREE.BoxGeometry(0.35, 1.7, 0.3), '#a8a28b', { x: FONT.x + 1.0 * s, y: 0.85, z: FONT.z - 0.2 }, { x: 0, y: 0, z: -0.08 * s });
+    M.add(new THREE.SphereGeometry(0.25, 6, 4), '#6fae55', { x: FONT.x + 1.0 * s, y: 1.7, z: FONT.z - 0.2 }, { x: 0, y: 0, z: 0 }, { x: 1, y: 0.4, z: 1 });
+    const rune = new THREE.Mesh(new THREE.TorusGeometry(0.09, 0.025, 4, 10), toon('#bff4ff', '#7fe0ff', 1));
+    rune.position.set(1.0 * s, 1.0, -0.04);
+    font.add(rune);
+  }
+  const fontWater = new THREE.Mesh(new THREE.CircleGeometry(0.62, 20), new THREE.MeshToonMaterial({ color: '#9ff0ff', emissive: '#4fd6ff', emissiveIntensity: 0.6 }));
+  fontWater.rotation.x = -Math.PI / 2;
+  fontWater.position.y = 1.03;
+  font.add(fontWater);
+  const fontGlow = glowSprite('#8fe8ff', 2.4, 0.35);
+  fontGlow.position.y = 1.3;
+  font.add(fontGlow);
+  const fontHit = new THREE.Mesh(new THREE.CylinderGeometry(1.3, 1.3, 2, 8), new THREE.MeshBasicMaterial({ visible: false }));
+  fontHit.position.y = 1;
+  fontHit.userData.pick = { kind: 'font' };
+  font.add(fontHit);
+  pickables.push(fontHit);
+  group.add(font);
+
+  // ---- nests (incubators)
+  const nests: THREE.Group[] = [];
+  const nestLocks: THREE.Sprite[] = [];
+  NESTS.forEach((n, i) => {
+    const g = new THREE.Group();
+    g.position.set(n.x, 0, n.z);
+    M.add(new THREE.CylinderGeometry(0.45, 0.55, 0.35, 8), '#b9b19a', { x: n.x, y: 0.17, z: n.z });
+    const nest = new THREE.Mesh(new THREE.TorusGeometry(0.36, 0.13, 6, 14), toon('#a8783f'));
+    nest.rotation.x = -Math.PI / 2;
+    nest.position.y = 0.42;
+    nest.castShadow = true;
+    g.add(nest);
+    const straw = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 0.05, 10), toon('#e8c872'));
+    straw.position.y = 0.4;
+    g.add(straw);
+    const lock = glowSprite('#ffffff', 0.9, 0);
+    lock.position.y = 0.9;
+    g.add(lock);
+    nestLocks.push(lock);
+    const hit = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.7, 1.6, 8), new THREE.MeshBasicMaterial({ visible: false }));
+    hit.position.y = 0.8;
+    hit.userData.pick = { kind: 'nest', index: i };
+    g.add(hit);
+    pickables.push(hit);
+    group.add(g);
+    nests.push(g);
+  });
+
+  // ---- egg basket
+  const basket = new THREE.Group();
+  basket.position.set(BASKET.x, 0, BASKET.z);
+  const weave = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.38, 0.35, 10, 1, true), toon('#b98a4a'));
+  weave.position.y = 0.18;
+  (weave.material as THREE.Material).side = THREE.DoubleSide;
+  basket.add(weave);
+  const handle = new THREE.Mesh(new THREE.TorusGeometry(0.45, 0.04, 4, 16, Math.PI), toon('#9a6f35'));
+  handle.position.y = 0.3;
+  basket.add(handle);
+  const bHit = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.7, 1, 8), new THREE.MeshBasicMaterial({ visible: false }));
+  bHit.position.y = 0.5;
+  bHit.userData.pick = { kind: 'basket' };
+  basket.add(bHit);
+  pickables.push(bHit);
+  group.add(basket);
+
+  // ---- merchant stall
+  const stall = new THREE.Group();
+  stall.position.set(SHOP_STALL.x, 0, SHOP_STALL.z);
+  M.add(new THREE.BoxGeometry(1.6, 0.7, 0.9), '#a0764e', { x: SHOP_STALL.x, y: 0.35, z: SHOP_STALL.z });
+  for (const [dx, dz] of [[-0.7, -0.38], [0.7, -0.38], [-0.7, 0.38], [0.7, 0.38]]) {
+    M.add(new THREE.CylinderGeometry(0.05, 0.05, 1.6, 5), '#7b5236', { x: SHOP_STALL.x + dx, y: 0.8, z: SHOP_STALL.z + dz });
+  }
+  const awning = new THREE.Mesh(new THREE.ConeGeometry(1.25, 0.6, 4, 1), toon('#e46a5e'));
+  awning.position.y = 1.85;
+  awning.rotation.y = Math.PI / 4;
+  awning.castShadow = true;
+  stall.add(awning);
+  const stripe = new THREE.Mesh(new THREE.ConeGeometry(1.27, 0.2, 4, 1, true), toon('#fff3e2'));
+  stripe.position.y = 1.6;
+  stripe.rotation.y = Math.PI / 4;
+  stall.add(stripe);
+  for (const [dx, c] of [[-0.45, '#6fbf5a'], [0, '#b9a6ff'], [0.45, '#4fa8d8']] as const) {
+    const jar = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 0.25, 8), toon(c, c, 0.25));
+    jar.position.set(dx, 0.83, 0.15);
+    stall.add(jar);
+  }
+  const lamp = glowSprite('#ffd27a', 1.2, 0);
+  lamp.position.set(0.75, 1.45, 0.45);
+  stall.add(lamp);
+  stall.userData.lamp = lamp;
+  const sHit = new THREE.Mesh(new THREE.BoxGeometry(2, 2.2, 1.4), new THREE.MeshBasicMaterial({ visible: false }));
+  sHit.position.y = 1.1;
+  sHit.userData.pick = { kind: 'shop' };
+  stall.add(sHit);
+  pickables.push(sHit);
+  group.add(stall);
+
+  group.add(M.build());
+
+  // ---- clouds drifting below/around the island
+  const clouds = new THREE.Group();
+  const cloudMat = toon('#ffffff');
+  for (let i = 0; i < 9; i++) {
+    const c = new THREE.Group();
+    for (let j = 0; j < 4; j++) {
+      const p = new THREE.Mesh(new THREE.IcosahedronGeometry(1 + rand() * 0.8, 1), cloudMat);
+      p.position.set(j * 1.2 - 1.8, rand() * 0.5, rand() * 0.8);
+      c.add(p);
+    }
+    const a = (i / 9) * Math.PI * 2;
+    c.position.set(Math.cos(a) * (15 + rand() * 6), -4 - rand() * 5, Math.sin(a) * (15 + rand() * 6));
+    c.userData.speed = 0.02 + rand() * 0.03;
+    c.userData.angle = a;
+    c.userData.radius = Math.hypot(c.position.x, c.position.z);
+    clouds.add(c);
+  }
+  group.add(clouds);
+
+  // ---- fireflies (visible at night)
+  const n = 60;
+  const fp = new Float32Array(n * 3);
+  for (let i = 0; i < n; i++) {
+    const a = rand() * Math.PI * 2;
+    const r = Math.sqrt(rand()) * (ISLAND_RADIUS - 1);
+    fp[i * 3] = Math.cos(a) * r;
+    fp[i * 3 + 1] = 0.4 + rand() * 1.8;
+    fp[i * 3 + 2] = Math.sin(a) * r;
+  }
+  const fgeo = new THREE.BufferGeometry();
+  fgeo.setAttribute('position', new THREE.BufferAttribute(fp, 3));
+  fgeo.userData.base = fp.slice();
+  const fireflies = new THREE.Points(fgeo, new THREE.PointsMaterial({
+    color: '#e8ff8a', size: 0.35, map: glowTexture(), transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending,
+  }));
+  group.add(fireflies);
+
+  return { group, water, canopies, spotDishes, font, fontWater, nests, nestLocks, stall, basket, clouds, fireflies, pickables, ground };
+}
