@@ -374,6 +374,30 @@ export class UI {
     });
   }
 
+  /** You dropped one creature on another: offer to breed them. Both parents stay. */
+  confirmBreed(a: Creature, b: Creature): void {
+    const s = this.game.state;
+    const comp = compatibility(a, b);
+    const free = Array.from({ length: s.nests }, (_, i) => i).filter((i) => !nestOccupant(s, i)).length;
+    this.modal((m, close) => {
+      m.append(
+        h('h2', null, 'Breed these two?'),
+        h('div', { class: 'slots', style: 'margin:10px 0' },
+          h('div', { class: 'slot filled' }, this.portrait(a, ''), displayName(a)),
+          h('span', { style: 'font-size:26px' }, '💞'),
+          h('div', { class: 'slot filled' }, this.portrait(b, ''), displayName(b))),
+        h('div', { class: `verdict ${comp.ok ? 'ok' : 'no'}` },
+          comp.ok ? h('div', null, 'They feel kindred. They share ', this.traitChips(comp.shared, comp.shared)) : comp.reason ?? ''),
+        h('p', { class: 'muted' }, comp.ok
+          ? (free ? 'They will make an egg together and both stay with you. Who knows what hatches?' : 'Every nest is full. Hatch an egg first, or add a nest.')
+          : 'Creatures must share at least one trait to make an egg.'),
+        h('div', { class: 'btns' },
+          h('button', { class: 'btn secondary', onClick: close }, comp.ok && free ? 'Not now' : 'OK'),
+          comp.ok && free ? h('button', { class: 'btn', onClick: () => { close(); this.game.combine(a.id, b.id); } }, 'Breed!') : null),
+      );
+    });
+  }
+
   // ---- Kindred Font
 
   showFont(): void {

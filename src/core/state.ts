@@ -5,7 +5,7 @@ import { recordSpecies } from './journal';
 import { generateShop } from './shop';
 import type { GameState } from './types';
 
-export const SAVE_VERSION = 2;
+export const SAVE_VERSION = 3;
 
 export function createGame(now: number, seed = Math.floor(Math.random() * 2 ** 31)): GameState {
   const state: GameState = {
@@ -30,6 +30,7 @@ export function createGame(now: number, seed = Math.floor(Math.random() * 2 ** 3
     nests: TUNING.freeNests,
     spots: Object.fromEntries(Object.keys(SPOTS).map((k) => [k, null])),
     gifts: [],
+    digSpots: [],
     shop: generateShop(seed, 0, now),
     journal: { species: {}, mutations: {}, resonances: {}, notes: [], eventsSeen: {} },
     eventsApplied: {},

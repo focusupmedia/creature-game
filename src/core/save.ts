@@ -33,6 +33,10 @@ const MIGRATIONS: Record<number, Migration> = {
     const fresh = generateShop(Number(raw.seed), (shop?.rotation ?? 0) + 1, Number(raw.lastTick));
     raw.shop = fresh;
   },
+  // v2 → v3: dig spots you drop creatures on.
+  2: (raw) => {
+    raw.digSpots = [];
+  },
 };
 
 export function serialize(state: GameState, t: number): string {

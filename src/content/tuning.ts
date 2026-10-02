@@ -60,6 +60,10 @@ export const TUNING = {
   giftGlimmer: [3, 8] as [number, number],
   giftShardChance: 0.03,
   maxGiftsOnGround: 14,
+  /** Dig spots (sparkly dust, bubbling puddles, berry bushes) you drop creatures on. Per owned island. */
+  digSpotEveryMin: 6,
+  digSpotMax: 2,
+  digSpotLifeMin: 25,
 
   shopRefreshMin: 20,
   shopRefreshShards: 5,

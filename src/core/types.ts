@@ -206,6 +206,18 @@ export interface ActiveLure {
   visitors: number;
 }
 
+/** A spot on the ground where a creature you drop on it can dig, fish or forage. */
+export type DigKind = 'dust' | 'puddle' | 'bush';
+
+export interface DigSpot {
+  id: string;
+  kind: DigKind;
+  island: IslandId;
+  x: number;
+  z: number;
+  expiresAt: number;
+}
+
 export interface Gift {
   id: string;
   x: number;
@@ -216,6 +228,8 @@ export interface Gift {
   island: IslandId;
   /** Rare finds when digging. */
   item?: string;
+  /** Came from a dig spot you sent a creature to (changes the wording: dug, fished, foraged). */
+  via?: DigKind;
 }
 
 export interface ShopOffer {
@@ -271,6 +285,7 @@ export interface GameState {
   nests: number;
   spots: Record<SpotId, ActiveLure | null>;
   gifts: Gift[];
+  digSpots: DigSpot[];
   shop: ShopState;
   journal: JournalState;
   /** Event occurrences already applied (by window index) so effects don't double up. */
@@ -300,5 +315,6 @@ export type GameEvent =
   | { type: 'eventStart'; kind: EventKind; t: number; endsAt: number }
   | { type: 'eventEnd'; kind: EventKind; t: number }
   | { type: 'gift'; gift: Gift; t: number }
+  | { type: 'digSpot'; spot: DigSpot; t: number }
   | { type: 'shopRefresh'; t: number }
   | { type: 'note'; text: string; t: number };

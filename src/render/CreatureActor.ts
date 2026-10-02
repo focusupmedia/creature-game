@@ -17,10 +17,22 @@ export interface ActorContext {
   lures: { id: string; x: number; z: number; attracts: Trait }[];
   actors: CreatureActor[];
   now: number;
-  fx: (kind: 'dirt' | 'dust', at: THREE.Vector3) => void;
+  fx: (kind: FxKind, at: THREE.Vector3) => void;
 }
 
-type State = 'arrive' | 'wander' | 'idle' | 'eat' | 'sleep' | 'nap' | 'shelter' | 'social' | 'squabble' | 'dig' | 'celebrate' | 'lookup';
+export type FxKind = 'dirt' | 'dust' | 'splash' | 'leaf';
+
+/** How a creature works a spot: dig in dirt, fish in a puddle, forage a bush. */
+export type DigStyle = 'dirt' | 'splash' | 'leaf';
+const DIG_LOOK: Record<DigStyle, { emote: string; note: string }> = {
+  dirt: { emote: '⛏️', note: 'Just dug something up! ✨' },
+  splash: { emote: '🎣', note: 'Just fished something up! ✨' },
+  leaf: { emote: '🫐', note: 'Just foraged something! ✨' },
+};
+
+type State = 'arrive' | 'wander' | 'idle' | 'eat' | 'sleep' | 'nap' | 'shelter' | 'social' | 'squabble' | 'dig' | 'celebrate' | 'lookup' | 'carried';
+
+const CARRY_HEIGHT = 1.4;
 
 const SPEED: Record<string, number> = { hop: 1.1, walk: 0.7, scuttle: 1.0, fly: 1.3, swim: 0.8, slither: 0.6, waddle: 0.45, float: 0.55 };
 
@@ -52,6 +64,9 @@ export class CreatureActor {
   private flyHeight = 1 + Math.random() * 0.4;
   private onArrived: (() => void) | null = null;
   private onDug: (() => void) | null = null;
+  private digStyle: DigStyle = 'dirt';
+  /** Height left to fall after being put down. */
+  private fall = 0;
   private fxTimer = 0;
   private ring: THREE.Mesh;
   private noteText = '';
@@ -151,12 +166,58 @@ export class CreatureActor {
   }
 
   /** Walk to a spot and dig something up there. `done` fires when the find pops out. */
-  digAt(x: number, z: number, done: () => void): void {
+  digAt(x: number, z: number, done: () => void, style: DigStyle = 'dirt'): void {
+    this.digStyle = style;
     this.target.set(x, 0, z);
     if (this.isSwimmer) this.clampToWater(this.target);
     this.state = 'wander';
     this.onDug = done;
     this.timer = 0;
+  }
+
+  get carried(): boolean {
+    return this.state === 'carried';
+  }
+
+  /** Lifted by the player. Whatever it was doing is dropped (a pending dig still finishes later). */
+  pickUp(): void {
+    if (this.onArrived) {
+      this.onArrived();
+      this.onArrived = null;
+    }
+    if (this.onDug) {
+      // whatever it was digging for pops out anyway
+      const done = this.onDug;
+      this.onDug = null;
+      this.digStyle = 'dirt';
+      done();
+    }
+    this.partner = null;
+    this.state = 'carried';
+    this.emote(this.creature.personality === 'grumpy' ? '😤' : this.creature.personality === 'shy' ? '😳' : '😮', 1.5);
+  }
+
+  carryTo(x: number, z: number): void {
+    this.face(new THREE.Vector3(x, 0, z), 0.05);
+    this.root.position.x = x;
+    this.root.position.z = z;
+  }
+
+  /** Put down where it hangs. Walkers hop back onto land, swimmers back into water. */
+  putDown(): void {
+    const g = this.geo;
+    const p = this.root.position;
+    const bad = this.isSwimmer ? !inWater(g, p.x, p.z, -0.3) : !onLand(g, p.x, p.z, 0.5) || (!this.amphibious && !this.isFlyer && inWater(g, p.x, p.z, 0.1));
+    this.fall = CARRY_HEIGHT;
+    this.state = 'idle';
+    this.timer = 1;
+    if (bad) {
+      const to = this.isSwimmer ? randomWater(g, Math.random) : randomLand(g, Math.random);
+      this.target.set(to.x, 0, to.z);
+      this.state = 'wander';
+      this.timer = 6;
+    }
+    this.emote(this.creature.personality === 'energetic' ? '😆' : '😊', 1.2);
   }
 
   celebrate(): void {
@@ -200,7 +261,7 @@ export class CreatureActor {
           if (this.onDug) {
             this.state = 'dig';
             this.timer = 2.4;
-            this.emote('⛏️', 2);
+            this.emote(DIG_LOOK[this.digStyle].emote, 2);
           } else this.decide(ctx, asleepTime);
         }
         break;
@@ -208,17 +269,20 @@ export class CreatureActor {
         this.fxTimer -= dt;
         if (this.fxTimer <= 0) {
           this.fxTimer = 0.22;
-          ctx.fx('dirt', this.root.position.clone().add(new THREE.Vector3(Math.sin(this.heading) * 0.3, 0.1, Math.cos(this.heading) * 0.3)));
+          ctx.fx(this.digStyle, this.root.position.clone().add(new THREE.Vector3(Math.sin(this.heading) * 0.3, 0.1, Math.cos(this.heading) * 0.3)));
         }
         if (this.timer <= 0) {
           const done = this.onDug;
           this.onDug = null;
           done?.();
           this.emote(Math.random() < 0.5 ? '✨' : '❗', 1.6);
-          this.note('Just dug something up! ✨');
+          this.note(DIG_LOOK[this.digStyle].note);
+          this.digStyle = 'dirt';
           this.state = 'idle';
           this.timer = 1.5;
         }
+        break;
+      case 'carried':
         break;
       case 'shelter':
         this.moveToward(dt, 1.1);
@@ -318,6 +382,16 @@ export class CreatureActor {
       this.root.position.y = ground + (this.amphibious && inWater(this.geo, this.root.position.x, this.root.position.z, -0.3) ? -0.12 : 0);
     }
     if (m.tail && mv === 'hop') m.tail.rotation.y = Math.sin(this.phase * 3) * 0.25;
+    if (this.state === 'carried') {
+      // dangling in the air: legs paddle, body sways
+      this.root.position.y = ground + CARRY_HEIGHT + Math.sin(this.phase * 5) * 0.06;
+      body.rotation.z = Math.sin(this.phase * 7) * 0.15;
+      m.legs.forEach((leg, i) => (leg.rotation.x = Math.sin(this.phase * 16 + i * Math.PI) * 0.7));
+      m.wings.forEach((w, i) => (w.rotation.z = Math.sin(this.phase * 14) * 0.6 * (i % 2 ? -1 : 1)));
+    } else if (this.fall > 0) {
+      this.fall = Math.max(0, this.fall - dt * 7);
+      if (!this.isFlyer) this.root.position.y += this.fall;
+    }
 
     // species flourishes
     const excited = this.state === 'celebrate' || this.state === 'squabble' || this.state === 'social';

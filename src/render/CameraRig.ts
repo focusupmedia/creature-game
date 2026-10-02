@@ -24,6 +24,13 @@ export class CameraRig {
   private focusY = 0;
   private spin = 0;
   private panMode = false;
+  /** Press and hold (without moving) to pick something up; return true to start carrying it. */
+  onHold: (x: number, y: number) => boolean = () => false;
+  onCarry: (x: number, y: number) => void = () => {};
+  onCarryEnd: (x: number, y: number) => void = () => {};
+  private carrying = false;
+  private holdTried = true;
+  private lastPos = { x: 0, y: 0 };
 
   private pointers = new Map<number, { x: number; y: number }>();
   private vel = new THREE.Vector2();
@@ -67,6 +74,7 @@ export class CameraRig {
   }
 
   private down = (e: PointerEvent) => {
+    if (this.carrying) return;
     this.el.setPointerCapture(e.pointerId);
     this.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
     this.vel.set(0, 0);
@@ -77,7 +85,10 @@ export class CameraRig {
       this.downPos = { x: e.clientX, y: e.clientY };
       this.moved = 0;
       this.panMode = e.pointerType === 'mouse' && (e.button === 1 || e.button === 2 || e.shiftKey);
+      this.holdTried = this.panMode;
+      this.lastPos = { x: e.clientX, y: e.clientY };
     } else if (this.pointers.size === 2) {
+      this.holdTried = true;
       const [a, b] = [...this.pointers.values()];
       this.pinchStart = Math.hypot(a.x - b.x, a.y - b.y);
       this.distStart = this.distance;
@@ -92,10 +103,16 @@ export class CameraRig {
     if (!prev) return;
     const cur = { x: e.clientX, y: e.clientY };
     this.pointers.set(e.pointerId, cur);
+    this.lastPos = cur;
+    if (this.carrying) {
+      this.onCarry(cur.x, cur.y);
+      return;
+    }
     if (this.pointers.size === 1) {
       const dx = cur.x - prev.x;
       const dy = cur.y - prev.y;
       this.moved += Math.abs(dx) + Math.abs(dy);
+      if (this.moved > 8) this.holdTried = true;
       if (this.panMode) {
         this.panPixels(dx, dy);
         this.vel.set(dx, dy);
@@ -129,6 +146,15 @@ export class CameraRig {
   private up = (e: PointerEvent) => {
     if (!this.pointers.has(e.pointerId)) return;
     this.pointers.delete(e.pointerId);
+    if (this.carrying) {
+      if (this.pointers.size === 0) {
+        this.carrying = false;
+        this.holdTried = true;
+        this.onCarryEnd(e.clientX, e.clientY);
+      }
+      return;
+    }
+    this.holdTried = true;
     if (this.pointers.size > 0) this.spin = 0;
     if (this.pointers.size === 0 && this.moved < 10 && performance.now() - this.downAt < 450) {
       this.vel.set(0, 0);
@@ -160,6 +186,14 @@ export class CameraRig {
   }
 
   update(dt: number): void {
+    if (this.pointers.size === 1 && !this.holdTried && performance.now() - this.downAt > 280) {
+      this.holdTried = true;
+      if (this.onHold(this.lastPos.x, this.lastPos.y)) {
+        this.carrying = true;
+        this.spin = 0;
+        this.vel.set(0, 0);
+      }
+    }
     this.overflow.multiplyScalar(Math.pow(0.15, dt));
     if (this.pointers.size === 0 && this.vel.lengthSq() > 0.01) {
       this.panPixels(this.vel.x, this.vel.y);

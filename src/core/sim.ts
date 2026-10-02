@@ -4,16 +4,16 @@
 // run over the gap.
 
 import { species } from '../content/species';
-import { EVENTS, LURES, MUTATIONS, SPOTS } from '../content/world';
+import { DIG_KINDS, EVENTS, LURES, MUTATIONS, SPOTS } from '../content/world';
 import { TUNING } from '../content/tuning';
-import { SIZE_CAPACITY, islandGeo, randomLand } from '../content/islands';
+import { ISLAND_ORDER, SIZE_CAPACITY, islandGeo, randomLand } from '../content/islands';
 import { addMutation, creatureTraits, displayName, growth, makeCreature, newId } from './creatures';
 import { addNote, recordMutation, recordSpecies } from './journal';
 import { arrivalChance, arrivalMutations, arrivalWeights } from './lures';
 import { StateRng } from './rng';
 import { refreshShop } from './shop';
 import { freeNest } from './state';
-import type { EventKind, GameEvent, GameState, Gift, IslandId } from './types';
+import type { DigKind, EventKind, GameEvent, GameState, Gift, IslandId } from './types';
 import { activeEvent, isDark } from './world';
 
 const MIN = 60_000;
@@ -163,6 +163,22 @@ function step(state: GameState, t: number, dt: number, out: GameEvent[]): void {
       state.gifts.push(gift);
       out.push({ type: 'gift', gift, t });
     }
+  }
+
+  // ---- dig spots: little signs on the ground that ask for a creature to be dropped on them
+  state.digSpots = state.digSpots.filter((d) => d.expiresAt > t);
+  for (const id of ISLAND_ORDER) {
+    if (!state.islands[id]?.owned) continue;
+    if (state.digSpots.filter((d) => d.island === id).length >= TUNING.digSpotMax) continue;
+    if (!rng.chance(1 - Math.exp(-dt / (TUNING.digSpotEveryMin * MIN)))) continue;
+    const kind = rng.weighted((Object.keys(DIG_KINDS) as DigKind[]).map((k) => [k, DIG_KINDS[k].islands[id] ?? 0] as [DigKind, number]));
+    if (!kind) continue;
+    const g = islandGeo(id, state.islands[id]?.size ?? 0);
+    const p = randomLand(g, () => rng.next());
+    if (state.digSpots.some((d) => Math.hypot(d.x - p.x, d.z - p.z) < 2.5)) continue;
+    const spot = { id: newId(state, 'd'), kind, island: id, x: p.x, z: p.z, expiresAt: t + TUNING.digSpotLifeMin * MIN };
+    state.digSpots.push(spot);
+    out.push({ type: 'digSpot', spot, t });
   }
 
   // ---- shop rotation

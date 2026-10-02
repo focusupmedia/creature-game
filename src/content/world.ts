@@ -1,6 +1,6 @@
 import { ISLANDS } from './islands';
 import type {
-  DecorDef, EventDef, EventKind, ItemDef, LureDef, MutationDef, MutationId, ResonanceRule, SpotDef,
+  DigKind, IslandId, DecorDef, EventDef, EventKind, ItemDef, LureDef, MutationDef, MutationId, ResonanceRule, SpotDef,
 } from '../core/types';
 
 // ---------------------------------------------------------------- mutations
@@ -165,6 +165,37 @@ export const RESONANCES: ResonanceRule[] = [
   { id: 'r-shellshroom', requires: ['Reptile', 'Fungus'], result: 'shellshroom', chance: 0.4 },
   { id: 'r-starwyrm', requires: ['Dragon', 'Starlit'], result: 'starwyrm', chance: 0.25 },
 ];
+
+// ---------------------------------------------------------------- dig spots
+// Little signs on the ground. Drop a creature on one and it digs, fishes or
+// forages there for a find. Swimmers can only fish.
+export interface DigKindDef {
+  name: string;
+  verb: string;
+  icon: string;
+  /** Where it can appear (weights). */
+  islands: Partial<Record<IslandId, number>>;
+  glimmer: [number, number];
+  shardChance: number;
+  itemChance: number;
+  items: string[];
+  eggChance: number;
+}
+
+export const DIG_KINDS: Record<DigKind, DigKindDef> = {
+  dust: {
+    name: 'Sparkly dust', verb: 'Dug up', icon: '✨', islands: { home: 3, volcano: 4, lagoon: 3 },
+    glimmer: [12, 28], shardChance: 0.12, itemChance: 0.06, items: ['warmstone', 'rootswell'], eggChance: 0.03,
+  },
+  puddle: {
+    name: 'Bubbling puddle', verb: 'Fished up', icon: '🫧', islands: { home: 2, lagoon: 3 },
+    glimmer: [8, 22], shardChance: 0.08, itemChance: 0.08, items: ['rootswell'], eggChance: 0.01,
+  },
+  bush: {
+    name: 'Berry bush', verb: 'Foraged', icon: '🫐', islands: { home: 3, lagoon: 1, volcano: 1 },
+    glimmer: [6, 16], shardChance: 0.05, itemChance: 0.12, items: ['rootswell', 'warmstone'], eggChance: 0,
+  },
+};
 
 // ---------------------------------------------------------------- items
 export const ITEMS: Record<string, ItemDef> = {

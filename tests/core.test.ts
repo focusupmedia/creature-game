@@ -439,7 +439,8 @@ describe('save', () => {
     for (const c of v1.creatures) { delete c.island; delete c.size; delete c.growMs; delete c.personality; }
     for (const k of ['vent', 'ash', 'reef', 'shallows']) delete v1.spots[k];
     const s = deserialize(JSON.stringify(v1));
-    expect(s.version).toBe(2);
+    expect(s.version).toBe(3);
+    expect(s.digSpots).toEqual([]);
     expect(s.islands.home.owned).toBe(true);
     expect(s.creatures.every((c) => c.island === 'home' && c.size > 0.9 && c.growMs === 0 && !!c.personality)).toBe(true);
     expect(s.spots.vent).toBeNull();
@@ -481,5 +482,23 @@ describe('mutation glow', () => {
     expect(glowLevel({ species: 'mossfrog', mutations: ['prismatic'] })).toBe(2);
     expect(glowLevel({ species: 'mossfrog', mutations: ['lunar', 'storm', 'frost'] })).toBe(2);
     expect(glowLevel({ species: 'mossfrog', mutations: ['lunar', 'storm', 'prismatic'] })).toBe(3);
+  });
+});
+
+describe('dig spots', () => {
+  it('appear on owned islands over time, expire, and turn into a find when worked', async () => {
+    const { workDigSpot } = await import('../src/core/actions');
+    const s = createGame(42, 0);
+    tick(s, 60 * 60_000, { maxStepMs: 1000 });
+    expect(s.digSpots.length).toBeGreaterThan(0);
+    expect(s.digSpots.every((d) => d.island === 'home' && d.expiresAt > s.lastTick)).toBe(true);
+    const spot = s.digSpots[0];
+    const walker = s.creatures.find((c) => c.island === 'home')!;
+    const r = workDigSpot(s, spot.id, walker.id);
+    if (!r.ok) throw new Error(r.error);
+    expect(r.gift.via).toBe(spot.kind);
+    expect(s.digSpots.some((d) => d.id === spot.id)).toBe(false);
+    expect(s.gifts).toContain(r.gift);
+    expect(workDigSpot(s, spot.id, walker.id).ok).toBe(false);
   });
 });

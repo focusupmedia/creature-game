@@ -1,5 +1,5 @@
 import { species } from '../content/species';
-import { EVENTS, ITEMS, LURES, MUTATIONS, SPOTS } from '../content/world';
+import { DIG_KINDS, EVENTS, ITEMS, LURES, MUTATIONS, SPOTS } from '../content/world';
 import { ISLANDS } from '../content/islands';
 import { refreshShop } from '../core/shop';
 import { NESTS } from '../content/layout';
@@ -16,12 +16,12 @@ import {
   ConsoleAnalytics, ConsoleCrash, StubAds, StubPurchases, WebNotifications, WebStorage,
   type Ads, type Analytics, type Crash, type Notifications, type Purchases, type Storage,
 } from '../platform/services';
-import { World, type Pick } from '../render/World';
+import { World, type CarryTarget, type Pick } from '../render/World';
 import { UI } from '../ui/UI';
 
 const SAVE_KEY = 'kindred-grove.save.v1';
 const SETTINGS_KEY = 'kindred-grove.settings';
-const SPIN_HINT_KEY = 'kindred-grove.hint.spin';
+const SPIN_HINT_KEY = 'kindred-grove.hint.controls';
 const LIVE_TICK_S = 0.25;
 const AWAY_REPORT_MS = 90_000;
 
@@ -42,6 +42,7 @@ export class Game {
   private saveAcc = 0;
   private dirty = false;
   private hiddenAt = 0;
+  private digHints = 0;
 
   constructor(container: HTMLElement) {
     this.state = this.load();
@@ -56,6 +57,8 @@ export class Game {
     };
     this.world.onFrame = (dt) => this.frame(dt);
     this.world.onRevealTap = () => this.audio.play('crack');
+    this.world.onCarryStart = () => this.audio.play('egg');
+    this.world.onCarryDrop = (id, target) => this.onCarryDrop(id, target);
     window.addEventListener('pointerdown', () => this.audio.unlock(), { once: false });
     document.addEventListener('visibilitychange', () => this.onVisibility());
     window.addEventListener('pagehide', () => this.save());
@@ -72,7 +75,7 @@ export class Game {
     this.world.start();
     if (!this.storage.load(SPIN_HINT_KEY)) {
       this.storage.save(SPIN_HINT_KEY, '1');
-      setTimeout(() => this.ui.toast('👆 Drag to spin your island. Pinch to zoom, two fingers to move around.', 'info', undefined, 6000), 4000);
+      setTimeout(() => this.ui.toast('👆 Drag to spin your island. Press and hold a creature to pick it up and carry it!', 'info', undefined, 6500), 4000);
     }
   }
 
@@ -241,6 +244,13 @@ export class Game {
         case 'lureExpired':
           if (live) this.ui.toast(`The lure at the ${SPOTS[ev.spot].name} has faded.`);
           break;
+        case 'digSpot':
+          if (live && ev.spot.island === this.world.current && this.digHints < 2) {
+            this.digHints++;
+            const k = DIG_KINDS[ev.spot.kind];
+            this.ui.toast(`${k.icon} A ${k.name.toLowerCase()} appeared! Drop a creature on it to see what's there.`);
+          }
+          break;
         case 'shopRefresh':
           if (live) this.ui.toast('🐒 Mango has new wares at the shop!');
           break;
@@ -278,18 +288,45 @@ export class Game {
       case 'island':
         if (this.state.islands[p.id]?.owned) return this.travel(p.id);
         return this.ui.showIslands(p.id);
+      case 'dig': {
+        const d = this.state.digSpots.find((x) => x.id === p.id);
+        if (!d) return;
+        const k = DIG_KINDS[d.kind];
+        return this.ui.toast(`${k.icon} ${k.name}! Press and hold a creature, then drop it here.`);
+      }
       case 'gift': {
+        const via = this.state.gifts.find((x) => x.id === p.id)?.via;
         const r = A.collectGift(this.state, p.id, this.now());
         if (r.ok) {
           this.audio.play('coin');
           const extra = r.item === 'egg' ? ' …and a whole egg! It\'s in your basket.'
             : r.item ? ` …and a ${ITEMS[r.item]?.name ?? 'curiosity'}!` : '';
-          this.ui.toast(`Dug up: {coin} ${r.glimmer}${r.shards ? ` and {gem} ${r.shards}` : ''}${extra}`, r.item ? 'discovery' : 'info', undefined, r.item ? 4000 : 1800);
+          this.ui.toast(`${via ? DIG_KINDS[via].verb : 'Dug up'}: {coin} ${r.glimmer}${r.shards ? ` and {gem} ${r.shards}` : ''}${extra}`, r.item ? 'discovery' : 'info', undefined, r.item ? 4000 : 1800);
           this.analytics.track('gift_collected', { glimmer: r.glimmer, shards: r.shards, item: r.item ?? '' });
           this.saveSoon();
         }
       }
     }
+  }
+
+  /** You put a creature down: on another creature (breed?), on a dig spot (work it), or just somewhere new. */
+  private onCarryDrop(id: string, target: CarryTarget | null): void {
+    this.audio.play('place');
+    const c = this.state.creatures.find((x) => x.id === id);
+    if (!c || !target) return;
+    if (target.kind === 'creature') {
+      const other = this.state.creatures.find((x) => x.id === target.id);
+      if (other) this.ui.confirmBreed(c, other);
+      return;
+    }
+    const r = A.workDigSpot(this.state, target.id, id);
+    if (!r.ok) {
+      this.audio.play('error');
+      return this.ui.toast(r.error);
+    }
+    this.world.handle({ type: 'gift', gift: r.gift, t: this.now() }, true);
+    this.analytics.track('dig_spot', { kind: r.gift.via ?? '', glimmer: r.gift.glimmer, shards: r.gift.shards, item: r.gift.item ?? '' });
+    this.saveSoon();
   }
 
   // ------------------------------------------------------------------ actions
@@ -390,7 +427,7 @@ export class Game {
     this.ui.closeSheet();
     const nest = NESTS[r.egg.nest ?? 0];
     this.world.focus(nest, 12);
-    this.world.burstAt(nest.x, 0.8, nest.z, '#bff4ff', 24);
+    this.world.burstAt(nest.x, this.world.groundAt(nest.x, nest.z) + 0.8, nest.z, '#bff4ff', 24);
     this.ui.toast('A new egg settles into a warm nest. What could be inside?', 'discovery');
     for (const n of r.notes) this.ui.toast(`📝 Journal: ${n}`);
     this.notifications.schedule(`egg-${r.egg.id}`, this.now() + r.egg.incubationMs, 'Something is moving inside an egg…', 'Come see what hatches.');

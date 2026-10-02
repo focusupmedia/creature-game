@@ -2,7 +2,7 @@
 // show. Keeping these pure makes them testable and server-verifiable later.
 
 import { species } from '../content/species';
-import { DECOR, EGG_TIERS, EVENTS, ITEMS, LURES, MUTATIONS, RESONANCES, SPOTS, SUMMON_WEIGHTS } from '../content/world';
+import { DECOR, DIG_KINDS, EGG_TIERS, EVENTS, ITEMS, LURES, MUTATIONS, RESONANCES, SPOTS, SUMMON_WEIGHTS } from '../content/world';
 import { ISLANDS, SIZE_PRICE } from '../content/islands';
 import { WILD_SPECIES } from '../content/species';
 import { islandCapacity, islandPopulation } from './sim';
@@ -13,7 +13,7 @@ import { addNote, recordMutation, recordResonance, recordSpecies } from './journ
 import { StateRng } from './rng';
 import { refreshShop } from './shop';
 import { freeNest } from './state';
-import type { Creature, Egg, EventKind, GameState, IslandId, MutationId, SpeciesId, SpotId } from './types';
+import type { Creature, Egg, EventKind, GameState, Gift, IslandId, MutationId, SpeciesId, SpotId } from './types';
 import { activeEvent } from './world';
 
 export type Result<T = object> = ({ ok: true } & T) | { ok: false; error: string };
@@ -161,6 +161,30 @@ export function collectGift(state: GameState, giftId: string, t = Date.now()): R
     state.items[g.item] = (state.items[g.item] ?? 0) + 1;
   }
   return { ok: true, glimmer: g.glimmer, shards: g.shards, item: g.item };
+}
+
+/**
+ * A creature you dropped on a dig spot works it. The find becomes a gift on
+ * the ground (the creature digs it up in front of you; tap it to collect).
+ */
+export function workDigSpot(state: GameState, spotId: string, creatureId: string): Result<{ gift: Gift }> {
+  const d = state.digSpots.find((x) => x.id === spotId);
+  const c = state.creatures.find((x) => x.id === creatureId);
+  if (!d) return fail('That spot has faded away.');
+  if (!c) return fail('Who?');
+  if (c.island !== d.island) return fail('That creature lives on another island.');
+  const kind = DIG_KINDS[d.kind];
+  if (species(c.species).movement === 'swim' && d.kind !== 'puddle') return fail(`${displayName(c)} can't do that on dry land.`);
+  const rng = new StateRng(state);
+  const gift: Gift = {
+    id: newId(state, 'g'), x: d.x, z: d.z, glimmer: rng.int(kind.glimmer[0], kind.glimmer[1]),
+    shards: rng.chance(kind.shardChance) ? 1 : 0, from: c.id, island: d.island, via: d.kind,
+  };
+  if (rng.chance(kind.itemChance)) gift.item = rng.pick(kind.items);
+  else if (rng.chance(kind.eggChance) && state.eggs.filter((e) => e.nest === null).length < TUNING.basketSize) gift.item = 'egg';
+  state.digSpots = state.digSpots.filter((x) => x !== d);
+  state.gifts.push(gift);
+  return { ok: true, gift };
 }
 
 /** Roll which species an egg from a shop tier holds. Decided now, revealed at hatching. */

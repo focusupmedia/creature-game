@@ -3,9 +3,10 @@ import { BASKET, NESTS } from '../content/layout';
 import { ISLAND_ORDER, inWater, isBlocked, islandGeo, onLand } from '../content/islands';
 import { EVENTS, LURES, SPOTS } from '../content/world';
 import type { Creature, Egg, EventKind, GameEvent, GameState, IslandId } from '../core/types';
-import { groundAt } from '../content/terrain';
+import { groundAt, groundNormal, groundY } from '../content/terrain';
 import { CameraRig } from './CameraRig';
-import { CreatureActor, type ActorContext } from './CreatureActor';
+import { CreatureActor, type ActorContext, type FxKind } from './CreatureActor';
+import { animateDigSpot, buildDigSpot, disposeDigSpot, type DigSpotView } from './digSpots';
 import { buildDecor } from './decor';
 import { animateShopkeeper } from './creatureModels';
 import { buildEgg, disposeEgg, type EggModel } from './eggModel';
@@ -25,7 +26,11 @@ export type Pick =
   | { kind: 'gift'; id: string }
   | { kind: 'decor'; id: string }
   | { kind: 'island'; id: IslandId }
-  | { kind: 'ground'; x: number; z: number };
+  | { kind: 'ground'; x: number; z: number }
+  | { kind: 'dig'; id: string };
+
+/** What a carried creature is hovering over when you let go. */
+export type CarryTarget = { kind: 'creature'; id: string } | { kind: 'dig'; id: string };
 
 interface Burst { sprite: THREE.Sprite; vel: THREE.Vector3; life: number; max: number; drag: number }
 
@@ -66,6 +71,12 @@ export class World {
   onRevealTap: () => void = () => {};
   /** The player pushed past the island edge toward another island. */
   onEdgePush: (toward: IslandId) => void = () => {};
+  onCarryStart: (creatureId: string) => void = () => {};
+  onCarryDrop: (creatureId: string, target: CarryTarget | null) => void = () => {};
+  private carry: { actor: CreatureActor; hover: CarryTarget | null } | null = null;
+  private hoverRing: THREE.Mesh;
+  private dropShadow: THREE.Mesh;
+  private digViews = new Map<string, DigSpotView & { island: IslandId; x: number; z: number }>();
 
   constructor(private container: HTMLElement) {
     this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
@@ -79,6 +90,17 @@ export class World {
     this.rig = new CameraRig(this.renderer.domElement);
     this.rig.onTap = (x, y) => this.handleTap(x, y);
     this.rig.ground = (x, z) => this.groundAt(x, z);
+    this.rig.onHold = (x, y) => this.holdAt(x, y);
+    this.rig.onCarry = (x, y) => this.carryMove(x, y);
+    this.rig.onCarryEnd = () => this.carryEnd();
+    this.hoverRing = new THREE.Mesh(new THREE.RingGeometry(0.7, 0.92, 32), new THREE.MeshBasicMaterial({ color: '#ffe27a', transparent: true, opacity: 0.9, depthWrite: false }));
+    this.hoverRing.rotation.x = -Math.PI / 2;
+    this.hoverRing.visible = false;
+    this.scene.add(this.hoverRing);
+    this.dropShadow = new THREE.Mesh(new THREE.CircleGeometry(0.45, 20), new THREE.MeshBasicMaterial({ color: '#1b2a4a', transparent: true, opacity: 0.25, depthWrite: false }));
+    this.dropShadow.rotation.x = -Math.PI / 2;
+    this.dropShadow.visible = false;
+    this.scene.add(this.dropShadow);
     this.sky = new Sky(this.scene);
     this.buildClouds();
     this.portraits = new Portraits(this.renderer);
@@ -186,7 +208,7 @@ export class World {
       this.scene.add(fresh.group);
       if (view && isl.owned) {
         const g = islandGeo(id, isl.size);
-        this.burst(new THREE.Vector3(g.ox, 1, g.oz), '#fff6c8', 40, 3);
+        this.burst(new THREE.Vector3(g.ox, groundY(g, g.ox, g.oz) + 1, g.oz), '#fff6c8', 40, 3);
       }
       if (id === this.current) this.travelTo(id, true);
     }
@@ -209,7 +231,7 @@ export class World {
         if (mutated) {
           fresh.celebrate();
           fresh.note('Just changed! ✨');
-          this.burst(pos.clone().setY(0.6), '#fff4b0', 26);
+          this.burst(pos.clone().setY(pos.y + 0.6), '#fff4b0', 26);
         }
       } else {
         actor.creature = c;
@@ -217,7 +239,7 @@ export class World {
     }
     for (const [id, a] of this.actors) {
       if (!alive.has(id)) {
-        if (a.root.visible) this.burst(a.position.clone().setY(0.5), '#ffffff', 14);
+        if (a.root.visible) this.burst(a.position.clone().setY(a.position.y + 0.5), '#ffffff', 14);
         a.dispose(this.scene);
         this.actors.delete(id);
       }
@@ -246,7 +268,7 @@ export class World {
         dish.marker.scale.setScalar(1);
         if (spot.island === this.current) {
           this.lureCtx.push({ id: spot.id, x: spot.x, z: spot.z, attracts: lure.attracts });
-          if (Math.random() < 0.08) this.burst(new THREE.Vector3(spot.x, 0.4, spot.z), lure.color, 1, 0.6);
+          if (Math.random() < 0.08) this.burst(new THREE.Vector3(spot.x, this.groundAt(spot.x, spot.z) + 0.4, spot.z), lure.color, 1, 0.6);
         }
       } else {
         dish.bait.visible = false;
@@ -255,6 +277,26 @@ export class World {
         mm.opacity = 0.55 + Math.sin(this.time * 3) * 0.25;
         dish.marker.scale.setScalar(1 + Math.sin(this.time * 3) * 0.05);
       }
+    }
+
+    // dig spots: drop a creature on one to dig, fish or forage
+    const digAlive = new Set(state.digSpots.map((d) => d.id));
+    for (const d of state.digSpots) {
+      if (this.digViews.has(d.id)) continue;
+      const v = { ...buildDigSpot(d.kind, d.id, this.time), island: d.island, x: d.x, z: d.z };
+      v.root.position.set(d.x, this.groundAt(d.x, d.z), d.z);
+      const n = groundNormal(islandGeo(d.island, this.sizes[d.island] ?? 0), d.x, d.z);
+      v.root.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(n.x, n.y, n.z));
+      this.scene.add(v.root);
+      this.digViews.set(d.id, v);
+    }
+    for (const [id, v] of this.digViews) {
+      if (!digAlive.has(id)) {
+        if (v.island === this.current) this.burst(v.root.position.clone().setY(v.root.position.y + 0.3), '#fff3b0', 8);
+        this.scene.remove(v.root);
+        disposeDigSpot(v);
+        this.digViews.delete(id);
+      } else v.root.visible = v.island === this.current;
     }
 
     // gifts: things creatures dug up
@@ -304,7 +346,7 @@ export class World {
       g.add(hit);
       this.scene.add(g);
       this.decor.set(d.id, g);
-      this.burst(g.position.clone().setY(0.5), '#ffffff', 16);
+      this.burst(g.position.clone().setY(g.position.y + 0.5), '#ffffff', 16);
     }
     for (const [id, g] of this.decor) {
       if (!decorAlive.has(id)) {
@@ -382,18 +424,18 @@ export class World {
         const spot = SPOTS[ev.spot];
         const a = this.actors.get(ev.creature.id) ?? this.addActor(ev.creature);
         a.note(`Just arrived at the ${spot.name}`);
-        a.arrive(spot, () => this.burst(a.position.clone().setY(0.6), '#ffffff', 12));
+        a.arrive(spot, () => this.burst(a.position.clone().setY(a.position.y + 0.6), '#ffffff', 12));
         break;
       }
       case 'gift': {
         // Watch it happen: the creature walks over and digs the find up.
         const a = ev.gift.from ? this.actors.get(ev.gift.from) : undefined;
-        if (a && a.root.visible && a.state !== 'sleep' && a.state !== 'arrive') {
+        if (a && a.root.visible && a.state !== 'sleep' && a.state !== 'arrive' && !a.carried) {
           this.hiddenGifts.add(ev.gift.id);
           a.digAt(ev.gift.x, ev.gift.z, () => {
             this.hiddenGifts.delete(ev.gift.id);
-            this.burst(new THREE.Vector3(ev.gift.x, 0.3, ev.gift.z), ev.gift.shards || ev.gift.item ? '#d9c6ff' : '#ffe58a', 16, 1.4);
-          });
+            this.burst(new THREE.Vector3(ev.gift.x, this.groundAt(ev.gift.x, ev.gift.z) + 0.3, ev.gift.z), ev.gift.shards || ev.gift.item ? '#d9c6ff' : '#ffe58a', 16, 1.4);
+          }, ev.gift.via === 'puddle' ? 'splash' : ev.gift.via === 'bush' ? 'leaf' : 'dirt');
         }
         break;
       }
@@ -402,7 +444,7 @@ export class World {
         if (!a) break;
         a.note(EVENTS[ev.event].touch.bubble);
         if (!a.root.visible) break;
-        const at = a.position.clone().setY(0.3);
+        const at = a.position.clone().setY(a.position.y + 0.3);
         if (ev.event === 'storm') {
           this.sky.strike(at);
           this.burst(at, '#fff27a', 22, 2);
@@ -411,19 +453,19 @@ export class World {
         } else if (ev.event === 'starry') {
           this.sky.fallingStar(at, () => this.burst(at, '#fff1a8', 26, 1.8));
         } else {
-          this.burst(a.position.clone().setY(0.6), '#ffffff', 30, 1.4);
+          this.burst(a.position.clone().setY(a.position.y + 0.6), '#ffffff', 30, 1.4);
         }
         break;
       }
       case 'eggTouched': {
         const e = this.eggs.get(ev.egg.id);
         const color: Record<string, string> = { storm: '#fff27a', starry: '#fff1a8', blizzard: '#ffffff' };
-        if (e) this.burst(e.model.root.position.clone().setY(0.7), color[ev.event] ?? '#c9d4ff', 16);
+        if (e) this.burst(e.model.root.position.clone().setY(e.model.root.position.y + 0.7), color[ev.event] ?? '#c9d4ff', 16);
         break;
       }
       case 'eggReady': {
         const e = this.eggs.get(ev.egg.id);
-        if (e) this.burst(e.model.root.position.clone().setY(0.7), '#ffffff', 14);
+        if (e) this.burst(e.model.root.position.clone().setY(e.model.root.position.y + 0.7), '#ffffff', 14);
         break;
       }
       default:
@@ -498,14 +540,134 @@ export class World {
     this.burst(new THREE.Vector3(x, y, z), color, count);
   }
 
-  private fx = (kind: 'dirt' | 'dust', at: THREE.Vector3): void => {
+  private fx = (kind: FxKind, at: THREE.Vector3): void => {
     if (kind === 'dirt') {
       const soil = this.current === 'lagoon' ? '#e8c27a' : this.current === 'volcano' ? '#3a2e2e' : '#8a5a32';
       this.burst(at, soil, 3, 0.9, 0.3, 0);
+    } else if (kind === 'splash') {
+      this.burst(at, '#bfefff', 4, 1.0, 0.3, 0);
+    } else if (kind === 'leaf') {
+      this.burst(at, Math.random() < 0.3 ? '#8a6aff' : '#6fcf4a', 3, 0.8, 0.3, 1);
     } else {
       this.burst(at, '#f4f0e8', 4, 0.7, 0.55, 2);
     }
   };
+
+  // ------------------------------------------------------------------ carrying creatures
+
+  /** Where a screen point lands on the current island's ground. */
+  private pointerGround(x: number, y: number): THREE.Vector3 | null {
+    const view = this.islands.get(this.current);
+    if (!view) return null;
+    const rect = this.renderer.domElement.getBoundingClientRect();
+    const ndc = new THREE.Vector2(((x - rect.left) / rect.width) * 2 - 1, -((y - rect.top) / rect.height) * 2 + 1);
+    this.raycaster.setFromCamera(ndc, this.rig.camera);
+    const hit = this.raycaster.intersectObject(view.ground, false)[0];
+    if (hit) return hit.point;
+    // past the rim: slide along a plane at rim height, then keep it over the island
+    const p = new THREE.Vector3();
+    if (!this.raycaster.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), p)) return null;
+    const g = islandGeo(this.current, this.sizes[this.current] ?? 0);
+    const dx = p.x - g.ox;
+    const dz = p.z - g.oz;
+    const len = Math.hypot(dx, dz);
+    const max = g.r - 0.6;
+    if (len > max) p.set(g.ox + (dx / len) * max, 0, g.oz + (dz / len) * max);
+    return p;
+  }
+
+  private holdAt(x: number, y: number): boolean {
+    if (this.reveal || this.ghost) return false;
+    const rect = this.renderer.domElement.getBoundingClientRect();
+    const ndc = new THREE.Vector2(((x - rect.left) / rect.width) * 2 - 1, -((y - rect.top) / rect.height) * 2 + 1);
+    this.raycaster.setFromCamera(ndc, this.rig.camera);
+    const actors = [...this.actors.values()].filter((a) => a.root.visible);
+    const hit = this.raycaster.intersectObjects(actors.map((a) => a.hit), false)[0];
+    const actor = hit && actors.find((a) => a.hit === hit.object);
+    if (!actor) return false;
+    actor.pickUp();
+    this.carry = { actor, hover: null };
+    this.select(null);
+    this.burst(actor.position.clone().setY(actor.position.y + 0.3), '#ffffff', 8, 0.8);
+    this.onCarryStart(actor.id);
+    return true;
+  }
+
+  private carryMove(x: number, y: number): void {
+    if (!this.carry) return;
+    const p = this.pointerGround(x, y);
+    if (!p) return;
+    const { actor } = this.carry;
+    actor.carryTo(p.x, p.z);
+    // what would it land on?
+    let hover: CarryTarget | null = null;
+    let best = 1.2;
+    for (const [id, v] of this.digViews) {
+      if (v.island !== this.current) continue;
+      const d = Math.hypot(v.x - p.x, v.z - p.z);
+      if (d < best) { best = d; hover = { kind: 'dig', id }; }
+    }
+    if (!hover) {
+      best = 1.1;
+      for (const a of this.actors.values()) {
+        if (a === actor || !a.root.visible) continue;
+        const d = Math.hypot(a.position.x - p.x, a.position.z - p.z);
+        if (d < best) { best = d; hover = { kind: 'creature', id: a.id }; }
+      }
+    }
+    if (hover?.kind !== this.carry.hover?.kind || (hover && this.carry.hover && hover.id !== this.carry.hover.id)) {
+      if (hover?.kind === 'creature') this.actors.get(hover.id)?.emote('❓', 1);
+    }
+    this.carry.hover = hover;
+  }
+
+  private carryEnd(): void {
+    if (!this.carry) return;
+    const { actor, hover } = this.carry;
+    this.carry = null;
+    this.hoverRing.visible = false;
+    this.dropShadow.visible = false;
+    if (hover?.kind === 'creature') {
+      // set it down next to the other one, facing it
+      const other = this.actors.get(hover.id);
+      if (other) {
+        const dx = actor.position.x - other.position.x;
+        const dz = actor.position.z - other.position.z;
+        const len = Math.hypot(dx, dz) || 1;
+        actor.carryTo(other.position.x + (dx / len) * 0.9, other.position.z + (dz / len) * 0.9);
+      }
+    }
+    actor.putDown();
+    if (hover?.kind === 'creature') {
+      const other = this.actors.get(hover.id);
+      if (other) {
+        actor.emote('💞', 2);
+        other.emote('💞', 2);
+      }
+    }
+    this.onCarryDrop(actor.id, hover);
+  }
+
+  /** Hover ring and drop shadow follow the carried creature. */
+  private updateCarry(): void {
+    if (!this.carry) return;
+    const { actor, hover } = this.carry;
+    const gy = this.groundAt(actor.position.x, actor.position.z);
+    this.dropShadow.visible = true;
+    this.dropShadow.position.set(actor.position.x, gy + 0.04, actor.position.z);
+    let at: { x: number; z: number } | null = null;
+    if (hover?.kind === 'dig') at = this.digViews.get(hover.id) ?? null;
+    if (hover?.kind === 'creature') {
+      const a = this.actors.get(hover.id);
+      at = a ? { x: a.position.x, z: a.position.z } : null;
+    }
+    this.hoverRing.visible = !!at;
+    if (at) {
+      this.hoverRing.position.set(at.x, this.groundAt(at.x, at.z) + 0.06, at.z);
+      this.hoverRing.scale.setScalar(1 + Math.sin(this.time * 8) * 0.08);
+      (this.hoverRing.material as THREE.MeshBasicMaterial).color.set(hover?.kind === 'creature' ? '#ff8fc8' : '#ffe27a');
+    }
+  }
 
   // ------------------------------------------------------------------ decor placement
 
@@ -585,9 +747,10 @@ export class World {
     for (const g of this.gifts.values()) if (g.visible) targets.push(...g.children);
     for (const d of this.decor.values()) targets.push(d.children[d.children.length - 1]);
     if (this.current === 'home') for (const e of this.eggs.values()) targets.push(e.model.shell);
+    for (const v of this.digViews.values()) if (v.root.visible) targets.push(v.root.children[v.root.children.length - 1]);
     const hits = this.raycaster.intersectObjects(targets, false);
     // prefer creatures and gifts over big structures, and those over the ground
-    const rank = (k: string) => (k === 'creature' || k === 'gift' ? 0 : k === 'ground' ? 2 : 1);
+    const rank = (k: string) => (k === 'creature' || k === 'gift' || k === 'dig' ? 0 : k === 'ground' ? 2 : 1);
     let best: Pick | null = null;
     let bestRank = 9;
     for (const h of hits) {
@@ -619,10 +782,15 @@ export class World {
     const ctx: ActorContext = { darkness, sky: this.skyKind, lures: this.lureCtx, actors: visible, now: this.nowMs, fx: this.fx };
     // Only the island you're on is simulated visually; others are "unloaded".
     for (const a of visible) a.update(dt, this.time, ctx);
+    this.updateCarry();
+    for (const v of this.digViews.values()) if (v.root.visible) animateDigSpot(v, this.time);
 
     const windy = this.skyKind === 'storm' || this.skyKind === 'blizzard';
     for (const v of this.islands.values()) {
-      v.canopies.forEach((c, i) => (c.rotation.z = Math.sin(this.time * 0.8 + i) * (windy ? 0.06 : 0.02)));
+      v.canopies.forEach((c, i) => {
+        const lean = (c.userData.lean ??= c.rotation.z) as number;
+        c.rotation.z = lean + Math.sin(this.time * 0.8 + i) * (windy ? 0.06 : 0.02);
+      });
       for (const w of v.water) (w.material as THREE.MeshToonMaterial).emissiveIntensity = 0.2 + Math.sin(this.time * 1.5) * 0.06 + darkness * 0.15;
       for (const l of v.lava) (l.material as THREE.MeshToonMaterial).emissiveIntensity = 0.8 + Math.sin(this.time * 2.2) * 0.2;
       if (v.home) {
