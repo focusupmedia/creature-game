@@ -15,6 +15,7 @@
   --scrim: rgba(15, 18, 32, 0.35);
   --hud-bg: rgba(255, 250, 240, 0.92);
   --radius: 18px;
+  --stage: #0f1a24;
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   font-family: 'Fredoka', ui-rounded, system-ui, -apple-system, 'Segoe UI', sans-serif;
@@ -48,7 +49,7 @@ html, body {
   margin: 0;
   height: 100%;
   overflow: hidden;
-  background: #0f1a24;
+  background: var(--stage);
   overscroll-behavior: none;
   user-select: none;
   -webkit-user-select: none;
