@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { species } from '../content/species';
 import { ISLAND_RADIUS, OBSTACLES, POND, TREES, inPond, onIsland, randomLandPoint, randomPondPoint } from '../content/layout';
-import { creatureTraits } from '../core/creatures';
+import { creatureTraits, displayName } from '../core/creatures';
 import type { Creature, EventKind, Trait } from '../core/types';
 import { animatePrismatic, buildCreature, disposeCreature, type CreatureModel } from './creatureModels';
 import { emoteTexture } from './materials';
@@ -38,6 +38,8 @@ export class CreatureActor {
   private flyHeight = 1 + Math.random() * 0.4;
   private onArrived: (() => void) | null = null;
   private ring: THREE.Mesh;
+  private noteText = '';
+  private noteAt = -999;
   private nightOwl: boolean;
   private dayOnly: boolean;
 
@@ -75,6 +77,33 @@ export class CreatureActor {
 
   setSelected(on: boolean): void {
     this.ring.visible = on;
+  }
+
+  /** Something notable just happened; it shows in the name bubble for a while. */
+  note(text: string): void {
+    this.noteText = text;
+    this.noteAt = this.phase;
+  }
+
+  /** A short, human line about what the creature is doing right now. */
+  activity(): string {
+    if (this.noteText && this.phase - this.noteAt < 25) return this.noteText;
+    switch (this.state) {
+      case 'arrive': return this.onArrived ? 'Following a scent…' : 'Heading over to the lure';
+      case 'eat': return 'Nibbling the lure 😋';
+      case 'sleep': return 'Fast asleep 💤';
+      case 'shelter': return 'Hiding from the rain ☔';
+      case 'social': return this.partner ? `Saying hi to ${displayName(this.partner.creature)}` : 'Saying hi';
+      case 'celebrate': return 'Celebrating ✨';
+      case 'lookup': return 'Staring up at the sky';
+      case 'idle': return 'Taking in the view';
+      default: return this.isSwimmer ? 'Swimming laps' : this.isFlyer ? 'Fluttering about' : 'Wandering about';
+    }
+  }
+
+  /** World-space point just above the creature's head. */
+  headPosition(out: THREE.Vector3): THREE.Vector3 {
+    return out.copy(this.root.position).setY(this.root.position.y + this.model.height * this.root.scale.y + 0.25);
   }
 
   /** Enter from the island edge (or splash into the pond) and walk to a lure. */
@@ -142,6 +171,7 @@ export class CreatureActor {
       case 'sleep':
         if (!asleepTime) {
           this.emote('🌅', 1.2);
+          this.note('Just woke up 🌅');
           this.decide(ctx, false);
         } else if (Math.random() < dt * 0.15) this.emote('💤', 2);
         break;

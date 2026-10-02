@@ -245,3 +245,39 @@ button { font: inherit; color: inherit; cursor: pointer; border: 0; background: 
 
 .hidden { display: none !important; }
 input.rename { font: inherit; font-size: 20px; font-weight: 700; border: 2px solid var(--line); border-radius: 10px; padding: 2px 8px; width: 100%; background: var(--paper); color: var(--ink); }
+
+/* ---------------------------------------------------------------- world labels */
+.wl-layer { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.wl {
+  position: absolute; left: 0; top: 0; pointer-events: auto; white-space: nowrap;
+  transition: opacity .25s; will-change: transform;
+}
+.wl-sign, .wl-nest, .wl-spot {
+  background: var(--hud-bg); color: var(--ink); border-radius: 999px; padding: 5px 11px;
+  font-weight: 700; font-size: 13px; box-shadow: 0 3px 10px rgba(0,0,0,.2); margin-top: -4px;
+}
+.wl-sign::after, .wl-spot::after, .wl-nest::after {
+  content: ''; position: absolute; left: 50%; bottom: -5px; transform: translateX(-50%);
+  border: 6px solid transparent; border-top-color: var(--hud-bg); border-bottom: 0;
+}
+.wl-spot { background: var(--leaf); color: #fff; font-size: 14px; padding: 6px 13px; }
+.wl-spot::after { border-top-color: var(--leaf); }
+.wl-spot.empty { animation: wl-bob 1.6s ease-in-out infinite; }
+.wl-nest.ready { background: #ffd36a; color: #3a2a00; animation: wl-bob 1.2s ease-in-out infinite; }
+.wl-nest.ready::after { border-top-color: #ffd36a; }
+@keyframes wl-bob { 50% { margin-top: -10px; } }
+@media (prefers-reduced-motion: reduce) { .wl-spot.empty, .wl-nest.ready { animation: none; } }
+
+.wl-bubble {
+  display: flex; align-items: center; gap: 8px; background: var(--paper); color: var(--ink);
+  border-radius: 16px; padding: 7px 7px 7px 12px; box-shadow: 0 6px 18px rgba(0,0,0,.25); margin-top: -8px;
+  max-width: 240px;
+}
+.wl-bubble::after {
+  content: ''; position: absolute; left: 50%; bottom: -7px; transform: translateX(-50%);
+  border: 8px solid transparent; border-top-color: var(--paper); border-bottom: 0;
+}
+.wl-bubble-text { display: flex; flex-direction: column; min-width: 0; }
+.wl-bubble-name { font-weight: 700; font-size: 15px; overflow: hidden; text-overflow: ellipsis; }
+.wl-bubble-line { font-size: 12.5px; color: var(--ink-soft); white-space: normal; line-height: 1.25; }
+.wl-cog { width: 34px; height: 34px; border-radius: 50%; background: var(--chip); font-size: 17px; flex: none; }

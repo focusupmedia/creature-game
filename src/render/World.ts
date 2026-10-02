@@ -39,6 +39,8 @@ export class World {
   private decor = new Map<string, THREE.Group>();
   private bursts: Burst[] = [];
   private raycaster = new THREE.Raycaster();
+  private tmpV = new THREE.Vector3();
+  private tmpH = new THREE.Vector3();
   private timer = new THREE.Timer();
   private time = 0;
   private selected: string | null = null;
@@ -124,6 +126,7 @@ export class World {
         const fresh = this.addActor(c);
         fresh.root.position.copy(pos);
         fresh.celebrate();
+        fresh.note('Just changed! ✨');
         this.burst(pos.clone().setY(0.6), '#fff4b0', 26);
       } else {
         actor.creature = c;
@@ -189,7 +192,7 @@ export class World {
         }
       });
       const lock = this.sanctuary.nestLocks[i];
-      (lock.material as THREE.SpriteMaterial).opacity = owned ? 0 : 0.25 + Math.sin(this.time * 2 + i) * 0.1;
+      (lock.material as THREE.SpriteMaterial).opacity = 0;
     });
 
     // lures
@@ -198,20 +201,24 @@ export class World {
       const dish = this.sanctuary.spotDishes[spot.id];
       const active = state.spots[spot.id];
       const gm = dish.glow.material as THREE.SpriteMaterial;
-      const mm = dish.marker.material as THREE.SpriteMaterial;
+      const mm = dish.marker.material as THREE.MeshBasicMaterial;
       if (active) {
         const lure = LURES[active.lure];
         dish.bait.visible = true;
         dish.bait.material = toon(lure.color, lure.color, 0.35);
         gm.color.set(lure.color);
         gm.opacity = 0.35 + Math.sin(this.time * 3) * 0.12;
-        mm.opacity = 0;
+        mm.color.set(lure.color);
+        mm.opacity = 0.55;
+        dish.marker.scale.setScalar(1);
         this.lureCtx.push({ id: spot.id, x: spot.x, z: spot.z, attracts: lure.attracts });
         if (Math.random() < 0.08) this.burst(new THREE.Vector3(spot.x, 0.4, spot.z), lure.color, 1, 0.6);
       } else {
         dish.bait.visible = false;
         gm.opacity = 0;
-        mm.opacity = 0.25 + Math.sin(this.time * 2.5) * 0.2;
+        mm.color.set('#ffe27a');
+        mm.opacity = 0.65 + Math.sin(this.time * 3) * 0.3;
+        dish.marker.scale.setScalar(1 + Math.sin(this.time * 3) * 0.06);
       }
     }
 
@@ -283,6 +290,7 @@ export class World {
       case 'arrival': {
         const spot = SPOTS[ev.spot];
         const a = this.actors.get(ev.creature.id) ?? this.addActor(ev.creature);
+        a.note(`Just arrived at the ${spot.name}`);
         a.arrive(spot, () => this.burst(a.position.clone().setY(0.6), '#ffffff', 12));
         if (!this.actors.has(ev.creature.id)) this.actors.set(ev.creature.id, a);
         break;
@@ -290,6 +298,7 @@ export class World {
       case 'strike': {
         const a = this.actors.get(ev.creature.id);
         if (a) {
+          a.note('Just got zapped by sparkfall ⚡');
           this.sky.strike(a.position.clone().setY(0.3));
           this.burst(a.position.clone().setY(0.3), '#fff27a', 22, 2);
         }
@@ -297,7 +306,10 @@ export class World {
       }
       case 'moonbeam': {
         const a = this.actors.get(ev.creature.id);
-        if (a) this.sky.moonbeam(a.position);
+        if (a) {
+          this.sky.moonbeam(a.position);
+          a.note('Bathed in a moonbeam 🌙');
+        }
         break;
       }
       case 'eggTouched': {
@@ -312,6 +324,34 @@ export class World {
       }
       default:
     }
+  }
+
+  /** Project a world point to CSS pixels; `visible` is false when behind the camera. */
+  toScreen(x: number, y: number, z: number): { x: number; y: number; visible: boolean } {
+    const v = this.tmpV.set(x, y, z).project(this.rig.camera);
+    const r = this.renderer.domElement.getBoundingClientRect();
+    return { x: r.left + ((v.x + 1) / 2) * r.width, y: r.top + ((1 - v.y) / 2) * r.height, visible: v.z < 1 && Math.abs(v.x) < 1.2 && Math.abs(v.y) < 1.2 };
+  }
+
+  get zoom(): number {
+    return this.rig.distance;
+  }
+
+  creatureHead(id: string): THREE.Vector3 | null {
+    const a = this.actors.get(id);
+    return a ? a.headPosition(this.tmpH) : null;
+  }
+
+  creatureActivity(id: string): string {
+    return this.actors.get(id)?.activity() ?? '';
+  }
+
+  noteCreature(id: string, text: string): void {
+    this.actors.get(id)?.note(text);
+  }
+
+  get selectedId(): string | null {
+    return this.selected;
   }
 
   creaturePosition(id: string): THREE.Vector3 | null {

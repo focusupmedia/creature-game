@@ -12,7 +12,7 @@ export const NESTS = [
   { x: -2.6, z: -4.6 },
   { x: -3.7, z: -3.4 },
 ];
-export const SHOP_STALL = { x: -5.6, z: -1.2 };
+export const SHOP_STALL = { x: -5.8, z: -1.0 };
 export const BASKET = { x: 0.6, z: -5.8 };
 
 /** Big trees ring the back and sides so the camera (looking from +z) sees an open meadow. They double as storm shelters. */
@@ -27,16 +27,15 @@ export const TREES = [
   { x: 7.6, z: 3.6, s: 0.6 },
 ];
 
+/** Kept to the rim so the meadow stays clear for creatures. */
 export const ROCKS = [
-  { x: 1.2, z: 3.4, s: 0.9 },
-  { x: -1.0, z: 7.2, s: 0.6 },
-  { x: 2.6, z: 1.6, s: 0.5 },
-  { x: -3.4, z: 5.4, s: 0.5 },
+  { x: -4.6, z: 7.6, s: 0.55 },
+  { x: 8.3, z: 1.0, s: 0.5 },
 ];
 
 export const OBSTACLES: { x: number; z: number; r: number }[] = [
   { x: FONT.x, z: FONT.z, r: 1.1 },
-  { x: SHOP_STALL.x, z: SHOP_STALL.z, r: 1.0 },
+  { x: SHOP_STALL.x, z: SHOP_STALL.z, r: 1.4 },
   ...TREES.map((t) => ({ x: t.x, z: t.z, r: 0.75 * t.s })),
   ...ROCKS.map((r) => ({ x: r.x, z: r.z, r: 0.7 * r.s })),
 ];

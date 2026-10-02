@@ -225,11 +225,12 @@ export class Game {
     }
     if (!p || p.kind === 'ground') {
       if (this.ui.sheetOpen) this.ui.closeSheet();
+      else this.ui.selectCreature(null);
       return;
     }
     this.audio.play('tap');
     switch (p.kind) {
-      case 'creature': return this.ui.showCreature(p.id);
+      case 'creature': return this.ui.selectCreature(p.id);
       case 'spot': return this.ui.showSpot(p.id);
       case 'nest': return this.ui.showNest(p.index);
       case 'font': return this.ui.showFont();
@@ -313,6 +314,8 @@ export class Game {
         const pos = this.world.creaturePosition(r.creature.id);
         pos?.set(n.x, 0, n.z + 1.4);
         this.world.emote(r.creature.id, r.newSpecies ? '✨' : '💕');
+        this.world.noteCreature(r.creature.id, 'Just hatched 🐣');
+        this.ui.selectCreature(r.creature.id);
       }, 50);
       for (const note of r.notes) this.ui.toast(`📝 Journal: ${note}`, 'info', undefined, 5000);
       this.saveSoon();

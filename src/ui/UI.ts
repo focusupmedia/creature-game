@@ -11,6 +11,7 @@ import type { Creature, Egg, GameEvent, MutationId, SpotId, Trait } from '../cor
 import { activeEvent, dayPhase, daylight, isDark, nextEvent } from '../core/world';
 import type { Game } from '../game/Game';
 import { fmtDuration, h, img } from './dom';
+import { WorldLabels } from './Labels';
 
 const MUT_ICON: Record<MutationId, string> = { lunar: '🌙', storm: '⚡', giant: '⛰️', prismatic: '🌈' };
 const HABITAT_ICON: Partial<Record<Trait, string>> = { Grove: '🌳', Tide: '💧', Bloom: '🌸', Mystic: '🔮' };
@@ -41,6 +42,7 @@ export class UI {
   private coachShownAt = 0;
   private seenShopRotation = 0;
   private seenNotes = 0;
+  readonly labels: WorldLabels;
 
   constructor(private game: Game, mount: HTMLElement) {
     this.root = h('div', { class: 'ui' });
@@ -64,6 +66,22 @@ export class UI {
     mount.append(this.root);
     this.seenShopRotation = game.state.shop.rotation;
     this.seenNotes = game.state.journal.notes.length;
+    this.labels = new WorldLabels(game, this.root, {
+      openSpot: (id) => this.showSpot(id),
+      openNest: (i) => this.showNest(i),
+      openFont: () => this.showFont(),
+      openShop: () => this.showShop(),
+      openBasket: () => this.showBasket(),
+      openCreatureMenu: (id) => this.showCreature(id),
+    });
+  }
+
+  /** Tap on a creature: name bubble over its head; ⚙️ opens the full menu. */
+  selectCreature(id: string | null): void {
+    if (this.sheetOpen) this.closeSheet(false);
+    this.game.world.select(id);
+    this.labels.select(id);
+    if (id && this.game.state.tutorial === 2) this.game.setTutorial(3);
   }
 
   // ------------------------------------------------------------------ per-frame
@@ -110,6 +128,7 @@ export class UI {
       this.rerender();
     }
     this.updateCoach();
+    this.labels.update(this.game.world.revealing || !!this.game.placing);
   }
 
   private bump(el: HTMLElement): void {
@@ -156,7 +175,10 @@ export class UI {
   closeSheet(deselect = true): void {
     this.sheetHost.replaceChildren();
     this.sheetRender = null;
-    if (deselect) this.game.world.select(null);
+    if (deselect) {
+      this.game.world.select(null);
+      this.labels.select(null);
+    }
   }
 
   rerender(): void {
@@ -239,8 +261,7 @@ export class UI {
     const c = this.game.state.creatures.find((x) => x.id === id);
     if (!c) return;
     this.game.world.select(id);
-    const pos = this.game.world.creaturePosition(id);
-    if (pos) this.game.world.focus(pos, 13);
+    this.labels.select(id);
     if (this.game.state.tutorial === 2) this.game.setTutorial(3);
     let renaming = false;
     this.openSheet(displayName(c), speciesTitle(c) !== displayName(c) ? speciesTitle(c) : species(c.species).origin === 'hybrid' ? 'Hybrid' : '', (b) => {
@@ -763,7 +784,7 @@ export class UI {
     switch (step) {
       case 0: text = 'Welcome, keeper. This sanctuary is yours now. Tap the glowing ring in the Mossy Glade to set out a lure.'; break;
       case 1: text = 'Lures draw visitors. Watch for a while, or come back later. The sanctuary keeps living without you.'; break;
-      case 2: text = 'Someone new arrived! Tap a creature to learn about it.'; break;
+      case 2: text = 'Someone new arrived! Tap a creature to see what it\'s up to. Tap ⚙️ for more.'; break;
       case 3: text = 'Creatures who share a trait can make an egg together. Tap the stone Font, or the ⛲ Create button.'; break;
       case 3.5: text = 'Choose two creatures. Look for the 💚. Kindred creatures share at least one trait.'; break;
       case 4: {

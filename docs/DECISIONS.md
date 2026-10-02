@@ -17,9 +17,27 @@
 | M11 | First storm guaranteed at minute 7; first arrival guaranteed within about 30 s | The first session must show that the world changes. |
 | M12 | Procedural placeholder art with a parts contract | Zero asset cost while proving the fun. A clean handoff to an artist. |
 
+## Approved by you (Oct 2, 2026)
+
+| # | Decision | Status |
+|---|---|---|
+| A1 | **Confirm-first rule:** major additions or changes are proposed with options and wait for your OK | Standing rule |
+| A2 | **Storage:** pets can be picked up and stored; stored pets pause (no growth, mutations or wandering). Extra slots cost coins, not Starshards | Planned (economy phase) |
+| A3 | **Selling, two ways:** quick-sell any time (lower price, "Are you sure?" step) and a traveling Collector who pays more. Price grows with rarity, size and mutations | Planned (economy phase) |
+| A4 | **Favorites:** a ❤️ pet can never be sold | Planned (economy phase) |
+| A5 | **Growth:** hatchlings start small and grow; each has a random max size | Planned (creature phase) |
+| A6 | **Personalities:** e.g. energetic pets squabble and dig more; digging can turn up coins and shards | Planned (creature phase) |
+| A7 | **First eggs:** the first 2–3 hatches are always a new creature; later ones have a small chance | Planned (creature phase) |
+| A8 | **Coins:** the soft currency becomes an 8-bit coin | Planned (economy phase) |
+| A9 | **Music:** cozy acoustic (kalimba/marimba), shifting for day, night, storms and eclipses | Planned |
+| A10 | **Tap a pet:** name and current activity above its head, ⚙️ for the full menu | ✅ Built |
+| A11 | **Shop as a building** with a sign that faces the player when zoomed in | ✅ Built |
+| A12 | **Clearer bait spots and a decluttered map** | ✅ Built |
+| A13 | **UI visual style:** waiting for your direction; only layout and behavior change until then | Waiting on you |
+
 ## Where I'm challenging the brief
 
-**C1. "Watch Ad → increase mutation opportunity."** This sells discovery odds, which contradicts the rule "do not monetize discovery itself", and it trains players to feel that un-boosted discoveries are second-class. **Recommendation:** don't build it. Use "Watch ad → lure second wind" instead, which saves time without changing odds. *Not built.*
+**C1 (open: options A/B/C in chat). "Watch Ad → increase mutation opportunity."** This sells discovery odds, which contradicts the rule "do not monetize discovery itself", and it trains players to feel that un-boosted discoveries are second-class. **Recommendation:** don't build it. Use "Watch ad → lure second wind" instead, which saves time without changing odds. *Not built.*
 
 **C2. Premium incubator slots.** Nests are the throughput of the Create pillar, so selling them edges toward selling discovery speed. **Recommendation:** keep 2 free nests plus nests 3 and 4 for Starshards (built). In M1, test making nest 3 **earnable** through a journal milestone, so a free player can reach it.
 

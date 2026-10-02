@@ -46,7 +46,7 @@ export interface Sanctuary {
   group: THREE.Group;
   water: THREE.Mesh;
   canopies: THREE.Object3D[];
-  spotDishes: Record<string, { root: THREE.Group; bait: THREE.Mesh; glow: THREE.Sprite; marker: THREE.Sprite }>;
+  spotDishes: Record<string, { root: THREE.Group; bait: THREE.Mesh; glow: THREE.Sprite; marker: THREE.Mesh }>;
   font: THREE.Group;
   fontWater: THREE.Mesh;
   nests: THREE.Group[];
@@ -147,23 +147,29 @@ export function buildSanctuary(): Sanctuary {
   }
 
   // ---- grass tufts & flowers
-  const tuft = new THREE.ConeGeometry(0.08, 0.35, 4);
-  const flowerColors = ['#ffd1e3', '#fff3a6', '#c9b6ff', '#ffffff', '#ffb38a'];
+  // Sparse and low-contrast on purpose: creatures and tappable things must read first.
+  const tuft = new THREE.ConeGeometry(0.07, 0.28, 4);
+  const flowerColors = ['#ffd1e3', '#fff3a6', '#c9b6ff', '#ffffff'];
+  const clear = [
+    ...Object.values(SPOTS).map((s) => ({ x: s.x, z: s.z, r: 1.9 })),
+    { x: FONT.x, z: FONT.z, r: 2.3 }, { x: SHOP_STALL.x, z: SHOP_STALL.z, r: 2.4 }, { x: BASKET.x, z: BASKET.z, r: 1 },
+    ...NESTS.map((n) => ({ x: n.x, z: n.z, r: 1.1 })),
+  ];
   let placed = 0;
-  for (let i = 0; i < 400 && placed < 170; i++) {
+  for (let i = 0; i < 600 && placed < 42; i++) {
     const a = rand() * Math.PI * 2;
-    const r = Math.sqrt(rand()) * (ISLAND_RADIUS - 0.4);
+    const r = 5.2 + rand() * (ISLAND_RADIUS - 5.8);
     const x = Math.cos(a) * r;
     const z = Math.sin(a) * r;
-    if (inPond(x, z, 0.3) || blocked(x, z, 0.1)) continue;
-    if (Math.hypot(x - FONT.x, z - FONT.z) < 1.8) continue;
+    if (inPond(x, z, 0.4) || blocked(x, z, 0.2)) continue;
+    if (clear.some((c) => Math.hypot(x - c.x, z - c.z) < c.r)) continue;
     placed++;
-    if (rand() < 0.3) {
+    if (rand() < 0.25) {
       M.add(new THREE.CylinderGeometry(0.015, 0.015, 0.25, 3), '#5e9a45', { x, y: 0.12, z });
       M.add(new THREE.SphereGeometry(0.07, 6, 4), flowerColors[Math.floor(rand() * flowerColors.length)], { x, y: 0.27, z });
     } else {
       for (let j = 0; j < 3; j++) {
-        M.add(tuft, j === 1 ? '#6fbf4f' : '#5aa845', { x: x + (j - 1) * 0.07, y: 0.15, z: z + (rand() - 0.5) * 0.08 }, { x: (j - 1) * 0.3, y: 0, z: (rand() - 0.5) * 0.4 });
+        M.add(tuft, j === 1 ? '#86c862' : '#7dbb5c', { x: x + (j - 1) * 0.07, y: 0.15, z: z + (rand() - 0.5) * 0.08 }, { x: (j - 1) * 0.3, y: 0, z: (rand() - 0.5) * 0.4 });
       }
     }
   }
@@ -179,12 +185,17 @@ export function buildSanctuary(): Sanctuary {
         M.add(new THREE.CylinderGeometry(0.06, 0.06, 0.4, 5), '#7b5236', { x: spot.x + dx, y: 0.05, z: spot.z + dz });
       }
     } else {
+      M.add(new THREE.CylinderGeometry(1.0, 1.0, 0.04, 24), '#d9cfa8', { x: spot.x, y: 0.01, z: spot.z });
       for (let i = 0; i < 8; i++) {
         const a = (i / 8) * Math.PI * 2;
-        M.add(new THREE.DodecahedronGeometry(0.16, 0), '#b7b9ae', { x: spot.x + Math.cos(a) * 0.85, y: 0.08, z: spot.z + Math.sin(a) * 0.85 });
+        M.add(new THREE.DodecahedronGeometry(0.15, 0), '#c9c2a8', { x: spot.x + Math.cos(a) * 1.0, y: 0.07, z: spot.z + Math.sin(a) * 1.0 });
       }
-      M.add(new THREE.CylinderGeometry(0.9, 0.9, 0.03, 20), '#6aaa4d', { x: spot.x, y: 0.01, z: spot.z });
     }
+    // signpost so the spot reads as "a place to put something"
+    const px = spot.x + (spot.water ? -0.95 : -0.9);
+    const pz = spot.z + (spot.water ? 0.55 : -0.6);
+    M.add(new THREE.CylinderGeometry(0.05, 0.06, 1.1, 5), '#7b5236', { x: px, y: 0.55, z: pz });
+    M.add(new THREE.BoxGeometry(0.62, 0.32, 0.06), '#c8945a', { x: px, y: 1.0, z: pz + 0.03 });
     const dish = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.22, 0.14, 12), toon('#8d8f86'));
     dish.position.y = spot.water ? 0.22 : 0.08;
     dish.castShadow = true;
@@ -197,8 +208,12 @@ export function buildSanctuary(): Sanctuary {
     const glow = glowSprite('#ffffff', 2.2, 0);
     glow.position.y = 0.5;
     root.add(glow);
-    const marker = glowSprite('#ffffff', 1.4, 0.0);
-    marker.position.y = 0.3;
+    const marker = new THREE.Mesh(
+      new THREE.RingGeometry(0.72, 0.92, 40),
+      new THREE.MeshBasicMaterial({ color: '#ffe27a', transparent: true, opacity: 0.8, depthWrite: false }),
+    );
+    marker.rotation.x = -Math.PI / 2;
+    marker.position.y = spot.water ? 0.17 : 0.05;
     root.add(marker);
     const hit = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 0.8, 10), new THREE.MeshBasicMaterial({ visible: false }));
     hit.position.y = 0.4;
@@ -251,7 +266,7 @@ export function buildSanctuary(): Sanctuary {
     const straw = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 0.05, 10), toon('#e8c872'));
     straw.position.y = 0.4;
     g.add(straw);
-    const lock = glowSprite('#ffffff', 0.9, 0);
+    const lock = glowSprite('#ffffff', 0.01, 0);
     lock.position.y = 0.9;
     g.add(lock);
     nestLocks.push(lock);
@@ -281,33 +296,48 @@ export function buildSanctuary(): Sanctuary {
   pickables.push(bHit);
   group.add(basket);
 
-  // ---- merchant stall
+  // ---- the shop: a small cottage facing the camera
   const stall = new THREE.Group();
   stall.position.set(SHOP_STALL.x, 0, SHOP_STALL.z);
-  M.add(new THREE.BoxGeometry(1.6, 0.7, 0.9), '#a0764e', { x: SHOP_STALL.x, y: 0.35, z: SHOP_STALL.z });
-  for (const [dx, dz] of [[-0.7, -0.38], [0.7, -0.38], [-0.7, 0.38], [0.7, 0.38]]) {
-    M.add(new THREE.CylinderGeometry(0.05, 0.05, 1.6, 5), '#7b5236', { x: SHOP_STALL.x + dx, y: 0.8, z: SHOP_STALL.z + dz });
+  const SX = SHOP_STALL.x;
+  const SZ = SHOP_STALL.z;
+  M.add(new THREE.BoxGeometry(2.3, 0.2, 1.9), '#b9b19a', { x: SX, y: 0.1, z: SZ });
+  M.add(new THREE.BoxGeometry(2.0, 1.5, 1.6), '#f3e6c8', { x: SX, y: 0.95, z: SZ });
+  for (const dx of [-1.0, 1.0]) M.add(new THREE.BoxGeometry(0.14, 1.5, 0.14), '#8a5a36', { x: SX + dx, y: 0.95, z: SZ + 0.8 });
+  M.add(new THREE.BoxGeometry(0.56, 0.95, 0.06), '#8a5a36', { x: SX - 0.45, y: 0.67, z: SZ + 0.81 });
+  M.add(new THREE.SphereGeometry(0.04, 6, 4), '#ffd36a', { x: SX - 0.27, y: 0.67, z: SZ + 0.85 });
+  M.add(new THREE.BoxGeometry(0.62, 0.5, 0.06), '#a8e0ff', { x: SX + 0.45, y: 1.05, z: SZ + 0.81 });
+  M.add(new THREE.BoxGeometry(0.72, 0.08, 0.14), '#8a5a36', { x: SX + 0.45, y: 0.78, z: SZ + 0.85 });
+  M.add(new THREE.BoxGeometry(0.3, 0.7, 0.3), '#a8a28b', { x: SX + 0.6, y: 2.2, z: SZ - 0.3 });
+  // gable roof: the front slope faces the camera so the walls stay visible
+  for (const side of [1, -1]) {
+    const slope = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.1, 1.15), toon(side > 0 ? '#e2584a' : '#c4473b'));
+    slope.position.set(0, 1.98, side * 0.43);
+    slope.rotation.x = side * 0.62;
+    slope.castShadow = true;
+    stall.add(slope);
   }
-  const awning = new THREE.Mesh(new THREE.ConeGeometry(1.25, 0.6, 4, 1), toon('#e46a5e'));
-  awning.position.y = 1.85;
-  awning.rotation.y = Math.PI / 4;
-  awning.castShadow = true;
-  stall.add(awning);
-  const stripe = new THREE.Mesh(new THREE.ConeGeometry(1.27, 0.2, 4, 1, true), toon('#fff3e2'));
-  stripe.position.y = 1.6;
-  stripe.rotation.y = Math.PI / 4;
-  stall.add(stripe);
-  for (const [dx, c] of [[-0.45, '#6fbf5a'], [0, '#b9a6ff'], [0.45, '#4fa8d8']] as const) {
-    const jar = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 0.25, 8), toon(c, c, 0.25));
-    jar.position.set(dx, 0.83, 0.15);
-    stall.add(jar);
+  M.add(new THREE.BoxGeometry(2.0, 0.55, 0.06), '#f3e6c8', { x: SX, y: 1.95, z: SZ + 0.78 }, { x: 0, y: 0, z: 0 }, { x: 0.5, y: 1, z: 1 });
+  // striped awning over the window
+  for (let i = 0; i < 5; i++) {
+    const strip = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.04, 0.42), toon(i % 2 ? '#fff3e2' : '#e2584a'));
+    strip.position.set(0.13 + i * 0.16, 1.42, 1.0);
+    strip.rotation.x = 0.45;
+    stall.add(strip);
   }
-  const lamp = glowSprite('#ffd27a', 1.2, 0);
-  lamp.position.set(0.75, 1.45, 0.45);
+  const board = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.3, 0.06), toon('#c8945a'));
+  board.position.set(0, 1.86, 0.84);
+  stall.add(board);
+  const coin = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.11, 0.04, 12), toon('#ffd36a', '#c99a1a', 0.3));
+  coin.rotation.x = Math.PI / 2;
+  coin.position.set(0, 1.86, 0.89);
+  stall.add(coin);
+  const lamp = glowSprite('#ffd27a', 1.4, 0);
+  lamp.position.set(1.15, 1.5, 1.0);
   stall.add(lamp);
   stall.userData.lamp = lamp;
-  const sHit = new THREE.Mesh(new THREE.BoxGeometry(2, 2.2, 1.4), new THREE.MeshBasicMaterial({ visible: false }));
-  sHit.position.y = 1.1;
+  const sHit = new THREE.Mesh(new THREE.BoxGeometry(2.4, 2.8, 2.0), new THREE.MeshBasicMaterial({ visible: false }));
+  sHit.position.y = 1.4;
   sHit.userData.pick = { kind: 'shop' };
   stall.add(sHit);
   pickables.push(sHit);
