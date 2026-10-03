@@ -23,8 +23,12 @@ Playable link (private artifact, republish to the same URL): https://claude.ai/a
 ## Built so far
 Lures, combining (trait-based hybrids), eggs and reveal, 9 mutations (common/rare/epic/legendary tiers), 5 sky events (Storm, Eclipse, plus rare Starry Night, Full Moon, Blizzard), 3 legendary events (Angels, Eruption, Deep Tide; `core/legendary.ts`, `render/legendaryFx.ts`) with a claimable gift and legendary mutations (Angelic, Infernal, Abyssal), ad-summoned events (6 ads/day), generative cozy music (kalimba/marimba/bells; moods for day, night and each sky event; Music toggle in Settings), stacking mutation looks with rarity glow (rim, aura, sparkles), rotating shop with category tabs and Mango the monkey shopkeeper, egg tiers (coin eggs + premium gem Starry Egg), coins (8-bit) + Starshards, decor, journal, away report, tutorial with axolotl coach, pick up and carry creatures (press and hold; drop on another to breed, on a dig spot to dig/fish/forage), dig spots, growth to random size (with obvious Teeny/Colossal outliers), behaviour traits (2-5 per creature, `content/quirks.ts` + `core/quirks.ts`, Trait Deleter/Wiper), squabbles, digging finds, first-3-eggs-always-new, 25 species including dragons and the legendary Axolotl, fully round globe islands (game logic uses flat map x/z; `content/globe.ts` wraps it onto a sphere; render things with World.at/place, never raw x/y/z), drag-to-roll globe camera, archipelago (Home, Ember Peak, Coral Lagoon, Sunny Shore, Dune Hollow), island sizes S/M/L, in-game widget, keeper levels 1-50 with a rewards list and 10 level-only creatures (`core/levels.ts`; player actions report to `Game.record()` for XP and quests), daily + lasting quests (`core/quests.ts`), gentle hunger, food (Berry Trees, snacks, feasts, feedbags), storage, selling and the travelling Collector (`core/care.ts`).
 
-## Next up
-Everything approved so far (A1–A48) is built. Ask the owner what's next; check in before any big change.
+## Next up (approved A49–A58 in docs/DECISIONS.md; build in this order)
+1. Quick fixes (A49, A55, A50): sheet scroll, XP bar, tap stops creature, auto-collect dig finds, bigger globes, capacities, rarity spawn + world look, island level gates.
+2. Breeding variety (A49). 3. Personal history + away finds + cross-world alerts (A58).
+4. Inventory + make-space + level-gift prompt (A58). 5. Lure visitors wait (A52).
+6. New events + 1.5x frequency (A51). 7. Egg sprays (A54). 8. Wanderers incl. Goblin (A53).
+9. Journal world filters (A56). 10. Drawn icons for every emoji (A57).
 
 ## Open / later
 Real ads/IAP SDKs, native builds, real phone home-screen widgets, cloud save, final art and audio, final game name and bundle ID.
