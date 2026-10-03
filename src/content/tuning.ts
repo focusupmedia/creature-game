@@ -61,6 +61,10 @@ export const TUNING = {
   giftShardChance: 0.03,
   maxGiftsOnGround: 14,
   /** Dig spots (sparkly dust, bubbling puddles, berry bushes) you drop creatures on. Per owned island. */
+  /** Keeper levels: XP to go from level L to L+1 is base * L^1.5 (about 55k XP to reach 50). */
+  levelXpBase: 8,
+  /** XP for things the player does. Idle time earns none. */
+  xp: { lure: 6, breed: 15, hatch: 25, newSpecies: 50, newMutation: 30, gift: 2, digSpot: 8, shopEgg: 5, blessing: 40, arrivalNew: 30 } as Record<string, number>,
   digSpotEveryMin: 6,
   digSpotMax: 2,
   digSpotLifeMin: 25,

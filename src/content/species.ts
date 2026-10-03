@@ -274,6 +274,67 @@ export const SPECIES: SpeciesDef[] = [
     hint: 'A dragon and a gentle magical creature, beneath a sky full of falling stars.',
     eggColors: ['#7fd6c8', '#ffd86a'],
   },
+  // ---- Level rewards: only from reaching keeper levels (one every 5)
+  {
+    id: 'jackalope', name: 'Jackalope', traits: ['Mammal', 'Grove', 'Mystic'], rarity: 'legendary',
+    activity: 'day', movement: 'hop', origin: 'reward',
+    blurb: 'A bunny with tiny antlers. It insists they are perfectly normal.',
+    hint: 'A gift for reaching keeper level 5.', eggColors: ['#d8b88a', '#8a6a4a'],
+  },
+  {
+    id: 'kitsune', name: 'Kitsune', traits: ['Mammal', 'Mystic', 'Spirit'], rarity: 'legendary',
+    activity: 'night', movement: 'walk', origin: 'reward',
+    blurb: 'A clever fox spirit. It grows a new tail every hundred years, and is very proud of each one.',
+    hint: 'A gift for reaching keeper level 10.', eggColors: ['#ff9a4a', '#ffffff'],
+  },
+  {
+    id: 'flyingsnake', name: 'Flying Snake', traits: ['Reptile', 'Spirit', 'Bloom'], rarity: 'legendary',
+    activity: 'day', movement: 'float', origin: 'reward',
+    blurb: 'A feathered serpent that glides on warm air, humming as it goes.',
+    hint: 'A gift for reaching keeper level 15.', eggColors: ['#5fd0a0', '#ffd23d'],
+  },
+  {
+    id: 'pegasus', name: 'Pegasus', traits: ['Mammal', 'Spirit', 'Bird'], rarity: 'legendary',
+    activity: 'day', movement: 'fly', origin: 'reward',
+    blurb: 'A winged horse. It gallops on clouds and lands without a sound.',
+    hint: 'A gift for reaching keeper level 20.', eggColors: ['#ffffff', '#a8d8ff'],
+  },
+  {
+    id: 'griffin', name: 'Griffin', traits: ['Bird', 'Mammal', 'Ember'], rarity: 'legendary',
+    activity: 'day', movement: 'walk', origin: 'reward',
+    blurb: 'Half eagle, half lion, all heart. Guards anything shiny it finds.',
+    hint: 'A gift for reaching keeper level 25.', eggColors: ['#c89a4a', '#ffffff'],
+  },
+  {
+    id: 'hippocampus', name: 'Hippocampus', traits: ['Fish', 'Mammal', 'Tide'], rarity: 'legendary',
+    activity: 'any', movement: 'swim', origin: 'reward',
+    blurb: 'A sea horse in the grandest sense: a horse in front, a fish behind.',
+    hint: 'A gift for reaching keeper level 30.', eggColors: ['#3ac8c8', '#a8ffe8'],
+  },
+  {
+    id: 'thunderbird', name: 'Thunderbird', traits: ['Bird', 'Spirit', 'Storm'], rarity: 'legendary',
+    activity: 'any', movement: 'fly', origin: 'reward',
+    blurb: 'When it beats its great wings, the sky rumbles. Politely.',
+    hint: 'A gift for reaching keeper level 35.', eggColors: ['#2a3a7a', '#ffd83d'],
+  },
+  {
+    id: 'baku', name: 'Baku', traits: ['Mammal', 'Mystic', 'Spirit'], rarity: 'legendary',
+    activity: 'night', movement: 'walk', origin: 'reward',
+    blurb: 'A dream tapir. It nibbles bad dreams away and leaves the good ones.',
+    hint: 'A gift for reaching keeper level 40.', eggColors: ['#2a2a3a', '#f4f0ff'],
+  },
+  {
+    id: 'sphinx', name: 'Sphinx', traits: ['Mammal', 'Sand', 'Mystic'], rarity: 'legendary',
+    activity: 'day', movement: 'walk', origin: 'reward',
+    blurb: 'A regal cat who asks riddles. It always lets you win.',
+    hint: 'A gift for reaching keeper level 45.', eggColors: ['#e8c070', '#3a6ad0'],
+  },
+  {
+    id: 'unicorn', name: 'Unicorn', traits: ['Mammal', 'Mystic', 'Bloom'], rarity: 'mythical',
+    activity: 'any', movement: 'walk', origin: 'reward',
+    blurb: 'The rarest friend of all. Flowers turn toward it as it passes.',
+    hint: 'A gift for reaching keeper level 50.', eggColors: ['#ffffff', '#ff9ee8'],
+  },
 ];
 
 export const SPECIES_BY_ID: Record<string, SpeciesDef> = Object.fromEntries(SPECIES.map((s) => [s.id, s]));

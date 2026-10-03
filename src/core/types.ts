@@ -35,8 +35,8 @@ export interface SpeciesDef {
   rarity: Rarity;
   activity: Activity;
   movement: Movement;
-  /** Base species can arrive via lures; hybrids only come from eggs. */
-  origin: 'wild' | 'hybrid';
+  /** Base species can arrive via lures; hybrids only come from eggs; rewards only from keeper levels. */
+  origin: 'wild' | 'hybrid' | 'reward';
   blurb: string;
   /** Shown in the journal before discovery. Should point at experiments, never give the answer. */
   hint: string;
@@ -294,6 +294,8 @@ export interface GameState {
   items: Record<ItemId, number>;
   /** Trait Deleter / Trait Wiper counts. */
   tools: Record<string, number>;
+  /** Keeper XP (see core/levels.ts). */
+  xp: number;
   decorOwned: Record<DecorId, number>;
   placedDecor: PlacedDecor[];
   creatures: Creature[];

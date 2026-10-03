@@ -453,3 +453,23 @@ input.rename { font-family: var(--display); font-size: 22px; border: var(--outli
 .quirk { font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 10px; background: #fff4d6; border: 2px solid #f2c46a; color: var(--ink); }
 .quirk-line { margin: 3px 0; font-size: 14px; line-height: 1.3; }
 .wl-bubble .quirk-icons { font-size: 12px; margin-left: 4px; letter-spacing: 1px; }
+
+/* ---- keeper level */
+.level-badge {
+  pointer-events: auto; height: 36px; min-width: 70px; padding: 0 10px 0 6px; border-radius: 12px; border: var(--outline);
+  background: linear-gradient(180deg, #ffe27a, #ffb02a); box-shadow: inset 0 -4px 0 rgba(160, 90, 0, .3), 0 4px 0 var(--ink);
+  display: flex; align-items: center; gap: 4px; position: relative; font-family: var(--display); color: var(--ink);
+}
+.level-badge .lv-star { font-size: 20px; color: #fff; -webkit-text-stroke: 2px var(--ink); }
+.level-badge .lv-num { font-size: 15px; }
+.level-badge .lv-bar { position: absolute; left: 8px; right: 8px; bottom: 4px; height: 5px; border-radius: 3px; background: rgba(27, 42, 74, .25); overflow: hidden; }
+.level-badge .lv-bar i { display: block; height: 100%; background: #fff; border-radius: 3px; }
+.lv-row.done { opacity: .6; }
+.lv-row.next { border-color: #ffb02a; box-shadow: 0 0 0 3px #ffe27a; }
+.lv-row.big { background: linear-gradient(90deg, #fff, #f4ecff); }
+.lv-swatch { font-family: var(--display); font-size: 18px; }
+.lv-pic { width: 56px; height: 56px; flex: none; }
+.modal.levelup { text-align: center; }
+.modal.levelup .lv-burst { font-size: 64px; color: #ffd23d; -webkit-text-stroke: 3px var(--ink); animation: lv-pop .6s cubic-bezier(.3, 1.6, .5, 1); }
+.modal.levelup .lv-rewards { font-family: var(--display); font-size: 22px; }
+@keyframes lv-pop { from { transform: scale(0) rotate(-40deg); } to { transform: scale(1) rotate(0); } }

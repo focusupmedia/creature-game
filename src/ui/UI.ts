@@ -16,6 +16,7 @@ import * as I from './icons';
 import { WorldLabels } from './Labels';
 import { QUIRKS } from '../content/quirks';
 import { deleteQuirk, wipeQuirks } from '../core/quirks';
+import { MAX_LEVEL, levelProgress, levelReward, type LevelUp } from '../core/levels';
 import { rarityTag } from './rarity';
 
 const fmtClock = (ms: number) => `${Math.floor(Math.max(0, ms) / 60000)}:${String(Math.floor(Math.max(0, ms) / 1000) % 60).padStart(2, '0')}`;
@@ -42,6 +43,11 @@ export class UI {
   private giftTile = h('button', { class: 'hud-tile gift hidden', 'aria-label': 'Claim a legendary gift', onClick: () => { this.game.audio.play('tap'); this.showBlessing(); } },
     h('span', { class: 'emoji' }, '🎁'), h('span', { class: 'lbl' }, 'GIFT'));
   private overlay: HTMLElement | null = null;
+  private levelNum = h('span', { class: 'lv-num' });
+  private levelFill = h('i');
+  private levelBadge = h('button', { class: 'level-badge', 'aria-label': 'Keeper level and rewards', onClick: () => { this.game.audio.play('tap'); this.showLevels(); } },
+    h('span', { class: 'lv-star' }, '★'), this.levelNum, h('span', { class: 'lv-bar' }, this.levelFill));
+  private lastXp = -1;
   private widget = h('div', { class: 'widget hidden' });
   private widgetKey = '';
   private banner = h('div', { class: 'banner hidden' });
@@ -80,7 +86,7 @@ export class UI {
             h('button', { class: 'bar-plus', 'aria-label': 'Get Starshards', onClick: () => this.showShop(true) }, I.icon(I.PLUS))),
         ),
         h('div', { class: 'hud-row', style: 'width:100%;align-items:flex-start' },
-          h('div', { class: 'hud-col' }, h('div', { class: 'sky-chip' }, this.skyChip), this.widget),
+          h('div', { class: 'hud-col' }, h('div', { class: 'hud-row', style: 'gap:6px' }, this.levelBadge, h('div', { class: 'sky-chip' }, this.skyChip)), this.widget),
           h('div', { class: 'spacer' }),
           h('div', { class: 'hud-col right' },
             h('button', { class: 'hud-tile', 'aria-label': 'Watch an ad to summon a sky event', onClick: () => this.showSummon() },
@@ -138,6 +144,12 @@ export class UI {
       this.shardsVal.textContent = String(s.shards);
       if (this.lastShards >= 0) this.bump(this.shardsVal.parentElement!);
       this.lastShards = s.shards;
+    }
+    if (s.xp !== this.lastXp) {
+      this.lastXp = s.xp;
+      const lp = levelProgress(s.xp);
+      this.levelNum.textContent = `Lv ${lp.level}`;
+      this.levelFill.style.width = `${Math.round(lp.pct * 100)}%`;
     }
     this.giftTile.classList.toggle('hidden', !(s.blessing && t < s.blessing.expiresAt));
     const phase = dayPhase(s, t);
@@ -466,6 +478,52 @@ export class UI {
     });
   }
 
+  // ---- keeper levels
+
+  /** Your level, how to earn XP, and every reward from 1 to 50. */
+  showLevels(): void {
+    const s = this.game.state;
+    const lp = levelProgress(s.xp);
+    this.openSheet(`Keeper level ${lp.level}`, lp.level >= MAX_LEVEL ? 'You reached the top. Legendary keeper!' : `${lp.into.toLocaleString()} / ${lp.need.toLocaleString()} XP to level ${lp.level + 1}`, (b) => {
+      b.append(h('div', { class: 'progress', style: 'margin:4px 0 8px' }, h('i', { style: `width:${Math.round(lp.pct * 100)}%` })));
+      b.append(h('p', { class: 'muted' }, 'Earn XP by hatching, breeding, setting lures, digging, discovering and finishing quests. Every level gives coins and Starshards, and every 5th level brings a creature you can only get here.'));
+      const list = h('div', { class: 'list' });
+      let current: HTMLElement | null = null;
+      for (let l = 2; l <= MAX_LEVEL; l++) {
+        const r = levelReward(l);
+        const done = lp.level >= l;
+        const sp = r.creature ? species(r.creature) : null;
+        const row = h('div', { class: `item lv-row ${done ? 'done' : ''} ${l === lp.level + 1 ? 'next' : ''} ${sp ? 'big' : ''}` },
+          h('div', { class: 'swatch lv-swatch' }, done ? '✓' : String(l)),
+          h('div', { class: 'grow' },
+            h('div', { class: 'name' }, `Level ${l}`),
+            h('div', { class: 'desc' }, rich(`{coin} ${r.coins.toLocaleString()}  ·  {gem} ${r.shards}`)),
+            sp ? h('div', { class: 'desc', style: 'font-weight:700;color:#8a4ad0' }, done || s.journal.species[sp.id] ? `+ ${sp.name}!` : '+ a mystery creature!') : null),
+          sp ? img(this.game.world.portraits.get(sp.id, [], !(done || s.journal.species[sp.id])), 'lv-pic') : null);
+        if (l === lp.level + 1) current = row;
+        list.append(row);
+      }
+      b.append(list);
+      if (current) setTimeout(() => current!.scrollIntoView({ block: 'center' }), 60);
+    }, '★');
+  }
+
+  /** Celebrate reaching a level. */
+  showLevelUp(up: LevelUp): void {
+    this.game.audio.play('fanfare');
+    const sp = up.creature ? species(up.creature) : null;
+    const c = up.creatureId ? this.game.state.creatures.find((x) => x.id === up.creatureId) : null;
+    this.modal((m, close) => {
+      m.classList.add('levelup');
+      m.append(h('div', { class: 'lv-burst' }, '★'), h('h2', null, `Level ${up.level}!`),
+        h('p', { class: 'lv-rewards' }, rich(`{coin} +${up.coins.toLocaleString()}   {gem} +${up.shards}`)),
+        ...(sp && c ? [h('div', { class: 'col', style: 'align-items:center' }, this.portrait(c, 'portrait big'), h('b', null, `A ${sp.name} joined you!`), h('span', { class: 'muted' }, 'Only keepers who reach this level ever meet one.'))] : []),
+        h('div', { class: 'btns' },
+          sp && c ? h('button', { class: 'btn secondary', onClick: () => { close(); this.focusCreature(c.id); } }, 'Go see it') : null,
+          h('button', { class: 'btn', onClick: close }, 'Hooray!')));
+    });
+  }
+
   // ---- legendary events
 
   /** Clouds sweep across the screen and the light changes while a legendary event lasts. */
@@ -768,7 +826,8 @@ export class UI {
         const sections: [string, (x: (typeof SPECIES)[number]) => boolean][] = [
           ['Wild', (x) => x.origin === 'wild' && x.rarity !== 'mythical'],
           ['Created', (x) => x.origin === 'hybrid' && x.rarity !== 'mythical'],
-          ['✦ Mythical', (x) => x.rarity === 'mythical'],
+          ['✦ Mythical', (x) => x.rarity === 'mythical' && x.origin !== 'reward'],
+          ['★ Level rewards', (x) => x.origin === 'reward'],
         ];
         for (const [title, keep] of sections) {
           b.append(h('div', { class: 'section-title' }, title));

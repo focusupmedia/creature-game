@@ -39,6 +39,13 @@ const MIGRATIONS: Record<number, Migration> = {
   2: (raw) => {
     raw.digSpots = [];
   },
+  // v5 → v6: keeper levels. Existing keepers start with XP for what they've already done.
+  5: (raw) => {
+    const journal = raw.journal as { species?: Record<string, unknown>; mutations?: Record<string, unknown> } | undefined;
+    const stats = raw.stats as { hatches?: number; combines?: number; lures?: number } | undefined;
+    raw.xp = Object.keys(journal?.species ?? {}).length * 50 + Object.keys(journal?.mutations ?? {}).length * 30
+      + (stats?.hatches ?? 0) * 25 + (stats?.combines ?? 0) * 15 + (stats?.lures ?? 0) * 6;
+  },
   // v4 → v5: behaviour traits (2-5 per creature, keeping its personality) and trait tools.
   4: (raw) => {
     raw.tools = {};

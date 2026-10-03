@@ -1,6 +1,8 @@
 import { species } from '../content/species';
 import { DIG_KINDS, EVENTS, ITEMS, LEGENDARY, LURES, MUTATIONS, SPOTS } from '../content/world';
 import { claimBlessing, startLegendary } from '../core/legendary';
+import { addXp } from '../core/levels';
+import { xpFor, type PlayEvent } from '../core/progress';
 import { ISLANDS } from '../content/islands';
 import { refreshShop } from '../core/shop';
 import { NESTS } from '../content/layout';
@@ -196,6 +198,7 @@ export class Game {
       this.world.handle(ev, live);
       switch (ev.type) {
         case 'arrival': {
+          if (live) this.record({ kind: 'arrival', species: ev.creature.species, isNew: ev.discovered });
           this.analytics.track('creature_arrived', { species: ev.creature.species, spot: ev.spot, mutations: ev.creature.mutations.length, new: ev.discovered });
           if (!live) break;
           const stayed = this.state.creatures.some((c) => c.id === ev.creature.id);
@@ -334,6 +337,7 @@ export class Game {
       : r.item ? ` …and a ${ITEMS[r.item]?.name ?? 'curiosity'}!` : '';
     const who = by ? this.state.creatures.find((c) => c.id === by) : undefined;
     this.ui.toast(`${who ? `${displayName(who)} grabbed` : via ? DIG_KINDS[via].verb : 'Dug up'}: {coin} ${r.glimmer}${r.shards ? ` and {gem} ${r.shards}` : ''}${extra}`, r.item ? 'discovery' : 'info', undefined, r.item ? 4000 : 1800);
+    this.record({ kind: 'gift', glimmer: r.glimmer, shards: r.shards, byCreature: !!by });
     this.analytics.track('gift_collected', { glimmer: r.glimmer, shards: r.shards, item: r.item ?? '', by: by ? 'creature' : 'player' });
     this.saveSoon();
   }
@@ -355,6 +359,7 @@ export class Game {
       return this.ui.toast(r.error);
     }
     this.world.handle({ type: 'gift', gift: r.gift, t: this.now() }, true);
+    this.record({ kind: 'digSpot' });
     this.analytics.track('dig_spot', { kind: r.gift.via ?? '', glimmer: r.gift.glimmer, shards: r.gift.shards, item: r.gift.item ?? '' });
     this.saveSoon();
   }
@@ -441,6 +446,7 @@ export class Game {
     }
     this.audio.play('place');
     this.analytics.track('lure_placed', { lure, spot, sky: activeEvent(this.state, this.now())?.kind ?? 'none' });
+    this.record({ kind: 'lure' });
     this.ui.toast(`You set out a ${LURES[lure].name}. Now… wait and see.`);
     if (this.state.tutorial === 0) this.setTutorial(1);
     this.ui.closeSheet();
@@ -455,6 +461,7 @@ export class Game {
       return this.ui.toast(r.error);
     }
     this.audio.play('egg');
+    this.record({ kind: 'breed' });
     this.analytics.track('combine', { a: this.state.creatures.find((c) => c.id === aId)?.species ?? '', b: this.state.creatures.find((c) => c.id === bId)?.species ?? '' });
     if (this.state.tutorial < 4) this.setTutorial(4);
     this.ui.closeSheet();
@@ -479,10 +486,12 @@ export class Game {
     }
     this.ui.closeSheet();
     this.ui.hideHud(true);
+    const hatched = { kind: 'hatch' as const, species: r.creature.species, newSpecies: r.newSpecies, newMutations: r.newMutations.length };
     this.analytics.track('egg_hatched', { species: r.creature.species, new: r.newSpecies, hybrid: r.hybrid, mutations: r.creature.mutations.join(',') });
     const view = this.ui.showReveal(r.creature, r.newSpecies, r.newMutations, () => {
       this.world.endReveal();
       this.ui.hideHud(false);
+      this.record(hatched);
       const n = NESTS[nestIdx];
       if (this.world.current !== 'home') this.world.travelTo('home', true);
       this.world.focus(n, 11);
@@ -554,10 +563,21 @@ export class Game {
       return this.ui.toast(r.error);
     }
     this.audio.play('coin');
+    if (offer?.kind === 'egg') this.record({ kind: 'shopEgg' });
     this.analytics.track('shop_purchase', { kind: offer?.kind ?? '', ref: offer?.ref ?? '', currency: offer?.currency ?? '', price: offer?.price ?? 0 });
     this.ui.toast(r.message);
     this.ui.rerender();
     this.saveSoon();
+  }
+
+  /** Something the player did: earns XP (and later counts toward quests). */
+  record(ev: PlayEvent): void {
+    const ups = addXp(this.state, xpFor(ev), this.now());
+    for (const up of ups) {
+      this.analytics.track('level_up', { level: up.level });
+      setTimeout(() => this.ui.showLevelUp(up), this.world.revealing ? 2500 : 400);
+    }
+    if (ups.length) this.saveSoon();
   }
 
   /** Buy a Starshard or coin pack. On the web playtest build nothing is charged. */
@@ -600,6 +620,7 @@ export class Game {
     }
     this.audio.play('chime');
     this.analytics.track('blessing_claimed', { mutation: m });
+    this.record({ kind: 'blessing' });
     this.ui.closeSheet();
     this.ui.toast(`✨ ${r.message}${r.discovered ? ' A new kind of change!' : ''}`, 'discovery', undefined, 5000);
     const c = this.state.creatures.find((x) => x.id === creatureId);
