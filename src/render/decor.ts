@@ -103,6 +103,51 @@ const B: Record<string, (k: Kit) => void> = {
       k.ball(0.28, i % 2 ? '#4fae3a' : '#6fcf4a', [Math.cos(a) * 0.18, 0.2, Math.sin(a) * 0.18], [0.35, 0.12, 1], ).rotation.set(0.6, -a, 0);
     }
   },
+  // ---- Halloween Pass decorations
+  jackolantern(k) {
+    k.ball(0.32, '#ff8a1a', [0, 0.26, 0], [1.2, 0.85, 1.2], '#7a3000');
+    for (const s of [1, -1]) k.cone(0.06, 0.08, '#2a1400', [s * 0.12, 0.32, 0.36], [Math.PI / 2, 0, 0], 3, '#ffb030');
+    k.box(0.26, 0.05, 0.02, '#2a1400', [0, 0.18, 0.37], undefined, '#ffb030');
+    k.cyl(0.04, 0.05, 0.14, '#3a7a2a', [0, 0.56, 0]);
+    k.glow('#ffb030', 1.2, 0.3, 0, 0.2);
+  },
+  gravestone(k) {
+    k.box(0.5, 0.6, 0.14, '#a8a4b8', [0, 0.3, 0]);
+    k.ball(0.25, '#a8a4b8', [0, 0.6, 0], [1, 0.6, 0.28]);
+    k.box(0.22, 0.04, 0.02, '#6a6680', [0, 0.45, 0.08]);
+    k.box(0.04, 0.2, 0.02, '#6a6680', [0, 0.45, 0.08]);
+    k.box(0.7, 0.06, 0.4, '#6a8a4a', [0, 0.03, 0.05]);
+  },
+  cauldron(k) {
+    k.ball(0.36, '#2a2a3a', [0, 0.34, 0], [1, 0.8, 1]);
+    k.torus(0.32, 0.05, '#3a3a4a', [0, 0.58, 0], [Math.PI / 2, 0, 0]);
+    k.cyl(0.3, 0.3, 0.03, '#6aff6a', [0, 0.58, 0], '#3aff5a', undefined, 16);
+    for (let i = 0; i < 3; i++) k.ball(0.06 + i * 0.01, '#9aff8a', [(i - 1) * 0.12, 0.66 + i * 0.05, (i % 2) * 0.08], undefined, '#3aff5a');
+    for (let i = 0; i < 3; i++) {
+      const a = (i / 3) * Math.PI * 2;
+      k.cyl(0.04, 0.03, 0.16, '#2a2a3a', [Math.cos(a) * 0.24, 0.06, Math.sin(a) * 0.24]);
+    }
+    k.glow('#5aff6a', 1.2, 0.7);
+  },
+  spookytree(k) {
+    k.cyl(0.1, 0.18, 1.3, '#4a3a4a', [0, 0.65, 0]);
+    for (const [x, y, rz] of [[0.25, 1.15, -0.9], [-0.28, 1.0, 1.0], [0.12, 1.4, -0.4]] as const) {
+      k.cyl(0.04, 0.07, 0.6, '#4a3a4a', [x, y, 0], undefined, [0, 0, rz]);
+    }
+    k.ball(0.09, '#ffb030', [0.42, 1.0, 0], undefined, '#ffb030');
+    k.glow('#ffb030', 0.8, 1.0, 0.42);
+    k.ball(0.07, '#2a1430', [-0.45, 1.25, 0.04], [1.6, 0.6, 0.6]);
+  },
+  batbanner(k) {
+    k.post(-0.6, 0, 1.0);
+    k.post(0.6, 0, 1.0);
+    for (let i = 0; i < 5; i++) {
+      const x = -0.48 + i * 0.24;
+      const y = 0.92 - Math.sin((i / 4) * Math.PI) * 0.12;
+      k.cone(0.09, 0.12, i % 2 ? '#3a1a4a' : '#ff8a1a', [x, y, 0], [0, 0, Math.PI], 3);
+    }
+    k.cyl(0.008, 0.008, 1.2, '#1b2a4a', [0, 0.92, 0], undefined, [0, 0, Math.PI / 2], 4);
+  },
   nest(k) {
     // a stone pedestal with a straw nest on top, like the first ones on Kindred Grove
     k.cyl(0.45, 0.55, 0.35, '#b9b19a', [0, 0.17, 0]);

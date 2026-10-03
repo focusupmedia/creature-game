@@ -26,7 +26,7 @@ export interface Ads {
 export interface Product {
   id: string;
   /** What the pack contains. */
-  currency: 'shards' | 'coins';
+  currency: 'shards' | 'coins' | 'pass';
   amount: number;
   price: string;
   tag?: string;
@@ -87,6 +87,8 @@ export class StubPurchases implements Purchases {
       { id: 'coins_huge', currency: 'coins', amount: 15000, price: '$19.99', tag: '+7% bonus' },
       { id: 'coins_mega', currency: 'coins', amount: 40000, price: '$49.99', tag: '+14% bonus' },
       { id: 'coins_ultimate', currency: 'coins', amount: 90000, price: '$99.99', tag: 'Best value · +29%' },
+      // the Halloween Pass's paid track (price to confirm before launch)
+      { id: 'pass_halloween', currency: 'pass', amount: 1, price: '$4.99' },
     ];
   }
   async buy(productId: string) {

@@ -467,6 +467,8 @@ export interface GameState {
   /** An event summoned by the player (rewarded ad). Takes precedence over the schedule. */
   summoned?: { kind: EventKind; start: number; end: number } | null;
   tutorial: number;
+  /** Season pass progress (Candy, claimed tiers, whether the paid track is unlocked). */
+  pass?: { id: string; points: number; free: number[]; paid: number[]; premium: boolean };
   /** Species of the last few eggs you bred (to break up runs of the same kind). */
   recentEggs?: SpeciesId[];
   /** Hidden: bred eggs since the last legendary, and how many legendaries breeding has given. */

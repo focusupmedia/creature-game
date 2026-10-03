@@ -834,3 +834,49 @@ describe('traits that matter', () => {
     expect(growth(c, s.lastTick)).toBeGreaterThan(g0 + 0.15);
   });
 });
+
+describe('Halloween', () => {
+  it('during the season a spooky sky comes at least once an hour; outside it, never', async () => {
+    const { SEASON_OVERRIDE, HALLOWEEN_SKIES } = await import('../src/content/seasons');
+    const s = fresh(21);
+    const spooky = () => {
+      let worst = 0;
+      let last = 0;
+      for (let w = 1; w <= (24 * 60) / TUNING.eventWindowMin; w++) {
+        const e = eventInWindow(s, w);
+        if (e && HALLOWEEN_SKIES.includes(e.kind)) {
+          if (last) worst = Math.max(worst, e.start - last);
+          last = e.start;
+        }
+      }
+      return { worst, any: last > 0 };
+    };
+    SEASON_OVERRIDE.halloween = true;
+    const on = spooky();
+    expect(on.any).toBe(true);
+    expect(on.worst).toBeLessThanOrEqual(60 * MIN);
+    SEASON_OVERRIDE.halloween = false;
+    expect(spooky().any).toBe(false);
+    SEASON_OVERRIDE.halloween = null;
+  });
+
+  it('the Halloween Pass: Candy fills tiers, free rewards for all, paid ones once unlocked', async () => {
+    const { SEASON_OVERRIDE } = await import('../src/content/seasons');
+    const { addCandy, claimPassTier, passTier, unlockPass, PASS } = await import('../src/core/pass');
+    SEASON_OVERRIDE.halloween = true;
+    const s = fresh(22);
+    addCandy(s, PASS.pointsPerTier * 2 + 5, T0);
+    expect(passTier(s)).toBe(2);
+    const coins = s.glimmer;
+    expect(claimPassTier(s, 1, 'free', T0).ok).toBe(true);
+    expect(s.glimmer).toBeGreaterThan(coins);
+    expect(claimPassTier(s, 1, 'free', T0).ok).toBe(false);
+    expect(claimPassTier(s, 3, 'free', T0).ok).toBe(false);
+    expect(claimPassTier(s, 1, 'paid', T0).ok).toBe(false);
+    unlockPass(s);
+    expect(claimPassTier(s, 1, 'paid', T0).ok).toBe(true);
+    SEASON_OVERRIDE.halloween = false;
+    expect(addCandy(s, 50, T0)).toBe(0);
+    SEASON_OVERRIDE.halloween = null;
+  });
+});

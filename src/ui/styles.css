@@ -723,3 +723,22 @@ input.rename { font-family: var(--display); font-size: 22px; border: var(--outli
 .halloween-banner { display: flex; flex-direction: column; gap: 4px; margin: 6px 0 8px; padding: 10px 12px; border-radius: 14px; border: 3px solid #1b2a4a;
   background: linear-gradient(135deg, #3a1a5a, #7a3a8a 55%, #ff8a1a); color: #fff; font-size: 13px; text-align: left; }
 .halloween-banner b { font-size: 15px; color: #ffd27a; }
+
+/* Halloween Pass */
+.hud-tile.pass { background: linear-gradient(180deg, #ff9a2a, #d8601a); }
+.pass-top { display: flex; gap: 12px; align-items: center; margin-bottom: 10px; }
+.pass-tier { display: flex; flex-direction: column; align-items: center; background: #3a1a5a; color: #ffd27a; border: 3px solid #1b2a4a; border-radius: 14px; padding: 6px 10px; min-width: 64px; }
+.pass-tier b { font-size: 20px; }
+.pass-tier span { font-size: 11px; color: #fff; }
+.pass-buy { display: flex; gap: 10px; align-items: center; padding: 10px; border-radius: 14px; border: 3px solid #1b2a4a; background: linear-gradient(135deg, #fff1d6, #ffe0f0); margin-bottom: 8px; }
+.pass-list { gap: 6px; }
+.pass-row { display: grid; grid-template-columns: 32px 1fr 1fr; gap: 6px; align-items: stretch; }
+.pass-num { display: flex; align-items: center; justify-content: center; font-weight: 800; border-radius: 10px; background: #e8e4f4; color: #6a6680; }
+.pass-row.reached .pass-num { background: #ff8a1a; color: #fff; }
+.pass-cell { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 8px 4px; border-radius: 12px; border: 2px solid #c8c4e0; background: #fff; font-weight: 700; font-size: 13px; text-align: center; }
+.pass-cell.paid { background: #fff6e0; border-color: #f0b04a; }
+.pass-cell small { font-size: 11px; font-weight: 600; color: #6a6680; }
+.pass-cell.ready { border-color: #3aaa4a; box-shadow: 0 0 0 2px #9be06a inset; }
+.pass-cell.ready small { color: #2a8a3a; }
+.pass-cell.got { opacity: 0.55; }
+.pass-cell.locked { filter: grayscale(0.4); }

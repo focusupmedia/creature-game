@@ -14,6 +14,7 @@ import { claimDaily, claimLasting, questEvent, refreshDailies } from '../core/qu
 import { awayFinds, bulkRelease, bulkRetrieve, bulkSell, bulkStore, buyStorageSlot, findVisitor, keepVisitor, releaseCreature, sendAwayVisitor, feastIsland, feedCreature, hangFeedbag, feedSprout, harvestTree, retrieveCreature, sellCreature, storeCreature } from '../core/care';
 import { islandCapacity } from '../core/sim';
 import { xpFor, type PlayEvent } from '../core/progress';
+import { addCandy, candyFor, markCandy, unlockPass } from '../core/pass';
 import { ISLANDS, islandGeo } from '../content/islands';
 import { WANDERERS } from '../content/wanderers';
 import { dismissWanderer, meetWanderer, takeDeal } from '../core/wanderers';
@@ -520,6 +521,7 @@ export class Game {
           break;
         case 'mutation': {
           this.analytics.track('mutation_gained', { mutation: ev.mutation, cause: ev.cause, new: ev.discovered });
+          markCandy(this.state, ev.cause, this.now());
           if (!live) break;
           this.audio.play('chime');
           const pic = this.world.portraits.of(ev.creature);
@@ -933,6 +935,7 @@ export class Game {
   record(ev: PlayEvent): void {
     questEvent(this.state, ev);
     this.gainXp(xpFor(ev));
+    addCandy(this.state, candyFor(ev), this.now());
   }
 
   private gainXp(amount: number): void {
@@ -1194,6 +1197,13 @@ export class Game {
     const r = await this.purchases.buy(productId);
     if (!r.ok || !r.product) return this.ui.toast('That purchase didn\'t go through. Nothing was charged.');
     const p = r.product;
+    if (p.currency === 'pass') {
+      unlockPass(this.state);
+      this.audio.play('discover');
+      this.ui.toast(`🎃 Halloween Pass unlocked! Claim your rewards in the Pass.${r.test ? ' (test purchase, nothing was charged)' : ''}`, 'discovery', undefined, 4000, { priority: 3 });
+      this.saveSoon();
+      return this.ui.showPass();
+    }
     if (p.currency === 'shards') this.state.shards += p.amount;
     else this.state.glimmer += p.amount;
     this.audio.play('coin');

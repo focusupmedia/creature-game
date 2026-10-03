@@ -15,6 +15,7 @@ import type { WelcomeGift } from '../core/away';
 import type { SaveSummary } from '../core/cloud';
 import { GAME_NAME } from './brand';
 import { halloweenEndsAt, inHalloween } from '../content/seasons';
+import { PASS, PASS_TIERS, type PassReward, claimPassTier, describeReward, passClaimable, passState, passTier } from '../core/pass';
 import { eggIcon, eggName, tierEggIcon } from './eggLook';
 import { wandererDeals } from '../core/wanderers';
 import { activeEvent, dayPhase, daylight, isDark, nextEvent } from '../core/world';
@@ -88,6 +89,10 @@ export class UI {
   private worldsAnnounced = new Set<IslandId>();
   private questTile = h('button', { class: 'hud-tile quests', 'aria-label': 'Quests', onClick: () => { this.game.audio.play('tap'); this.showQuests(); } },
     h('span', { class: 'emoji' }, '📜'), h('span', { class: 'lbl' }, 'QUESTS'), this.questBadge);
+  private passBadge = h('span', { class: 'count hidden' }, '0');
+  /** The Halloween Pass: only on the HUD during the season. */
+  private passTile = h('button', { class: 'hud-tile pass hidden', 'aria-label': 'Halloween Pass', onClick: () => { this.game.audio.play('tap'); this.showPass(); } },
+    h('span', { class: 'emoji' }, '🎃'), h('span', { class: 'lbl' }, 'PASS'), this.passBadge);
   private questTab: 'daily' | 'lasting' | 'contest' = 'daily';
   private petsTab: 'wandering' | 'storage' | 'trips' | 'market' = 'wandering';
   /** Pets → Select: the pets picked for a bulk action (null when not selecting). */
@@ -157,6 +162,7 @@ export class UI {
             h('button', { class: 'hud-tile islands', 'aria-label': 'Worlds', onClick: () => { this.game.audio.play('tap'); this.showIslands(this.firstAlert()); } },
               I.icon(I.ISLANDS), h('span', { class: 'lbl' }, 'WORLDS'), this.islandsBadge),
             this.questTile,
+            this.passTile,
             this.collectorTile,
             this.giftTile,
           ),
@@ -236,6 +242,13 @@ export class UI {
       this.toast(`${ISLANDS[id].icon} A new world is ready to open: ${ISLANDS[id].name}! Tap Worlds.`, 'discovery', undefined, undefined, { action: { label: 'Worlds', run: () => this.showIslands(id) } });
     }
     const ready = claimable(s) + (contestReady(s, t) ? 1 : 0) + (canClaimLogin(s, t) && s.tutorial >= 5 ? 1 : 0);
+    const season = inHalloween(t);
+    this.passTile.classList.toggle('hidden', !season);
+    if (season) {
+      const claim = passClaimable(s);
+      this.passBadge.textContent = String(claim);
+      this.passBadge.classList.toggle('hidden', claim === 0);
+    }
     this.questBadge.textContent = String(ready);
     this.questBadge.classList.toggle('hidden', ready === 0);
     this.giftTile.classList.toggle('hidden', !(s.blessing && t < s.blessing.expiresAt));
@@ -2193,6 +2206,49 @@ export class UI {
   }
 
   /** The EVENT tile: watch an ad (or break a charm) to summon a sky event, and see what's coming. */
+  /** The Halloween Pass: Candy from playing fills tiers; free rewards for all, more on the paid track. */
+  showPass(): void {
+    const g = this.game;
+    const s = g.state;
+    const t = g.now();
+    this.openSheet(PASS.name, inHalloween(t) ? `Ends in ${Math.max(1, Math.ceil((halloweenEndsAt(t) - t) / 86_400_000))} days · earn Candy by playing` : 'Halloween is over for this year', (b) => {
+      const p = passState(s);
+      const tier = passTier(s);
+      const into = p.points - tier * PASS.pointsPerTier;
+      b.append(h('div', { class: 'pass-top' },
+        h('div', { class: 'pass-tier' }, h('b', null, `Tier ${tier}`), h('span', null, `/ ${PASS.tiers}`)),
+        h('div', { class: 'grow' },
+          h('div', { class: 'progress' }, h('i', { style: `width:${tier >= PASS.tiers ? 100 : Math.round((into / PASS.pointsPerTier) * 100)}%` })),
+          h('div', { class: 'muted' }, tier >= PASS.tiers ? 'All tiers reached! ✨' : `🍬 ${into} / ${PASS.pointsPerTier} Candy to the next tier`))));
+      if (!p.premium) {
+        const prod = g.purchases.products().find((x) => x.id === PASS.productId);
+        b.append(h('div', { class: 'pass-buy' },
+          h('div', { class: 'grow' }, h('b', null, 'Unlock the Halloween Pass'), h('div', { class: 'muted' }, 'Every tier\'s second reward too: Legendary and Mythical Eggs, Golden and Mythic Lures, spooky decorations and lots of Starshards. Rewards from tiers you\'ve passed are waiting.')),
+          h('button', { class: 'btn shard', onClick: () => void g.buyPack(PASS.productId) }, prod?.price ?? 'Unlock')));
+      }
+      b.append(h('p', { class: 'muted' }, 'Candy comes from everything you do: lures, breeding, hatching, finds, trips and the Market. Spooky skies that leave a mark give a big handful!'));
+      const list = h('div', { class: 'list pass-list' });
+      for (let i = 1; i <= PASS.tiers; i++) {
+        const [free, paid] = PASS_TIERS[i - 1];
+        const reached = i <= tier;
+        const cell = (r: PassReward, track: 'free' | 'paid') => {
+          const got = (track === 'free' ? p.free : p.paid).includes(i);
+          const locked = !reached || (track === 'paid' && !p.premium);
+          return h('button', { class: `pass-cell ${track} ${got ? 'got' : ''} ${locked ? 'locked' : 'ready'}`, disabled: got || locked, onClick: () => {
+            const res = claimPassTier(s, i, track, g.now());
+            if (!res.ok) return this.fail(res.error);
+            g.audio.play('coin');
+            this.toast(`🎃 ${res.message}`, 'discovery');
+            g.saveSoon();
+            this.rerender();
+          } }, rich(describeReward(r)), h('small', null, got ? '✓ Claimed' : locked ? (track === 'paid' && !p.premium ? '🔒 Pass' : `Tier ${i}`) : 'Claim!'));
+        };
+        list.append(h('div', { class: `pass-row ${reached ? 'reached' : ''}` }, h('div', { class: 'pass-num' }, String(i)), cell(free, 'free'), cell(paid, 'paid')));
+      }
+      b.append(list);
+    }, '🎃');
+  }
+
   showSummon(): void {
     const s = this.game.state;
     const t = this.game.now();
@@ -2204,7 +2260,8 @@ export class UI {
         h('h2', { class: 'outlined' }, 'Summon an event!'),
         inHalloween(t) ? h('div', { class: 'halloween-banner' },
           h('b', null, `🎃 Halloween event · ${halloweenEndsAt(t) - t > 86_400_000 ? `${Math.ceil((halloweenEndsAt(t) - t) / 86_400_000)} days` : fmtDuration(halloweenEndsAt(t) - t)} left`),
-          h('span', null, 'A spooky sky comes at least once an hour, and each one can leave a rare mark: Ghostly, Calcified, Mummified, Zombified, Vampire or Pumpkin. Eggs feel them too!')) : '',
+          h('span', null, 'A spooky sky comes at least once an hour, and each one can leave a rare mark: Ghostly, Calcified, Mummified, Zombified, Vampire or Pumpkin. Eggs feel them too!'),
+          h('button', { class: 'btn small', style: 'align-self:flex-start', onClick: () => { close(); this.showPass(); } }, '🎃 Halloween Pass')) : '',
         h('p', null, 'Watch a short ad and the sky brings a random event. Maybe a storm or an eclipse… or something rare like a Starry Night, a Full Moon or an Aurora.'),
         h('div', { class: 'row', style: 'justify-content:center;gap:10px;font-size:26px;margin:8px 0;flex-wrap:wrap' },
           ...Object.values(EVENTS).filter((e) => !e.season || inHalloween(t)).map((e) => h('span', { title: e.name }, e.icon))),

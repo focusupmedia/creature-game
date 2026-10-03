@@ -632,6 +632,17 @@ export const GLITTER_MUTATIONS: MutationId[] = ['lunar', 'storm', 'frost', 'star
 
 // ---------------------------------------------------------------- cosmetics
 export const DECOR: Record<string, DecorDef> = Object.fromEntries(DECOR_LIST.map((d) => [d.id, d]));
+/** Halloween decorations: only from the Halloween Pass. */
+for (const [id, name, blurb, r] of [
+  ['jackolantern', 'Jack-o\'-Lantern', 'A grinning pumpkin that glows after dark. Halloween Pass.', 0.5],
+  ['gravestone', 'Spooky Gravestone', '"Here lies the last cookie." Halloween Pass.', 0.5],
+  ['cauldron', 'Bubbling Cauldron', 'Something green and friendly bubbles away inside. Halloween Pass.', 0.6],
+  ['spookytree', 'Spooky Tree', 'A twisty old tree with a lantern and a resident bat. Halloween Pass.', 0.8],
+  ['batbanner', 'Bat Bunting', 'Paper bats on a string, fluttering in the breeze. Halloween Pass.', 0.8],
+] as [string, string, string, number][]) {
+  DECOR[id] = { id, name, blurb, price: 0, currency: 'shards', rotating: false, cat: 'fun', level: 1, r };
+}
+
 /** Nests are decorations too (so you can move them or put them away), but Mango sells them on the EGGS tab. */
 DECOR.nest = {
   id: 'nest', name: 'Nest', blurb: 'A warm, straw-lined nest. Eggs from breeding go to a free nest on the world you\'re on.',
