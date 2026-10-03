@@ -1,11 +1,13 @@
 import { TUNING } from '../content/tuning';
 import { SPOTS } from '../content/world';
-import { makeCreature } from './creatures';
+import { makeCreature, newId } from './creatures';
 import { recordSpecies } from './journal';
 import { generateShop } from './shop';
-import type { GameState } from './types';
+import { ISLANDS } from '../content/islands';
+import { NESTS } from '../content/layout';
+import type { GameState, IslandId, PlacedDecor } from './types';
 
-export const SAVE_VERSION = 14;
+export const SAVE_VERSION = 15;
 
 /** A new game id for cloud save: unique enough per device and moment. */
 export function newSaveId(seed: number, t: number): string {
@@ -46,7 +48,7 @@ export function createGame(now: number, seed = Math.floor(Math.random() * 2 ** 3
       beach: { owned: false, size: 0 }, desert: { owned: false, size: 0 }, cloud: { owned: false, size: 0 },
     },
     eggs: [],
-    nests: TUNING.freeNests,
+    nestsBought: 0,
     spots: Object.fromEntries(Object.keys(SPOTS).map((k) => [k, null])),
     gifts: [],
     digSpots: [],
@@ -63,6 +65,9 @@ export function createGame(now: number, seed = Math.floor(Math.random() * 2 ** 3
     state.creatures.push(makeCreature(state, sp, [], now, 'Was already living here when you arrived.', { met: { how: 'starter' } }));
     recordSpecies(state, sp, now);
   }
+  // two free nests at home to start with
+  addWorldNest(state, 'home', NESTS[0]);
+  addWorldNest(state, 'home', NESTS[1]);
   // Starters don't pay discovery rewards.
   state.glimmer = TUNING.start.glimmer;
   state.shards = TUNING.start.shards;
@@ -73,11 +78,24 @@ export function residents(state: GameState) {
   return state.creatures;
 }
 
-export function nestOccupant(state: GameState, nest: number) {
-  return state.eggs.find((e) => e.nest === nest) ?? null;
+/** Every nest placed on your worlds (nests are decorations you can move or put away). */
+export function placedNests(state: GameState): PlacedDecor[] {
+  return state.placedDecor.filter((d) => d.decor === 'nest');
 }
 
-export function freeNest(state: GameState): number | null {
-  for (let i = 0; i < state.nests; i++) if (!nestOccupant(state, i)) return i;
-  return null;
+export function nestOccupant(state: GameState, nestId: string) {
+  return state.eggs.find((e) => e.nest === nestId) ?? null;
+}
+
+/** A free nest, on the given world if it has one, otherwise anywhere (home first). */
+export function freeNest(state: GameState, prefer?: IslandId): string | null {
+  const free = placedNests(state).filter((n) => !nestOccupant(state, n.id) && state.islands[n.island ?? 'home']?.owned);
+  const pick = (prefer && free.find((n) => (n.island ?? 'home') === prefer)) || free.find((n) => (n.island ?? 'home') === 'home') || free[0];
+  return pick?.id ?? null;
+}
+
+/** Puts a new nest on a world, at its usual nest spot. */
+export function addWorldNest(state: GameState, island: IslandId, at: { x: number; z: number }): void {
+  const def = ISLANDS[island];
+  state.placedDecor.push({ id: newId(state, 'n'), decor: 'nest', x: def.ox + at.x, z: def.oz + at.z, rot: 0, island });
 }

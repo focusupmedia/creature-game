@@ -2,12 +2,12 @@ import { SPECIES, species } from '../content/species';
 import { DECOR, EGG_TIERS, EVENTS, FOODS, GIFTABLE_MUTATIONS, TOOLS, ITEMS, LEGENDARY, LEGENDARY_ORDER, LURES, MUTATIONS, SKY_ITEMS, SPOTS, spotOpen } from '../content/world';
 import { ISLANDS, ISLAND_ORDER, SIZE_NAMES, SIZE_PRICE } from '../content/islands';
 import { TUNING } from '../content/tuning';
-import { NESTS, FONT, SHOP_STALL } from '../content/layout';
+import { FONT, SHOP_STALL } from '../content/layout';
 import * as A from '../core/actions';
 import { creatureTraits, displayName, fmtWeight, growth, isOutlier, sizeLabel, speciesTitle, weightKg } from '../core/creatures';
 import { compatibility, eggClues } from '../core/genetics';
 import { arrivalWeights } from '../core/lures';
-import { nestOccupant } from '../core/state';
+import { nestOccupant, placedNests } from '../core/state';
 import type { Creature, DecorDef, Egg, GameEvent, IslandId, LegendaryKind, MutationId, SpotId, Trait } from '../core/types';
 import { islandCapacity } from '../core/sim';
 import { marketPrice, marketReady, marketWants, wantFilled, wantMatches } from '../core/market';
@@ -1207,7 +1207,7 @@ export class UI {
    * A world is full: store or release someone to make room, then carry on.
    * `elsewhere` (optional) offers to send the newcomer to another world with room instead.
    */
-  showMakeSpace(island: IslandId, onDone: () => void, elsewhere?: (to: IslandId) => void): void {
+  showMakeSpace(island: IslandId, onDone: () => void, elsewhere?: (to: IslandId) => void, intoStorage?: () => void): void {
     const g = this.game;
     const s = g.state;
     const cap = islandCapacity(s, island);
@@ -1221,6 +1221,10 @@ export class UI {
         if (others.length) {
           m.append(h('div', { class: 'btns wrap' }, ...others.map((id) => h('button', { class: 'btn small', onClick: () => { close(); elsewhere(id); } }, `Send to ${ISLANDS[id].icon} ${ISLANDS[id].name}`))));
         }
+      }
+      // quickest of all: the newcomer goes straight into storage
+      if (intoStorage && storedCount(s) < s.storageSlots) {
+        m.append(h('button', { class: 'btn wide', style: 'margin:6px 0', onClick: () => { close(); intoStorage(); } }, `📦 Put the newcomer in storage (${storedCount(s)}/${s.storageSlots})`));
       }
       const list = h('div', { class: 'list make-space' });
       const storageFull = storedCount(s) >= s.storageSlots;
@@ -1251,7 +1255,7 @@ export class UI {
   confirmBreed(a: Creature, b: Creature): void {
     const s = this.game.state;
     const comp = compatibility(a, b);
-    const free = Array.from({ length: s.nests }, (_, i) => i).filter((i) => !nestOccupant(s, i)).length;
+    const free = placedNests(s).filter((n) => !nestOccupant(s, n.id)).length;
     const hungry = [a, b].find((c) => isHungry(c));
     const ready = comp.ok && free > 0 && !hungry;
     const parent = (c: Creature) => h('div', { class: 'breed-parent' },
@@ -1471,7 +1475,7 @@ export class UI {
         onClick: () => this.pickForFont(i),
       }, c ? this.portrait(c, '') : h('span', { class: 'plus' }, '＋'), c ? displayName(c) : 'Choose');
       b.append(h('div', { class: 'slots' }, slot(a, 0), h('span', { style: 'font-size:24px' }, '💞'), slot(bb, 1)));
-      const free = Array.from({ length: s.nests }, (_, i) => i).filter((i) => !nestOccupant(s, i)).length;
+      const free = placedNests(s).filter((n) => !nestOccupant(s, n.id)).length;
       if (a && bb) {
         const comp = compatibility(a, bb);
         b.append(h('div', { class: `verdict ${comp.ok ? 'ok' : 'no'}` },
@@ -1485,7 +1489,7 @@ export class UI {
       } else {
         b.append(h('p', { class: 'muted' }, 'Pick two creatures. You won\'t know exactly what the egg holds until it hatches.'));
       }
-      b.append(h('p', { class: 'muted' }, `Free nests: ${free} of ${s.nests}`));
+      b.append(h('p', { class: 'muted' }, `Free nests: ${free} of ${placedNests(s).length}. Eggs go to a free nest on the world you're on first.`));
     }, '⛲');
   }
 
@@ -1508,36 +1512,28 @@ export class UI {
 
   // ---- nests & eggs
 
-  showNest(index: number): void {
+  showNest(id: string): void {
     const s = this.game.state;
-    const n = NESTS[index];
-    this.ensureHome();
-    this.game.world.focus(n, 12, 'home');
-    if (index >= s.nests) {
-      const price = A.nestPrice(s);
-      this.openSheet('Empty pedestal', 'Room for another nest.', (b) => {
-        b.append(h('p', null, 'A third and fourth nest let you keep more experiments warming at once. You already have the free nests every keeper gets.'));
-        if (index !== s.nests) b.append(h('p', { class: 'muted' }, 'Build the nest before this one first.'));
-        else if (price !== null) {
-          b.append(h('button', { class: 'btn shard wide', disabled: s.shards < price, onClick: () => {
-            const r = A.buyNest(s);
+    const n = s.placedDecor.find((d) => d.id === id);
+    if (!n) return;
+    const island = n.island ?? 'home';
+    if (this.game.world.current !== island) this.game.world.travelTo(island, true);
+    this.game.world.focus(n, 12, island);
+    const egg = nestOccupant(s, id);
+    if (!egg) {
+      this.openSheet('Empty nest', `On ${ISLANDS[island].name} · ready for an egg`, (b) => {
+        b.append(h('p', null, 'Eggs you breed settle in a free nest on the world you\'re on. Breed at the Kindred Font, or drop one pet onto another.'));
+        b.append(h('div', { class: 'btns' },
+          h('button', { class: 'btn', onClick: () => this.showFont() }, '⛲ Kindred Font'),
+          h('button', { class: 'btn secondary', onClick: () => this.beginPlacement('nest', id) }, '✋ Move'),
+          h('button', { class: 'btn secondary', onClick: () => {
+            const r = A.storeDecor(s, id);
             if (!r.ok) return this.fail(r.error);
-            this.game.audio.play('place');
-            this.game.analytics.track('nest_bought', { nests: s.nests });
-            this.toast('A new nest, warm and ready.');
+            this.toast('The nest is in your satchel. Place it again from Decor.');
             this.game.saveSoon();
             this.closeSheet();
-          } }, rich(`Build nest · {gem} ${price}`)));
-          if (s.shards < price) b.append(h('p', { class: 'muted' }, 'Starshards come from new discoveries and the occasional rare gift.'));
-        }
-      }, '🪺');
-      return;
-    }
-    const egg = nestOccupant(s, index);
-    if (!egg) {
-      this.openSheet('Empty nest', 'Ready for an egg.', (b) => {
-        b.append(h('p', null, 'Eggs made at the Kindred Font settle here to warm.'));
-        b.append(h('button', { class: 'btn wide', onClick: () => this.showFont() }, '⛲ Go to the Kindred Font'));
+          } }, '📦 Put away')));
+        b.append(h('p', { class: 'muted' }, 'Tip: press and hold a nest to move it. Mango sells more nests on the EGGS tab.'));
       }, '🪺');
       return;
     }
@@ -1736,6 +1732,24 @@ export class UI {
             rich(`${o.currency === 'shards' ? '{gem}' : '{coin}'} ${o.price}`)),
         ));
       }
+      // nests are always in stock (eight more in all), and go to your Decor satchel to place on any world
+      if (this.shopTab === 'egg') {
+        const price = A.nestPrice(s);
+        list.append(h('div', { class: 'item' },
+          h('div', { class: 'swatch' }, '🪺'),
+          h('div', { class: 'grow' }, h('div', { class: 'name' }, `Nest (you have ${placedNests(s).length + (s.decorOwned.nest ?? 0)})`),
+            h('div', { class: 'desc' }, 'One more egg warming at a time. Place it on any of your worlds.')),
+          price === null ? h('span', { class: 'muted' }, 'All bought')
+            : h('button', { class: 'btn small shard', disabled: s.shards < price, onClick: () => {
+              const r = A.buyNest(s);
+              if (!r.ok) return this.fail(r.error);
+              this.game.audio.play('place');
+              this.game.analytics.track('nest_bought', { nests: placedNests(s).length + (s.decorOwned.nest ?? 0) });
+              this.game.saveSoon();
+              this.toast('A new nest! Choose where it goes.');
+              this.beginPlacement('nest');
+            } }, rich(`{gem} ${price}`))));
+      }
       b.append(list);
     }, I.SHOP);
   }
@@ -1900,7 +1914,8 @@ export class UI {
     }, I.DECOR);
   }
 
-  beginPlacement(decorId: string): void {
+  /** Place a decoration from the satchel, or move one that's already out (`moving` = its placed id). */
+  beginPlacement(decorId: string, moving?: string): void {
     this.closeSheet();
     const w = this.game.world;
     this.dock.classList.add('hidden');
@@ -1908,10 +1923,10 @@ export class UI {
     const ok = h('button', { class: 'btn small', onClick: () => {
       const p = w.ghostPosition();
       if (!p || !w.validPlacement(p.x, p.z)) return this.toast('It needs open ground. Drag it somewhere clear.');
-      const r = A.placeDecor(this.game.state, decorId, p.x, p.z, p.rot, w.current);
+      const r = moving ? A.moveDecor(this.game.state, moving, p.x, p.z, p.rot, w.current) : A.placeDecor(this.game.state, decorId, p.x, p.z, p.rot, w.current);
       if (!r.ok) return this.fail(r.error);
       this.game.audio.play('place');
-      this.game.analytics.track('decor_placed', { decor: decorId, island: w.current });
+      this.game.analytics.track(moving ? 'decor_moved' : 'decor_placed', { decor: decorId, island: w.current });
       this.endPlacement();
       this.game.saveSoon();
     } }, 'Place');
@@ -1922,8 +1937,16 @@ export class UI {
       label.classList.toggle('bad', !valid);
       ok.disabled = !valid;
     };
-    w.startPlacement(decorId);
-    this.placeHost.replaceChildren(h('div', { class: 'place-bar' }, label, h('div', { class: 'btns' }, cancel, rotate, ok)));
+    w.startPlacement(decorId, moving);
+    // moving something: it can also go back in the satchel from here
+    const away = moving ? h('button', { class: 'btn secondary small', onClick: () => {
+      const r = A.storeDecor(this.game.state, moving);
+      if (!r.ok) return this.fail(r.error);
+      this.endPlacement();
+      this.toast(`${DECOR[decorId].name} is back in your satchel (Decor).`);
+      this.game.saveSoon();
+    } }, '📦 Put away') : null;
+    this.placeHost.replaceChildren(h('div', { class: 'place-bar' }, label, h('div', { class: 'btns' }, cancel, away, rotate, ok)));
     this.game.placing = (x, z) => { w.moveGhost(x, z); };
   }
 
@@ -1942,11 +1965,15 @@ export class UI {
         const ripe = ripeFruit(d.harvestedAt, this.game.now());
         b.append(h('button', { class: 'btn wide', style: 'margin-bottom:8px', disabled: !ripe, onClick: () => this.game.harvest(id) }, ripe ? `🫐 Pick ${ripe} ${ripe === 1 ? 'berry' : 'berries'}` : 'No berries yet'));
       }
-      b.append(h('button', { class: 'btn secondary wide', onClick: () => {
-        A.storeDecor(this.game.state, id);
-        this.game.saveSoon();
-        this.closeSheet();
-      } }, 'Put back in satchel'));
+      b.append(h('div', { class: 'btns' },
+        h('button', { class: 'btn wide', onClick: () => this.beginPlacement(d.decor, id) }, '✋ Move'),
+        h('button', { class: 'btn secondary wide', onClick: () => {
+          const r = A.storeDecor(this.game.state, id);
+          if (!r.ok) return this.fail(r.error);
+          this.game.saveSoon();
+          this.closeSheet();
+        } }, 'Put back in satchel')));
+      b.append(h('p', { class: 'muted' }, 'Tip: press and hold any decoration to pick it up and move it.'));
     }, '🪴');
   }
 
@@ -2276,7 +2303,11 @@ export class UI {
     if (s.wanderer && s.wanderer.island !== here) {
       out.set(s.wanderer.island, s.wanderer.kind === 'goblin' ? 'A Goblin is up to no good here!' : `${WANDERERS[s.wanderer.kind].name} is visiting!`);
     }
-    if (here !== 'home' && s.eggs.some((e) => e.nest !== null && e.progressMs >= e.incubationMs)) out.set('home', 'An egg is ready to hatch!');
+    for (const e of s.eggs) {
+      if (e.nest === null || e.progressMs < e.incubationMs) continue;
+      const at = s.placedDecor.find((d) => d.id === e.nest)?.island ?? 'home';
+      if (at !== here) out.set(at, 'An egg is ready to hatch!');
+    }
     return out;
   }
 

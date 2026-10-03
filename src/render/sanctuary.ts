@@ -122,8 +122,6 @@ export interface SpotDish { root: THREE.Group; bait: THREE.Mesh; glow: THREE.Spr
 export interface HomeParts {
   font: THREE.Group;
   fontWater: THREE.Mesh;
-  nests: THREE.Group[];
-  nestLocks: THREE.Sprite[];
   stall: THREE.Group;
   basket: THREE.Group;
 }
@@ -406,7 +404,6 @@ export function buildIsland(id: IslandId, size: number, owned: boolean, chopped:
   if (view.home) {
     addOutlines(view.home.stall, 3);
     addOutlines(view.home.font, 2.6);
-    for (const n of view.home.nests) addOutlines(n, 2.4);
   }
 
   // fireflies (visible at night)
@@ -512,33 +509,6 @@ function buildHome(view: IslandView, M: Merger, g: Geo, rand: () => number, clea
 
   M.anchor = null;
 
-  // nests
-  const nests: THREE.Group[] = [];
-  const nestLocks: THREE.Sprite[] = [];
-  NESTS.forEach((n, i) => {
-    const ng = new THREE.Group();
-    ng.position.set(n.x, 0, n.z);
-    M.add(new THREE.CylinderGeometry(0.45, 0.55, 0.35, 8), '#b9b19a', { x: n.x, y: 0.17, z: n.z });
-    const nest = new THREE.Mesh(new THREE.TorusGeometry(0.36, 0.13, 6, 14), toon('#a8783f'));
-    nest.rotation.x = -Math.PI / 2;
-    nest.position.y = 0.42;
-    nest.castShadow = true;
-    ng.add(nest);
-    const straw = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 0.05, 10), toon('#e8c872'));
-    straw.position.y = 0.4;
-    ng.add(straw);
-    const lock = glowSprite('#ffffff', 0.01, 0);
-    ng.add(lock);
-    nestLocks.push(lock);
-    const hit = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.7, 1.6, 8), new THREE.MeshBasicMaterial({ visible: false }));
-    hit.position.y = 0.8;
-    hit.userData.pick = { kind: 'nest', index: i };
-    ng.add(hit);
-    pickables.push(hit);
-    group.add(ng);
-    nests.push(ng);
-  });
-
   // egg basket
   const basket = new THREE.Group();
   basket.position.set(BASKET.x, 0, BASKET.z);
@@ -613,7 +583,7 @@ function buildHome(view: IslandView, M: Merger, g: Geo, rand: () => number, clea
   group.add(stall);
   M.anchor = null;
 
-  view.home = { font, fontWater, nests, nestLocks, stall, basket };
+  view.home = { font, fontWater, stall, basket };
 }
 
 /**

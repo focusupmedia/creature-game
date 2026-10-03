@@ -259,8 +259,8 @@ export interface Egg {
   laidAt: number;
   incubationMs: number;
   progressMs: number;
-  /** Index of the nest it sits in, or null while waiting in the basket. */
-  nest: number | null;
+  /** The placed nest (a PlacedDecor id) it sits in, or null while waiting in the basket. */
+  nest: string | null;
   adUsed?: boolean;
   tonic?: boolean;
   warmed?: boolean;
@@ -436,7 +436,10 @@ export interface GameState {
   creatures: Creature[];
   islands: Record<IslandId, { owned: boolean; size: number }>;
   eggs: Egg[];
-  nests: number;
+  /** Nests are placed decorations (decor 'nest'); this counts nests bought from the shop (for the price). */
+  nestsBought?: number;
+  /** Before save v15: how many fixed nests the home pedestals had. */
+  nests?: number;
   spots: Record<SpotId, ActiveLure | null>;
   gifts: Gift[];
   digSpots: DigSpot[];

@@ -33,6 +33,8 @@ export interface IslandDef {
   starters?: SpeciesId[];
   /** Where the sell booth stands (local coordinates). */
   booth: { x: number; z: number };
+  /** Where the world's first nest goes (local coordinates; it can be moved later). */
+  nest: { x: number; z: number };
 }
 
 export const SIZE_NAMES = ['Small', 'Medium', 'Large'];
@@ -53,12 +55,12 @@ export const ISLANDS: Record<IslandId, IslandDef> = {
       { x: FONT.x, z: FONT.z, r: 1.1 },
       { x: SHOP_STALL.x, z: SHOP_STALL.z, r: 1.4 },
       { x: BASKET.x, z: BASKET.z, r: 0.5 },
-      ...NESTS.map((n) => ({ x: n.x, z: n.z, r: 0.55 })),
       ...TREES.map((t) => ({ x: t.x, z: t.z, r: 0.75 * t.s })),
       ...ROCKS.map((r) => ({ x: r.x, z: r.z, r: 0.7 * r.s })),
     ],
     shelters: TREES,
     booth: { x: -4.9, z: 3.0 },
+    nest: NESTS[0],
   },
   volcano: {
     id: 'volcano', name: 'Ember Peak', icon: '🌋', habitat: 'Ember', status: 'buyable',
@@ -76,6 +78,7 @@ export const ISLANDS: Record<IslandId, IslandDef> = {
     ],
     shelters: [{ x: -5.6, z: -1.5, s: 1 }, { x: 6.2, z: -1.8, s: 1 }],
     booth: { x: -1.4, z: 3.6 },
+    nest: { x: 3.6, z: 4.8 },
   },
   lagoon: {
     id: 'lagoon', name: 'Coral Lagoon', icon: '🪸', habitat: 'Reef', status: 'buyable',
@@ -86,6 +89,7 @@ export const ISLANDS: Record<IslandId, IslandDef> = {
     obstacles: [{ x: -6.6, z: -3, r: 0.6 }, { x: 6.8, z: -2.4, r: 0.6 }, { x: 0.5, z: -7.2, r: 0.6 }],
     shelters: [{ x: -6.6, z: -3, s: 0.9 }, { x: 6.8, z: -2.4, s: 0.9 }, { x: 0.5, z: -7.2, s: 0.9 }],
     booth: { x: -4.1, z: 5.2 },
+    nest: { x: 4.8, z: 3.8 },
   },
   beach: {
     id: 'beach', name: 'Sunny Shore', icon: '🏖️', habitat: 'Shore', status: 'buyable',
@@ -96,6 +100,7 @@ export const ISLANDS: Record<IslandId, IslandDef> = {
     obstacles: [{ x: 4.6, z: 2.8, r: 0.7 }, { x: -4.8, z: -2.6, r: 0.6 }, { x: -1.5, z: -5.2, r: 0.5 }, { x: 5.2, z: -3.6, r: 0.5 }],
     shelters: [{ x: -1.5, z: -5.2, s: 1 }, { x: 5.2, z: -3.6, s: 0.9 }],
     booth: { x: -2.6, z: 4.6 },
+    nest: { x: 3.6, z: 4.8 },
     starters: ['flamingle', 'pouchbill'],
   },
   desert: {
@@ -107,6 +112,7 @@ export const ISLANDS: Record<IslandId, IslandDef> = {
     obstacles: [{ x: 3.6, z: -3.2, r: 0.5 }, { x: 4.8, z: 1.6, r: 0.5 }, { x: -4.6, z: 2.4, r: 0.5 }, { x: 1.6, z: 4.4, r: 0.9 }, { x: -3.8, z: -3.4, r: 0.5 }],
     shelters: [{ x: 1.6, z: 4.4, s: 1 }, { x: -3.8, z: -3.4, s: 1 }],
     booth: { x: -3.2, z: 3.6 },
+    nest: { x: 3.6, z: 3.8 },
     starters: ['sandpincer', 'dunecoil'],
   },
   cloud: {
@@ -118,6 +124,7 @@ export const ISLANDS: Record<IslandId, IslandDef> = {
     obstacles: [{ x: -3.4, z: -3.0, r: 0.7 }, { x: 4.2, z: -2.6, r: 0.7 }, { x: -4.4, z: 2.6, r: 0.6 }, { x: 0.4, z: -5.4, r: 0.9 }],
     shelters: [{ x: -3.4, z: -3.0, s: 1 }, { x: 4.2, z: -2.6, s: 1 }, { x: -4.4, z: 2.6, s: 0.9 }],
     booth: { x: -2.6, z: 3.6 },
+    nest: { x: 3.6, z: 3.8 },
     starters: ['kitewing', 'cloudlamb'],
   },
 };

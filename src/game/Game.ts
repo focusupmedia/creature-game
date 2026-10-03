@@ -14,7 +14,7 @@ import { claimDaily, claimLasting, questEvent, refreshDailies } from '../core/qu
 import { awayFinds, bulkRelease, bulkRetrieve, bulkSell, bulkStore, buyStorageSlot, findVisitor, keepVisitor, releaseCreature, sendAwayVisitor, feastIsland, feedCreature, hangFeedbag, harvestTree, retrieveCreature, sellCreature, storeCreature } from '../core/care';
 import { islandCapacity } from '../core/sim';
 import { xpFor, type PlayEvent } from '../core/progress';
-import { ISLANDS } from '../content/islands';
+import { ISLANDS, islandGeo } from '../content/islands';
 import { WANDERERS } from '../content/wanderers';
 import { dismissWanderer, meetWanderer, takeDeal } from '../core/wanderers';
 import { StateRng } from '../core/rng';
@@ -23,7 +23,6 @@ import { fillWant } from '../core/market';
 import { fillAwayChest, openAwayChest, welcomeBackGift } from '../core/away';
 import { decideSync, summarize, type CloudBlob } from '../core/cloud';
 import { createCloudSave, deviceName, TestCloudSave, type CloudSave, type CloudStatus } from '../platform/cloudSave';
-import { NESTS } from '../content/layout';
 import { TUNING } from '../content/tuning';
 import * as A from '../core/actions';
 import { displayName, speciesTitle } from '../core/creatures';
@@ -93,6 +92,12 @@ export class Game {
     };
     this.world.onFrame = (dt) => this.frame(dt);
     this.world.onRevealTap = () => this.audio.play('crack');
+    this.world.onHoldDecor = (id) => {
+      const d = this.state.placedDecor.find((x) => x.id === id);
+      if (!d || this.placing) return;
+      navigator.vibrate?.(20);
+      this.ui.beginPlacement(d.decor, id);
+    };
     this.world.onCarryStart = (id) => {
       this.audio.play('egg');
       const c = this.state.creatures.find((x) => x.id === id);
@@ -611,12 +616,12 @@ export class Game {
         if (findVisitor(this.state, p.id)) return this.ui.showVisitor(p.id);
         return this.ui.selectCreature(p.id);
       case 'spot': return this.ui.showSpot(p.id);
-      case 'nest': return this.ui.showNest(p.index);
+      case 'nest': return this.ui.showNest(p.id);
       case 'font': return this.ui.showFont();
       case 'shop': return this.ui.showShop();
       case 'booth': return this.ui.showSellBooth();
       case 'basket': return this.ui.showBasket();
-      case 'decor': return this.ui.showPlacedDecor(p.id);
+      case 'decor': return this.state.placedDecor.find((d) => d.id === p.id)?.decor === 'nest' ? this.ui.showNest(p.id) : this.ui.showPlacedDecor(p.id);
       case 'island':
         if (this.state.islands[p.id]?.owned) return this.travel(p.id);
         return this.ui.showIslands(p.id);
@@ -763,7 +768,7 @@ export class Game {
   }
 
   combine(aId: string, bId: string): void {
-    const r = A.startCombine(this.state, aId, bId, this.now());
+    const r = A.startCombine(this.state, aId, bId, this.now(), this.world.current);
     if (!r.ok) {
       this.audio.play('error');
       return this.ui.fail(r.error);
@@ -773,24 +778,32 @@ export class Game {
     this.analytics.track('combine', { a: this.state.creatures.find((c) => c.id === aId)?.species ?? '', b: this.state.creatures.find((c) => c.id === bId)?.species ?? '' });
     if (this.state.tutorial < 4) this.setTutorial(4);
     this.ui.closeSheet();
-    const nest = NESTS[r.egg.nest ?? 0];
-    this.world.focus(nest, 12, 'home');
-    this.world.burst(this.world.at(nest.x, nest.z, 0.8, 'home'), '#bff4ff', 24);
-    this.ui.toast('A new egg settles into a warm nest. What could be inside?', 'discovery');
+    const nest = this.state.placedDecor.find((d) => d.id === r.egg.nest);
+    const where = nest?.island ?? 'home';
+    if (nest && where === this.world.current) {
+      this.world.focus(nest, 12, where);
+      this.world.burst(this.world.at(nest.x, nest.z, 0.8, where), '#bff4ff', 24);
+      this.ui.toast('A new egg settles into a warm nest. What could be inside?', 'discovery');
+    } else {
+      // every nest here is busy: it went to a free one on another world
+      this.ui.toast(`This world's nests are busy, so the egg went to a nest on ${ISLANDS[where].name}.`, 'discovery');
+    }
     for (const n of r.notes) this.ui.toast(`📝 Journal: ${n}`);
     this.saveSoon();
   }
 
-  hatch(eggId: string): void {
+  /** Hatch onto the world you're on (or another world, or straight into storage when it's full). */
+  hatch(eggId: string, to: IslandId = this.world.current, toStorage = false): void {
     const egg = this.state.eggs.find((e) => e.id === eggId);
     if (!egg) return;
-    const nestIdx = egg.nest ?? 0;
     const eggCopy = { ...egg, mutations: [...egg.mutations] };
-    const r = A.hatch(this.state, eggId, this.now());
+    const r = A.hatch(this.state, eggId, this.now(), to, toStorage);
     if (!r.ok) {
       this.audio.play('error');
-      // a full home: offer to make space, then hatch straight away
-      if (r.error.includes('is full')) return this.ui.showMakeSpace('home', () => this.hatch(eggId));
+      // a full world: offer to make space, send the baby to another world, or keep it in storage
+      if (r.error.includes('is full')) {
+        return this.ui.showMakeSpace(to, () => this.hatch(eggId, to), (other) => this.hatch(eggId, other), () => this.hatch(eggId, to, true));
+      }
       return this.ui.fail(r.error);
     }
     this.ui.closeSheet();
@@ -801,8 +814,17 @@ export class Game {
       this.world.endReveal();
       this.ui.hideHud(false);
       this.record(hatched);
-      const n = NESTS[nestIdx];
-      if (this.world.current !== 'home') this.world.travelTo('home', true);
+      if (toStorage) {
+        this.ui.toast(`${displayName(r.creature)} is resting in storage. Bring it out from Pets whenever you like.`);
+        for (const note of r.notes) this.ui.toast(`📝 Journal: ${note}`, 'info', undefined, 5000);
+        this.saveSoon();
+        return;
+      }
+      // the baby appears beside its nest if the nest is on this world, otherwise in the middle
+      const nest = this.state.placedDecor.find((d) => d.id === eggCopy.nest);
+      const geo = islandGeo(to);
+      const n = nest && (nest.island ?? 'home') === to ? nest : { x: geo.ox, z: geo.oz + 1 };
+      if (this.world.current !== to) this.world.travelTo(to, true);
       this.world.focus(n, 11);
       setTimeout(() => {
         const pos = this.world.creaturePosition(r.creature.id);

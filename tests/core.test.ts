@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createGame } from '../src/core/state';
+import { SAVE_VERSION, createGame } from '../src/core/state';
 import { tick } from '../src/core/sim';
 import {
   adHatch, buyIsland, buyOffer, canAdHatch, collectGift, hatch, moveCreature, placeLure, rollEggTier, startCombine,
@@ -240,7 +240,7 @@ describe('combining', () => {
     const r = startCombine(s, frog.id, wing.id, T0);
     expect(r.ok).toBe(true);
     if (!r.ok) return;
-    expect(r.egg.nest).toBe(0);
+    expect(r.egg.nest).toBe(s.placedDecor.find((d) => d.decor === 'nest')?.id);
     expect(hatch(s, r.egg.id, T0).ok).toBe(false);
     const events = tick(s, T0 + r.egg.incubationMs + 1000);
     expect(events.some((e) => e.type === 'eggReady')).toBe(true);
@@ -482,7 +482,7 @@ describe('save', () => {
     for (const c of v1.creatures) { delete c.island; delete c.size; delete c.growMs; delete c.personality; }
     for (const k of ['vent', 'ash', 'reef', 'shallows']) delete v1.spots[k];
     const s = deserialize(JSON.stringify(v1));
-    expect(s.version).toBe(14);
+    expect(s.version).toBe(SAVE_VERSION);
     expect(s.digSpots).toEqual([]);
     expect(s.islands.cloud).toEqual({ owned: false, size: 0 });
     expect(s.islands.home.owned).toBe(true);
@@ -713,5 +713,49 @@ describe('special shop stock', () => {
       expect(SPECIES_BY_ID[rollEggTier(s, 'mythical')].rarity).toBe('mythical');
       expect(SPECIES_BY_ID[rollEggTier(s, 'epic')].rarity).not.toMatch(/common|uncommon/);
     }
+  });
+});
+
+describe('nests on every world', () => {
+  it('old saves keep their nests and eggs, and each owned world gets a nest', () => {
+    const old = JSON.parse(serialize(fresh(3), T0));
+    old.version = 14;
+    old.placedDecor = [];
+    old.nests = 3;
+    old.islands.volcano = { owned: true, size: 0 };
+    old.eggs = [{ id: 'e1', species: 'mossfrog', mutations: [], seed: 1, source: 'shop', laidAt: T0, incubationMs: 1000, progressMs: 0, nest: 2, witnessed: [] }];
+    const s = deserialize(JSON.stringify(old));
+    const nests = s.placedDecor.filter((d) => d.decor === 'nest');
+    expect(nests.filter((n) => n.island === 'home')).toHaveLength(3);
+    expect(nests.filter((n) => n.island === 'volcano')).toHaveLength(1);
+    expect(s.eggs[0].nest).toBe(nests[2].id);
+    expect(new Set(s.placedDecor.map((d) => d.id)).size).toBe(s.placedDecor.length);
+  });
+
+  it('eggs go to a nest on the world you breed on, and babies hatch there (or into storage)', async () => {
+    const { buyIsland, startCombine: breed, hatch: hatchEgg, buyNest, storeDecor } = await import('../src/core/actions');
+    const s = fresh(5);
+    s.xp = 99_999;
+    s.glimmer = 99_999;
+    expect(buyIsland(s, 'volcano').ok).toBe(true);
+    const volcanoNest = s.placedDecor.find((d) => d.decor === 'nest' && d.island === 'volcano')!;
+    expect(volcanoNest).toBeTruthy();
+    const [a, b] = s.creatures;
+    const r = breed(s, a.id, b.id, T0, 'volcano');
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.egg.nest).toBe(volcanoNest.id);
+    // a nest with an egg in it can't be put away
+    expect(storeDecor(s, volcanoNest.id).ok).toBe(false);
+    r.egg.progressMs = r.egg.incubationMs;
+    const h = hatchEgg(s, r.egg.id, T0, 'volcano', true);
+    expect(h.ok).toBe(true);
+    if (!h.ok) return;
+    expect(h.creature.island).toBe('volcano');
+    expect(h.creature.stored).toBe(true);
+    // more nests come from the shop, into the decor satchel
+    s.shards = 1000;
+    expect(buyNest(s).ok).toBe(true);
+    expect(s.decorOwned.nest).toBe(1);
   });
 });

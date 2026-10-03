@@ -1,11 +1,11 @@
-import { BASKET, FONT, NESTS, SHOP_STALL } from '../content/layout';
+import { BASKET, FONT, SHOP_STALL } from '../content/layout';
 import { ISLANDS, ISLAND_ORDER } from '../content/islands';
 import type { IslandId } from '../core/types';
 import { LURES, SPOTS, spotOpen } from '../content/world';
-import { remainingMs, nestPrice } from '../core/actions';
+import { remainingMs } from '../core/actions';
 import { displayName, fmtWeight, isOutlier, sizeLabel, weightKg } from '../core/creatures';
 import { arrivalWeights } from '../core/lures';
-import { nestOccupant } from '../core/state';
+import { nestOccupant, placedNests } from '../core/state';
 import { activeEvent, isDark } from '../core/world';
 import type { Game } from '../game/Game';
 import { hearts } from '../core/friendship';
@@ -39,7 +39,7 @@ const SIGN_FAR = 24;
 
 export interface LabelActions {
   openSpot(id: string): void;
-  openNest(i: number): void;
+  openNest(id: string): void;
   openFont(): void;
   openShop(): void;
   openBooth(): void;
@@ -126,24 +126,6 @@ export class WorldLabels {
       }, () => this.act.openIsland(id), () => this.game.world.current !== id);
     }
 
-    NESTS.forEach((n, i) => {
-      this.pin('wl-nest', [n.x, 1.35, n.z], () => {
-        const st = s();
-        const egg = nestOccupant(st, i);
-        if (egg && egg.progressMs >= egg.incubationMs) return 'always';
-        if (i >= st.nests) return i === st.nests && nestPrice(st) !== null ? 'zoomed' : 'hidden';
-        return 'zoomed';
-      }, () => {
-        const st = s();
-        if (i >= st.nests) return '＋ Nest';
-        const egg = nestOccupant(st, i);
-        if (!egg) return 'Empty nest';
-        if (egg.progressMs >= egg.incubationMs) return '🐣 Ready!';
-        const ms = remainingMs(egg);
-        return `🥚 ${Math.floor(ms / 60000)}:${String(Math.floor(ms / 1000) % 60).padStart(2, '0')}`;
-      }, () => this.act.openNest(i), home);
-    });
-
     this.pin('wl-nest', [BASKET.x, 0.9, BASKET.z], () => (s().eggs.some((e) => e.nest === null) ? 'zoomed' : 'hidden'),
       () => `🧺 ${s().eggs.filter((e) => e.nest === null).length} waiting`, () => this.act.openBasket(), home);
   }
@@ -161,7 +143,47 @@ export class WorldLabels {
     return this.bubbleFor;
   }
 
+  /** Nests can be placed, moved and put away on any world, so their pins come and go. */
+  private nestPins = new Map<string, Pin>();
+
+  private syncNestPins(): void {
+    const st = this.game.state;
+    const alive = new Set<string>();
+    for (const n of placedNests(st)) {
+      alive.add(n.id);
+      let pin = this.nestPins.get(n.id);
+      if (!pin) {
+        const id = n.id;
+        this.pin('wl-nest', [n.x, 1.35, n.z], () => {
+          const egg = nestOccupant(this.game.state, id);
+          return egg && egg.progressMs >= egg.incubationMs ? 'always' : 'zoomed';
+        }, () => {
+          const egg = nestOccupant(this.game.state, id);
+          if (!egg) return 'Empty nest';
+          if (egg.progressMs >= egg.incubationMs) return '🐣 Ready!';
+          const ms = remainingMs(egg);
+          return `🥚 ${Math.floor(ms / 60000)}:${String(Math.floor(ms / 1000) % 60).padStart(2, '0')}`;
+        }, () => this.act.openNest(id), () => {
+          const d = this.game.state.placedDecor.find((x) => x.id === id);
+          return !!d && (d.island ?? 'home') === this.game.world.current;
+        });
+        pin = this.pins[this.pins.length - 1];
+        this.nestPins.set(id, pin);
+      }
+      // follow the nest when it's moved
+      pin.pos[0] = n.x;
+      pin.pos[2] = n.z;
+    }
+    for (const [id, pin] of this.nestPins) {
+      if (alive.has(id)) continue;
+      pin.el.remove();
+      this.pins = this.pins.filter((p) => p !== pin);
+      this.nestPins.delete(id);
+    }
+  }
+
   update(hidden: boolean): void {
+    this.syncNestPins();
     this.host.classList.toggle('hidden', hidden);
     if (hidden) return;
     const w = this.game.world;

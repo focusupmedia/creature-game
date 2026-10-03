@@ -103,6 +103,16 @@ const B: Record<string, (k: Kit) => void> = {
       k.ball(0.28, i % 2 ? '#4fae3a' : '#6fcf4a', [Math.cos(a) * 0.18, 0.2, Math.sin(a) * 0.18], [0.35, 0.12, 1], ).rotation.set(0.6, -a, 0);
     }
   },
+  nest(k) {
+    // a stone pedestal with a straw nest on top, like the first ones on Kindred Grove
+    k.cyl(0.45, 0.55, 0.35, '#b9b19a', [0, 0.17, 0]);
+    k.torus(0.36, 0.13, '#a8783f', [0, 0.42, 0], [-Math.PI / 2, 0, 0]);
+    k.cyl(0.3, 0.3, 0.05, '#e8c872', [0, 0.4, 0], undefined, undefined, 10);
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * Math.PI * 2;
+      k.box(0.2, 0.03, 0.04, '#d8b060', [Math.cos(a) * 0.4, 0.5, Math.sin(a) * 0.4], [0, -a + 0.5, 0.3]);
+    }
+  },
   fruittree(k) {
     k.leafy(1.1, 0.55, ['#5fbf4a', '#4fae3a', '#6fd05a'], '#7a5236', 0.14);
     for (let i = 0; i < 3; i++) {

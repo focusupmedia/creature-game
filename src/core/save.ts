@@ -2,6 +2,8 @@
 // save backend unchanged. Migrations run in order on load.
 
 import { SAVE_VERSION, newSaveId } from './state';
+import { ISLANDS } from '../content/islands';
+import { NESTS } from '../content/layout';
 import { generateShop } from './shop';
 import type { GameState, Personality } from './types';
 import { StateRng } from './rng';
@@ -38,6 +40,31 @@ const MIGRATIONS: Record<number, Migration> = {
   // v2 → v3: dig spots you drop creatures on.
   2: (raw) => {
     raw.digSpots = [];
+  },
+  // v14 → v15: nests are decorations you can move, store and buy more of; every world gets one.
+  // Home's nests stay where the old pedestals were, and eggs keep their nests.
+  14: (raw) => {
+    const placed = ((raw.placedDecor as Record<string, unknown>[]) ??= []);
+    if (placed.some((d) => d.decor === 'nest')) return;
+    let next = Number(raw.nextId) || 0;
+    const ids: string[] = [];
+    const n = Math.max(1, Math.min(NESTS.length, Number(raw.nests) || 2));
+    for (let i = 0; i < n; i++) {
+      const id = `n${(++next).toString(36)}`;
+      ids.push(id);
+      placed.push({ id, decor: 'nest', x: NESTS[i].x, z: NESTS[i].z, rot: 0, island: 'home' });
+    }
+    const islands = (raw.islands ?? {}) as Record<string, { owned?: boolean }>;
+    for (const id of ['volcano', 'lagoon', 'beach', 'desert', 'cloud'] as const) {
+      if (!islands[id]?.owned) continue;
+      const d = ISLANDS[id];
+      placed.push({ id: `n${(++next).toString(36)}`, decor: 'nest', x: d.ox + d.nest.x, z: d.oz + d.nest.z, rot: 0, island: id });
+    }
+    raw.nextId = next;
+    for (const e of (raw.eggs as Record<string, unknown>[]) ?? []) {
+      e.nest = typeof e.nest === 'number' ? ids[e.nest] ?? null : null;
+    }
+    raw.nestsBought = Math.max(0, n - 2);
   },
   // v13 → v14: cloud save. Every game gets an id.
   13: (raw) => {

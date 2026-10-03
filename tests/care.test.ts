@@ -115,7 +115,7 @@ describe('egg sprays', () => {
   it('Speedy Spritz speeds an egg up, Grow Mist makes it hatch big, and each works once', async () => {
     const { useItem, hatch } = await import('../src/core/actions');
     const s = createGame(7, 1_000_000);
-    const egg = { id: 'e1', species: 'mossfrog', mutations: [], seed: 5, source: 'shop' as const, laidAt: 0, incubationMs: 100_000, progressMs: 0, nest: 0, witnessed: [] };
+    const egg = { id: 'e1', species: 'mossfrog', mutations: [], seed: 5, source: 'shop' as const, laidAt: 0, incubationMs: 100_000, progressMs: 0, nest: s.placedDecor[0].id as string | null, witnessed: [] };
     s.eggs.push(egg);
     s.items.speedy = 1;
     s.items.growmist = 2;
@@ -199,7 +199,7 @@ describe('decor and trees', () => {
     expect(placeDecor(s, 'lantern', 1, 1, 0, 'volcano').ok).toBe(false);
     s.islands.volcano = { owned: true, size: 0 };
     expect(placeDecor(s, 'lantern', 1, 1, 0, 'volcano').ok).toBe(true);
-    expect(s.placedDecor[0].island).toBe('volcano');
+    expect(s.placedDecor.find((d) => d.decor === 'lantern')?.island).toBe('volcano');
     const coins = s.glimmer;
     expect(chopTree(s, 'home', 3).ok).toBe(true);
     expect(chopTree(s, 'home', 3).ok).toBe(false);
@@ -348,7 +348,7 @@ describe('reminders', () => {
     const { planNotifications, MAX_REMINDERS } = await import('../src/core/notify');
     const s = createGame(81, 0);
     const now = new Date(2026, 5, 1, 12, 0).getTime();
-    s.eggs.push({ id: 'e', species: 'mossfrog', mutations: [], seed: 1, source: 'shop', laidAt: now, incubationMs: 30 * 60_000, progressMs: 0, nest: 0, witnessed: [] });
+    s.eggs.push({ id: 'e', species: 'mossfrog', mutations: [], seed: 1, source: 'shop', laidAt: now, incubationMs: 30 * 60_000, progressMs: 0, nest: s.placedDecor[0].id, witnessed: [] });
     s.collector.nextAt = now + 2 * HOUR;
     s.visitors.push({ creature: { ...s.creatures[0], id: 'v', species: 'axolotl' }, spot: 'glade', island: 'home', until: now + 5 * HOUR });
     const plan = planNotifications(s, now);

@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { BASKET, NESTS } from '../content/layout';
+import { BASKET } from '../content/layout';
 import { ISLAND_ORDER, inWater, isBlocked, islandAt, islandGeo, onLand, type Geo } from '../content/islands';
 import { DECOR, EVENTS, LURES, SPOTS } from '../content/world';
 import type { Creature, Egg, EventKind, GameEvent, GameState, IslandId, LegendaryKind } from '../core/types';
@@ -28,7 +28,7 @@ const Z_AXIS = new THREE.Vector3(0, 0, 1);
 export type Pick =
   | { kind: 'creature'; id: string }
   | { kind: 'spot'; id: string }
-  | { kind: 'nest'; index: number }
+  | { kind: 'nest'; id: string }
   | { kind: 'font' }
   | { kind: 'shop' }
   | { kind: 'booth'; island: IslandId }
@@ -99,6 +99,8 @@ export class World {
   /** The player pushed past the island edge toward another island. */
   onEdgePush: (toward: IslandId) => void = () => {};
   onCarryStart: (creatureId: string) => void = () => {};
+  /** Pressed and held a placed decoration: pick it up to move it. */
+  onHoldDecor: (placedId: string) => void = () => {};
   /** A creature on screen makes a little sound. */
   onVoice: (c: Creature) => void = () => {};
   private voiceTimer = 3;
@@ -428,11 +430,24 @@ export class World {
     }
     const decorAlive = new Set(state.placedDecor.map((d) => d.id));
     for (const d of state.placedDecor) {
-      if (this.decor.has(d.id)) continue;
+      const have = this.decor.get(d.id);
+      if (have) {
+        // moved: pick it up and set it down in its new place
+        if (have.userData.x !== d.x || have.userData.z !== d.z || have.userData.island !== (d.island ?? 'home') || have.userData.rot !== d.rot) {
+          Object.assign(have.userData, { x: d.x, z: d.z, island: d.island ?? 'home', rot: d.rot });
+          have.position.set(0, 0, 0);
+          have.quaternion.identity();
+          this.place(have, d.x, d.z, 0, d.rot, have.userData.island);
+          have.visible = true;
+          this.burst(this.at(d.x, d.z, 0.5, have.userData.island), '#ffffff', 12);
+        }
+        continue;
+      }
       const g = buildDecor(d.decor);
       g.userData.x = d.x;
       g.userData.z = d.z;
       g.userData.island = d.island ?? 'home';
+      g.userData.rot = d.rot;
       this.place(g, d.x, d.z, 0, d.rot, g.userData.island);
       const hit = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 0.8, 1.5, 6), new THREE.MeshBasicMaterial({ visible: false }));
       hit.position.y = 0.75;
@@ -469,12 +484,13 @@ export class World {
         this.eggs.set(e.id, entry);
       }
       const root = entry.model.root;
-      if (e.nest !== null) {
-        const n = NESTS[e.nest];
-        this.place(root, n.x, n.z, 0.42, 0, 'home', SHAKE.set(0, 0, 0, 1));
+      const n = e.nest !== null ? state.placedDecor.find((d) => d.id === e.nest) : undefined;
+      if (n) {
+        this.place(root, n.x, n.z, 0.42, 0, n.island ?? 'home', SHAKE.set(0, 0, 0, 1));
         root.userData.x = n.x;
         root.userData.z = n.z;
-        entry.model.shell.userData.pick = { kind: 'nest', index: e.nest };
+        root.userData.island = n.island ?? 'home';
+        entry.model.shell.userData.pick = { kind: 'nest', id: n.id };
       } else {
         this.place(root, BASKET.x + (basketIdx - 1) * 0.28, BASKET.z, 0.12, 0, 'home');
         root.userData.x = BASKET.x + (basketIdx - 1) * 0.28;
@@ -497,13 +513,6 @@ export class World {
         this.eggs.delete(id);
       }
     }
-    // nests not yet built are hidden
-    this.islands.get('home')?.home?.nests.forEach((g, i) => {
-      const owned = i < state.nests;
-      g.children.forEach((ch) => {
-        if (ch instanceof THREE.Mesh && ch.material instanceof THREE.MeshToonMaterial) ch.visible = owned;
-      });
-    });
   }
 
   private syncWanderer(state: GameState): void {
@@ -827,7 +836,14 @@ export class World {
     const actors = [...this.actors.values()].filter((a) => a.root.visible);
     const hit = this.raycaster.intersectObjects(actors.map((a) => a.hit), false)[0];
     const actor = hit && actors.find((a) => a.hit === hit.object);
-    if (!actor) return false;
+    if (!actor) {
+      // press and hold a decoration (or a nest) to move it
+      const hits = [...this.decor.values()].filter((g) => g.visible && g.userData.island === this.current)
+        .map((g) => g.children.find((c) => c.userData.pick?.kind === 'decor')).filter((c): c is THREE.Object3D => !!c);
+      const dh = this.raycaster.intersectObjects(hits, false)[0];
+      if (dh) this.onHoldDecor(dh.object.userData.pick.id as string);
+      return false;
+    }
     // visitors aren't yours yet: holding one says hello instead
     if (actor.waitAt) {
       this.onTap({ kind: 'creature', id: actor.id });
@@ -923,8 +939,12 @@ export class World {
    * around it. Drag it (or tap the ground) to move it; the ring turns green on
    * open ground and red where it would bump into something.
    */
-  startPlacement(decorId: string): void {
+  startPlacement(decorId: string, moving?: string): void {
     this.cancelPlacement();
+    // moving something already placed: hide it while its ghost is out, and don't let it block itself
+    this.moving = moving ?? null;
+    const old = moving ? this.decor.get(moving) : undefined;
+    if (old) old.visible = false;
     const ghost = buildDecor(decorId);
     ghost.traverse((o) => {
       if (o instanceof THREE.Mesh) {
@@ -966,9 +986,13 @@ export class World {
     const mid = this.pointerGround(r.left + r.width / 2, r.top + r.height / 2) ?? new THREE.Vector3(this.geoOf().ox, 0, this.geoOf().oz);
     this.placing = { decorId, x: mid.x, z: mid.z, rot: 0, footprint };
     // start somewhere it fits, as close to the middle of the screen as possible
-    const spot = this.nearestFree(mid.x, mid.z, footprint) ?? mid;
+    const from = old && old.userData.island === this.current ? { x: old.userData.x as number, z: old.userData.z as number } : null;
+    const spot = from ?? this.nearestFree(mid.x, mid.z, footprint) ?? mid;
     this.moveGhost(spot.x, spot.z);
   }
+
+  /** The placed decoration being moved, if any. */
+  private moving: string | null = null;
 
   /** Did this press land on the decoration being placed? Then it's a drag, not a globe roll. */
   private placementGrab(x: number, y: number): boolean {
@@ -1009,6 +1033,7 @@ export class World {
     for (const sp of Object.values(SPOTS)) if (sp.island === island) out.push({ x: sp.x, z: sp.z, r: 1.5 });
     for (const v of this.digViews.values()) if (v.island === island) out.push({ x: v.x, z: v.z, r: 0.9 });
     for (const d of this.state?.placedDecor ?? []) {
+      if (d.id === this.moving) continue;
       if ((d.island ?? 'home') === island) out.push({ x: d.x, z: d.z, r: DECOR[d.decor]?.r ?? 0.8 });
     }
     return out;
@@ -1040,6 +1065,11 @@ export class World {
   }
 
   cancelPlacement(): void {
+    if (this.moving) {
+      const old = this.decor.get(this.moving);
+      if (old) old.visible = true;
+      this.moving = null;
+    }
     if (this.ghost) {
       this.scene.remove(this.ghost);
       disposeTree(this.ghost);

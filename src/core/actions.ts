@@ -15,7 +15,7 @@ import { hasQuirk } from './quirks';
 import { levelOf } from './levels';
 import { addBond, findBonus } from './friendship';
 import { refreshShop } from './shop';
-import { freeNest } from './state';
+import { addWorldNest, freeNest } from './state';
 import type { Creature, Egg, EventKind, GameState, Gift, IslandId, MutationId, SpeciesId, SpotId } from './types';
 import { activeEvent, eventInWindow, windowAt, type SkyEvent } from './world';
 
@@ -41,7 +41,7 @@ export function removeLure(state: GameState, spot: SpotId): Result {
   return { ok: true };
 }
 
-export function startCombine(state: GameState, aId: string, bId: string, t: number): Result<{ egg: Egg; notes: string[] }> {
+export function startCombine(state: GameState, aId: string, bId: string, t: number, island?: IslandId): Result<{ egg: Egg; notes: string[] }> {
   const a = state.creatures.find((c) => c.id === aId);
   const b = state.creatures.find((c) => c.id === bId);
   if (!a || !b) return fail('Choose two creatures.');
@@ -50,8 +50,8 @@ export function startCombine(state: GameState, aId: string, bId: string, t: numb
   for (const c of [a, b]) if (c.fullness < TUNING.hungry) return fail(`${displayName(c)} is too hungry to breed. Feed it first!`);
   for (const c of [a, b]) if (c.stored) return fail(`${displayName(c)} is in storage.`);
   for (const c of [a, b]) if (c.trip) return fail(`${displayName(c)} is away exploring.`);
-  const nest = freeNest(state);
-  if (nest === null) return fail('Every nest is full. Hatch an egg first, or add a nest.');
+  const nest = freeNest(state, island ?? a.island);
+  if (nest === null) return fail('Every nest is full. Hatch an egg first, or buy another nest from Mango.');
   const rng = new StateRng(state);
   const sky = activeEvent(state, t)?.kind ?? null;
   const known = new Set(Object.keys(state.journal.species));
@@ -96,12 +96,18 @@ export interface HatchResult {
   notes: string[];
 }
 
-export function hatch(state: GameState, eggId: string, t: number): Result<HatchResult> {
+/**
+ * Hatch onto a world (the one you're on), or straight into storage when that world is full.
+ */
+export function hatch(state: GameState, eggId: string, t: number, island: IslandId = 'home', toStorage = false): Result<HatchResult> {
   const egg = state.eggs.find((e) => e.id === eggId);
   if (!egg) return fail('No such egg.');
   if (egg.progressMs < egg.incubationMs) return fail('Not ready yet.');
-  if (islandPopulation(state, 'home') >= islandCapacity(state, 'home')) {
-    return fail('Kindred Grove is full. Move a creature to another island, or say goodbye to one, to make room.');
+  if (!state.islands[island]?.owned) island = 'home';
+  if (toStorage) {
+    if (state.creatures.filter((c) => c.stored).length >= state.storageSlots) return fail('Storage is full too. Make some space first.');
+  } else if (islandPopulation(state, island) >= islandCapacity(state, island)) {
+    return fail(`${ISLANDS[island].name} is full. Store, move or say goodbye to a creature to make room.`);
   }
   state.eggs = state.eggs.filter((e) => e !== egg);
   const story = egg.parentNames
@@ -109,7 +115,7 @@ export function hatch(state: GameState, eggId: string, t: number): Result<HatchR
     : egg.source === 'shop' ? `Hatched from a ${egg.tier ? EGG_TIERS[egg.tier]?.name ?? 'shop egg' : 'traveler\'s egg'}.`
       : egg.source === 'dug' ? 'Hatched from an egg a creature dug up.' : 'Hatched from a mysterious egg.';
   const c = makeCreature(state, egg.species, egg.mutations, t, story, {
-    seed: egg.seed, island: 'home', hatchling: true, parents: egg.parentPersonalities, parentQuirks: egg.parentQuirks, parentShades: egg.parentShades,
+    seed: egg.seed, island, hatchling: true, parents: egg.parentPersonalities, parentQuirks: egg.parentQuirks, parentShades: egg.parentShades,
     sizeSpray: egg.sprays?.includes('grow') ? 'grow' : egg.sprays?.includes('shrink') ? 'shrink' : undefined,
     met: {
       how: egg.source === 'combine' ? 'bred' : egg.source === 'shop' ? 'shop' : egg.source === 'dug' ? 'dug' : 'other',
@@ -119,6 +125,10 @@ export function hatch(state: GameState, eggId: string, t: number): Result<HatchR
       tier: egg.tier,
     },
   });
+  if (toStorage) {
+    c.stored = true;
+    c.storedAt = t;
+  }
   if (egg.relative) c.history.push({ t, text: 'A distant relative! It looks nothing like its parents.' });
   for (const ev of new Set(egg.witnessed)) {
     c.history.push({ t, text: `As an egg, it felt a ${EVENTS[ev].name.toLowerCase()} pass overhead.` });
@@ -224,12 +234,12 @@ export function rollEggTier(state: GameState, tierId: string): SpeciesId {
   return rng.weighted(pool) ?? 'mossfrog';
 }
 
-export function layEgg(state: GameState, sp: SpeciesId, source: Egg['source'], t: number): Egg {
+export function layEgg(state: GameState, sp: SpeciesId, source: Egg['source'], t: number, island?: IslandId): Egg {
   const rng = new StateRng(state);
   const muts: MutationId[] = rng.chance(TUNING.prismaticChance) ? ['prismatic'] : [];
   const egg: Egg = {
     id: newId(state, 'e'), species: sp, mutations: muts, seed: rng.seed(), source, laidAt: t,
-    incubationMs: incubationMs(sp, muts), progressMs: 0, nest: freeNest(state), witnessed: [],
+    incubationMs: incubationMs(sp, muts), progressMs: 0, nest: freeNest(state, island), witnessed: [],
   };
   state.eggs.push(egg);
   return egg;
@@ -245,6 +255,8 @@ export function buyIsland(state: GameState, id: IslandId): Result {
   if (state.glimmer < def.price.coins) return fail('Not enough coins.');
   state.glimmer -= def.price.coins;
   state.islands[id] = { owned: true, size: 0 };
+  // its own nest, so eggs can warm here too
+  addWorldNest(state, id, def.nest);
   // A starter pair to breed from; the rest of the island's creatures come from lures and breeding.
   const t = state.lastTick;
   for (const sp of def.starters ?? []) {
@@ -368,18 +380,20 @@ export function paidShopRefresh(state: GameState, t: number, viaAd = false): Res
   return { ok: true };
 }
 
+/** Buy one more nest from Mango. It goes to your Decor satchel so you can put it on any world. */
 export function buyNest(state: GameState): Result {
-  if (state.nests >= TUNING.maxNests) return fail('No room for more nests here yet.');
-  const price = TUNING.nestPriceShards[state.nests] ?? 999;
+  const price = nestPrice(state);
+  if (price === null) return fail('You have all the nests Mango can make.');
   if (state.shards < price) return fail('Not enough Starshards.');
   state.shards -= price;
-  state.nests += 1;
+  state.nestsBought = (state.nestsBought ?? 0) + 1;
+  state.decorOwned.nest = (state.decorOwned.nest ?? 0) + 1;
   return { ok: true };
 }
 
+/** Price of the next nest, or null once you have them all. */
 export function nestPrice(state: GameState): number | null {
-  if (state.nests >= TUNING.maxNests) return null;
-  return TUNING.nestPriceShards[state.nests] ?? null;
+  return TUNING.nestPriceShards[state.nestsBought ?? 0] ?? null;
 }
 
 export function remainingMs(egg: Egg): number {
@@ -541,9 +555,19 @@ export function chopTree(state: GameState, island: IslandId, index: number): Res
   return { ok: true, coins };
 }
 
+/** Move something you've placed (a decoration or a nest) to a new spot, on any of your worlds. */
+export function moveDecor(state: GameState, placedId: string, x: number, z: number, rot: number, island: IslandId): Result {
+  const d = state.placedDecor.find((p) => p.id === placedId);
+  if (!d) return fail('Not found.');
+  if (!state.islands[island]?.owned) return fail('You don\'t own that world.');
+  Object.assign(d, { x, z, rot, island });
+  return { ok: true };
+}
+
 export function storeDecor(state: GameState, placedId: string): Result {
   const d = state.placedDecor.find((p) => p.id === placedId);
   if (!d) return fail('Not found.');
+  if (d.decor === 'nest' && state.eggs.some((e) => e.nest === d.id)) return fail('There\'s an egg in this nest. Hatch it first.');
   state.placedDecor = state.placedDecor.filter((p) => p !== d);
   state.decorOwned[d.decor] = (state.decorOwned[d.decor] ?? 0) + 1;
   return { ok: true };

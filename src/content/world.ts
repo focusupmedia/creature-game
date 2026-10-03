@@ -549,6 +549,11 @@ export const GLITTER_MUTATIONS: MutationId[] = ['lunar', 'storm', 'frost', 'star
 
 // ---------------------------------------------------------------- cosmetics
 export const DECOR: Record<string, DecorDef> = Object.fromEntries(DECOR_LIST.map((d) => [d.id, d]));
+/** Nests are decorations too (so you can move them or put them away), but Mango sells them on the EGGS tab. */
+DECOR.nest = {
+  id: 'nest', name: 'Nest', blurb: 'A warm, straw-lined nest. Eggs from breeding go to a free nest on the world you\'re on.',
+  price: 0, currency: 'shards', rotating: false, cat: 'cozy', level: 1, r: 0.6,
+};
 
 // ---------------------------------------------------------------- egg shop
 export interface EggTier {

@@ -46,9 +46,8 @@ export const TUNING = {
   incubationMin: { common: 2, uncommon: 5, rare: 12, legendary: 30, mythical: 45 } as Record<string, number>,
   /** Extra minutes per mutation the egg carries. */
   incubationPerMutationMin: 1.5,
-  freeNests: 2,
-  maxNests: 4,
-  nestPriceShards: [0, 0, 50, 120],
+  /** Extra nests from Mango's shop, in Starshards (each one costs a little more; eight in all). */
+  nestPriceShards: [50, 90, 140, 200, 260, 320, 400, 500],
   basketSize: 3,
 
   capacity: 20,
@@ -86,7 +85,7 @@ export const TUNING = {
    */
   levelXpBase: 55,
   /** XP for things the player does. Idle time earns none. */
-  xp: { lure: 3, breed: 8, hatch: 12, newSpecies: 40, newMutation: 25, gift: 0, digSpot: 4, shopEgg: 4, blessing: 40, arrivalNew: 25, market: 15, befriend: 2, trip: 10, deal: 5 } as Record<string, number>,
+  xp: { lure: 3, breed: 5, hatch: 7, newSpecies: 40, newMutation: 25, gift: 0, digSpot: 4, shopEgg: 4, blessing: 40, arrivalNew: 25, market: 15, befriend: 2, trip: 10, deal: 5 } as Record<string, number>,
   /** Hunger: hours from full to empty; below `hungry` a creature is grumpy and won't dig or breed. */
   /** Lure visitors wait this long for you, at most this many per lure spot. */
   visitorWaitHours: 6,
