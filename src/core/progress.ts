@@ -12,7 +12,8 @@ export type PlayEvent =
   | { kind: 'digSpot' }
   | { kind: 'shopEgg' }
   | { kind: 'blessing' }
-  | { kind: 'arrival'; species: SpeciesId; isNew: boolean };
+  | { kind: 'arrival'; species: SpeciesId; isNew: boolean }
+  | { kind: 'sold'; coins: number };
 
 export function xpFor(ev: PlayEvent): number {
   const X = TUNING.xp;
@@ -25,5 +26,6 @@ export function xpFor(ev: PlayEvent): number {
     case 'shopEgg': return X.shopEgg;
     case 'blessing': return X.blessing;
     case 'arrival': return ev.isNew ? X.arrivalNew : 0;
+    case 'sold': return 0;
   }
 }

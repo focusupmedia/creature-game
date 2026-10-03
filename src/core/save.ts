@@ -47,6 +47,8 @@ const MIGRATIONS: Record<number, Migration> = {
     const spots = (raw.spots ?? {}) as Record<string, unknown>;
     for (const k of ['cloudtop', 'mistpool', 'windmill', 'skyshrine']) spots[k] ??= null;
     raw.spots = spots;
+    // storage got roomier: everyone gets the new free slots on top of what they bought
+    raw.storageSlots = Number(raw.storageSlots ?? 4) + 6;
   },
   // v10 → v11: expeditions.
   10: (raw) => {

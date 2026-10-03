@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { buyStorageSlot, feedCreature, harvestTree, isHungry, retrieveCreature, sellCreature, sellPrice, storeCreature } from '../src/core/care';
+import { TUNING } from '../src/content/tuning';
+import { bulkRelease, bulkSell, buyStorageSlot, feedCreature, harvestTree, isHungry, retrieveCreature, sellCreature, sellPrice, storeCreature } from '../src/core/care';
 import { startCombine } from '../src/core/actions';
 import { tick } from '../src/core/sim';
 import { createGame } from '../src/core/state';
@@ -50,7 +51,21 @@ describe('care', () => {
     expect(buyStorageSlot(s).ok).toBe(false);
     s.glimmer = 1000;
     expect(buyStorageSlot(s).ok).toBe(true);
-    expect(s.storageSlots).toBe(5);
+    expect(s.storageSlots).toBe(TUNING.storageBase + 1);
+  });
+
+  it('bulk selling and releasing skip favorites and always leave two', () => {
+    const s = createGame(9, 0);
+    for (let i = 0; i < 4; i++) s.creatures.push({ ...s.creatures[0], id: `b${i}`, favorite: false });
+    s.creatures[3].favorite = true;
+    const ids = s.creatures.map((c) => c.id);
+    const coins = s.glimmer;
+    const r = bulkSell(s, ids, 0);
+    expect(r.done).toBeGreaterThan(0);
+    expect(s.glimmer - coins).toBe(r.coins);
+    expect(s.creatures.some((c) => c.favorite)).toBe(true);
+    expect(s.creatures.filter((c) => !c.stored).length).toBeGreaterThanOrEqual(2);
+    expect(bulkRelease(s, s.creatures.map((c) => c.id)).done).toBe(0);
   });
 
   it('favourites can\'t be sold, and the Collector pays more', () => {

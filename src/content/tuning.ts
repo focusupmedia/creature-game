@@ -91,8 +91,9 @@ export const TUNING = {
   fruitEveryMin: 90,
   fruitMax: 3,
   /** Storage: free slots, then the price of each extra slot. */
-  storageBase: 4,
-  storageSlotPrice: [400, 900, 1800, 3500, 6000],
+  /** Storage starts roomy and can grow to 30. */
+  storageBase: 10,
+  storageSlotPrice: [300, 500, 800, 1200, 1600, 2000, 2500, 3000, 3600, 4200, 5000, 6000, 7000, 8000, 9000, 10000, 11000, 12000, 13500, 15000],
   /** The Collector visits every few hours and stays a while. */
   collectorEveryHours: 6,
   collectorStayMin: 45,

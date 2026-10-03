@@ -643,3 +643,17 @@ input.rename { font-family: var(--display); font-size: 22px; border: var(--outli
 .breed-note { margin: 8px 0 12px; font-size: 13px; color: var(--ink-2, #5a6a8a); }
 .breed-note.warn { color: #c0392b; font-weight: 700; }
 .breed-btns { display: flex; flex-direction: column; gap: 8px; }
+
+/* ---- pets: worlds and picking several */
+.pets-world { display: flex; justify-content: space-between; align-items: center; font-family: var(--display); color: var(--ink); margin: 10px 2px 2px; font-size: 15px; }
+.list.pets .item.picked { border-color: #3aaa4a; box-shadow: 0 0 0 3px #bff0b0; background: #f2fff0; }
+.list.pets .item { user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+.pick { flex: none; width: 26px; height: 26px; border-radius: 50%; border: 3px solid var(--sky-3); background: #fff; display: grid; place-items: center; font-weight: 900; color: #fff; }
+.pick.on { background: #3aaa4a; border-color: #2a8a3a; }
+.sort-btn.on { background: var(--ink); color: #fff; }
+.bulk-bar { position: sticky; bottom: -12px; margin: 12px -4px 0; padding: 10px; background: var(--white); border: var(--outline); border-radius: 16px; box-shadow: 0 -4px 14px rgba(27, 42, 74, .18); z-index: 2; }
+.bulk-top { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.bulk-top b { flex: 1; font-family: var(--display); }
+.bulk-btns { display: grid; grid-template-columns: repeat(auto-fit, minmax(80px, 1fr)); gap: 6px; }
+.bulk-btns .btn { white-space: nowrap; padding-left: 4px; padding-right: 4px; }
+.bulk-faces { display: flex; flex-wrap: wrap; gap: 4px; justify-content: center; margin: 8px 0; }

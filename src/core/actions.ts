@@ -280,6 +280,20 @@ export function moveCreature(state: GameState, creatureId: string, to: IslandId,
   return { ok: true };
 }
 
+/** Move several creatures to one world, as many as fit. */
+export function bulkMove(state: GameState, ids: string[], to: IslandId, t: number): { done: number; skipped: number; reason?: string } {
+  const out: { done: number; skipped: number; reason?: string } = { done: 0, skipped: 0 };
+  for (const id of ids) {
+    const r = moveCreature(state, id, to, t);
+    if (r.ok) out.done += 1;
+    else {
+      out.skipped += 1;
+      out.reason ??= r.error;
+    }
+  }
+  return out;
+}
+
 export function buyOffer(state: GameState, offerId: string, t: number): Result<{ message: string }> {
   const o = state.shop.offers.find((x) => x.id === offerId);
   if (!o) return fail('That offer has gone.');

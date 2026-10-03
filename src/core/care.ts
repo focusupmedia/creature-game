@@ -280,3 +280,64 @@ export function releaseCreature(state: GameState, id: string): Result {
   state.creatures = state.creatures.filter((x) => x !== c);
   return { ok: true, message: `${displayName(c)} wandered off into the wild.` };
 }
+
+// ---------------------------------------------------------------- doing many at once (Pets → Select)
+
+export interface BulkResult { done: number; coins: number; skipped: number; reason?: string }
+
+/** Sell several at once. Ones that can't be sold (favorites, level gifts, the last two) are skipped. */
+export function bulkSell(state: GameState, ids: string[], t: number): BulkResult {
+  const out: BulkResult = { done: 0, coins: 0, skipped: 0 };
+  for (const id of ids) {
+    const before = state.glimmer;
+    const r = sellCreature(state, id, t);
+    if (r.ok) {
+      out.done += 1;
+      out.coins += state.glimmer - before;
+    } else {
+      out.skipped += 1;
+      out.reason ??= r.error;
+    }
+  }
+  return out;
+}
+
+export function bulkRelease(state: GameState, ids: string[]): BulkResult {
+  const out: BulkResult = { done: 0, coins: 0, skipped: 0 };
+  for (const id of ids) {
+    const r = releaseCreature(state, id);
+    if (r.ok) out.done += 1;
+    else {
+      out.skipped += 1;
+      out.reason ??= r.error;
+    }
+  }
+  return out;
+}
+
+export function bulkStore(state: GameState, ids: string[], t: number): BulkResult {
+  const out: BulkResult = { done: 0, coins: 0, skipped: 0 };
+  for (const id of ids) {
+    const r = storeCreature(state, id, t);
+    if (r.ok) out.done += 1;
+    else {
+      out.skipped += 1;
+      out.reason ??= r.error;
+    }
+  }
+  return out;
+}
+
+/** Bring several out of storage onto one world, as many as fit. */
+export function bulkRetrieve(state: GameState, ids: string[], island: IslandId, t: number, capacity: number): BulkResult {
+  const out: BulkResult = { done: 0, coins: 0, skipped: 0 };
+  for (const id of ids) {
+    const r = retrieveCreature(state, id, island, t, capacity);
+    if (r.ok) out.done += 1;
+    else {
+      out.skipped += 1;
+      out.reason ??= r.error;
+    }
+  }
+  return out;
+}

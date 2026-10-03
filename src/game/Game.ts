@@ -11,7 +11,7 @@ import { planNotifications } from '../core/notify';
 import { voiceOf } from '../render/voices';
 import { EXPEDITIONS, type ExpeditionId } from '../content/expeditions';
 import { claimDaily, claimLasting, questEvent, refreshDailies } from '../core/quests';
-import { awayFinds, buyStorageSlot, findVisitor, keepVisitor, releaseCreature, sendAwayVisitor, feastIsland, feedCreature, hangFeedbag, harvestTree, retrieveCreature, sellCreature, storeCreature } from '../core/care';
+import { awayFinds, bulkRelease, bulkRetrieve, bulkSell, bulkStore, buyStorageSlot, findVisitor, keepVisitor, releaseCreature, sendAwayVisitor, feastIsland, feedCreature, hangFeedbag, harvestTree, retrieveCreature, sellCreature, storeCreature } from '../core/care';
 import { islandCapacity } from '../core/sim';
 import { xpFor, type PlayEvent } from '../core/progress';
 import { ISLANDS } from '../content/islands';
@@ -882,6 +882,48 @@ export class Game {
   retrieve(id: string): void {
     const here = this.world.current;
     this.careResult(retrieveCreature(this.state, id, here, this.now(), islandCapacity(this.state, here)));
+  }
+
+  /** Pets → Select: do the same thing to everyone picked. */
+  bulk(kind: 'sell' | 'release' | 'store' | 'retrieve', ids: string[]): void {
+    const t = this.now();
+    const here = this.world.current;
+    const r = kind === 'sell' ? bulkSell(this.state, ids, t)
+      : kind === 'release' ? bulkRelease(this.state, ids)
+        : kind === 'store' ? bulkStore(this.state, ids, t)
+          : bulkRetrieve(this.state, ids, here, t, islandCapacity(this.state, here));
+    if (!r.done) {
+      this.audio.play('error');
+      this.ui.fail(r.reason ?? 'Nobody could do that.');
+      return;
+    }
+    this.audio.play(kind === 'sell' ? 'coin' : 'place');
+    const n = `${r.done} pet${r.done === 1 ? '' : 's'}`;
+    const msg = kind === 'sell' ? `Sold ${n} for {coin} ${r.coins.toLocaleString()}!`
+      : kind === 'release' ? `${n} wandered off into the wild.`
+        : kind === 'store' ? `${n} resting in storage.` : `${n} back on ${ISLANDS[here].name}.`;
+    this.ui.toast(`${msg}${r.skipped ? ` (${r.skipped} stayed: ${r.reason})` : ''}`, kind === 'sell' ? 'discovery' : 'info', undefined, 3800, { priority: 3 });
+    if (kind === 'sell') {
+      this.record({ kind: 'sold', coins: r.coins });
+      this.analytics.track('sold_bulk', { count: r.done, coins: r.coins });
+    }
+    this.ui.clearPetSelection();
+    this.ui.rerender();
+    this.saveSoon();
+  }
+
+  bulkMove(ids: string[], to: IslandId): void {
+    const r = A.bulkMove(this.state, ids, to, this.now());
+    if (!r.done) {
+      this.audio.play('error');
+      this.ui.fail(r.reason ?? 'Nobody could move.');
+      return;
+    }
+    this.audio.play('place');
+    this.ui.toast(`${r.done} pet${r.done === 1 ? '' : 's'} off to ${ISLANDS[to].name}!${r.skipped ? ` (${r.skipped} stayed: ${r.reason})` : ''}`, 'info', undefined, 3800, { priority: 3 });
+    this.ui.clearPetSelection();
+    this.ui.rerender();
+    this.saveSoon();
   }
 
   buySlot(): void {

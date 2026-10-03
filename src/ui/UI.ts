@@ -81,6 +81,11 @@ export class UI {
     h('span', { class: 'emoji' }, '📜'), h('span', { class: 'lbl' }, 'QUESTS'), this.questBadge);
   private questTab: 'daily' | 'lasting' | 'contest' = 'daily';
   private petsTab: 'wandering' | 'storage' | 'trips' = 'wandering';
+  /** Pets → Select: the pets picked for a bulk action (null when not selecting). */
+  private petSel: Set<string> | null = null;
+  /** Pets → which world to show ('all' groups them by world). */
+  private petWorld: IslandId | 'all' = 'all';
+  private longPressFired = false;
   private heartPop: { id: string; at: number } | null = null;
   private petsSort: PetsSort = 'newest';
   private collectorTile = h('button', { class: 'hud-tile collector hidden', 'aria-label': 'The Collector is visiting', onClick: () => { this.game.audio.play('tap'); this.showCollector(); } },
@@ -805,7 +810,8 @@ export class UI {
       { id: 'size', label: 'Size', cmp: (a, b) => b.size - a.size },
       { id: 'hunger', label: 'Hungriest', cmp: (a, b) => a.fullness - b.fullness },
     ];
-    this.openSheet('Pets', 'Everyone you keep. Tap ♥ to make one a Favorite: favorites can\'t be sold or released by mistake.', (b) => {
+    if (!tab) this.petSel = null;
+    this.openSheet('Pets', 'Tap ♥ to make a Favorite (safe from selling). Press and hold a pet, or tap Select, to pick several at once.', (b) => {
       const out = s.creatures.filter((c) => !c.stored && !c.trip);
       const stored = s.creatures.filter((c) => c.stored);
       const tabBtn = (id: typeof this.petsTab, label: string) =>
@@ -814,12 +820,41 @@ export class UI {
       b.append(h('div', { class: 'tabs pets-tabs' },
         tabBtn('wandering', `Out ${out.length}`), tabBtn('storage', `Stored ${stored.length}/${s.storageSlots}`),
         tabBtn('trips', `${s.expeditions.some((e) => e.end <= g.now()) ? '❗ ' : ''}Trips ${s.expeditions.length}`)),
-        h('div', { class: 'sort-row' }, h('span', { class: 'muted' }, 'Favorites first, then'),
-          h('button', { class: 'sort-btn', onClick: () => { this.petsSort = SORTS[(SORTS.indexOf(sort) + 1) % SORTS.length].id; this.rerender(); } }, `Sort: ${sort.label} ▾`)));
+        h('div', { class: 'sort-row' }, h('span', { class: 'muted' }, this.petSel ? 'Tap pets to pick them' : 'Favorites first, then'),
+          h('button', { class: 'sort-btn', onClick: () => { this.petsSort = SORTS[(SORTS.indexOf(sort) + 1) % SORTS.length].id; this.rerender(); } }, `Sort: ${sort.label} ▾`),
+          this.petsTab !== 'trips' ? h('button', { class: `sort-btn ${this.petSel ? 'on' : ''}`, onClick: () => { this.petSel = this.petSel ? null : new Set(); this.rerender(); } }, this.petSel ? 'Cancel' : 'Select') : null));
       const heart = (c: Creature) => this.heartToggle(c);
       const list = h('div', { class: 'list pets' });
       const favFirst = (a: Creature, b2: Creature) => Number(!!b2.favorite) - Number(!!a.favorite) || sort.cmp(a, b2);
+      const sel = this.petSel;
+      // press and hold a pet to start picking several; tap to add or remove
+      const pickable = (row: HTMLElement, c: Creature, open: () => void) => {
+        let timer = 0;
+        row.addEventListener('pointerdown', () => {
+          this.longPressFired = false;
+          timer = window.setTimeout(() => {
+            this.longPressFired = true;
+            this.petSel ??= new Set();
+            this.petSel.add(c.id);
+            navigator.vibrate?.(20);
+            this.game.audio.play('tap');
+            this.rerender();
+          }, 450);
+        });
+        for (const ev of ['pointerup', 'pointerleave', 'pointercancel']) row.addEventListener(ev, () => clearTimeout(timer));
+        row.addEventListener('click', () => {
+          if (this.longPressFired) { this.longPressFired = false; return; }
+          if (this.petSel) {
+            if (this.petSel.has(c.id)) this.petSel.delete(c.id);
+            else this.petSel.add(c.id);
+            this.rerender();
+          } else open();
+        });
+        if (sel) row.prepend(h('span', { class: `pick ${sel.has(c.id) ? 'on' : ''}` }, sel.has(c.id) ? '✓' : ''));
+        return row;
+      };
       if (this.petsTab === 'trips') {
+        this.petSel = null;
         if (!s.expeditions.length) b.append(h('p', { class: 'muted' }, 'Nobody is exploring. Open a pet\'s card and tap 🧭 Explore to send it on a trip.'));
         for (const e of [...s.expeditions].sort((a, b2) => a.end - b2.end)) {
           const c = s.creatures.find((x) => x.id === e.creatureId);
@@ -831,35 +866,120 @@ export class UI {
               h('div', { class: 'muted' }, back ? 'Back home and bursting with news!' : `Back in ${fmtDuration(e.end - g.now())}`)),
             h('button', { class: 'btn small', disabled: !back, onClick: () => g.welcomeHome(c.id) }, back ? 'Welcome home' : 'Exploring…')));
         }
-      } else if (this.petsTab === 'wandering') {
-        for (const c of out.sort(favFirst)) {
-          const isl = ISLANDS[c.island];
-          list.append(h('div', { class: 'item tappable', onClick: () => { this.closeSheet(false); this.focusCreature(c.id); } },
-            this.portrait(c, 'swatch-img'),
-            h('div', { class: 'grow' }, h('div', { class: 'name' }, displayName(c)),
-              h('div', { class: 'desc row', style: 'gap:6px;flex-wrap:wrap' }, rarityTag(species(c.species).rarity), h('span', { class: 'muted' }, `${isl.icon} ${isl.name}`)),
-              h('div', { class: `progress tiny ${isHungry(c) ? 'hungry' : ''}` }, h('i', { style: `width:${Math.round(c.fullness * 100)}%` }))),
-            heart(c),
-            h('button', { class: `btn small ${isHungry(c) ? '' : 'secondary'}`, disabled: c.fullness > 0.97, 'aria-label': `Feed ${displayName(c)}`,
-              onClick: (e: Event) => { e.stopPropagation(); g.feed(c.id); } }, '🍓 Feed'),
-            h('button', { class: 'btn small secondary', onClick: (e: Event) => { e.stopPropagation(); g.store(c.id, true); } }, 'Store')));
-        }
+        b.append(list);
       } else {
-        if (!stored.length) b.append(h('p', { class: 'muted' }, 'Nobody is in storage. Store a creature to rest it here: no hunger, no growing, and it frees a spot on its world.'));
-        for (const c of stored.sort(favFirst)) {
-          list.append(h('div', { class: 'item' }, this.portrait(c, 'swatch-img'),
-            h('div', { class: 'grow' }, h('div', { class: 'name' }, displayName(c)), h('div', { class: 'desc' }, rarityTag(species(c.species).rarity))),
-            heart(c),
-            h('button', { class: 'btn small', onClick: () => g.retrieve(c.id) }, `Bring to ${ISLANDS[g.world.current].icon}`)));
+        const owned = ISLAND_ORDER.filter((id) => s.islands[id]?.owned);
+        if (this.petWorld !== 'all' && !owned.includes(this.petWorld)) this.petWorld = 'all';
+        let shown: Creature[];
+        if (this.petsTab === 'wandering') {
+          // which world everyone is on, at a glance
+          const chip = (id: IslandId | 'all', label: string) =>
+            h('button', { class: `chip ${this.petWorld === id ? 'on' : ''}`, onClick: () => { this.petWorld = id; this.rerender(); } }, label);
+          b.append(h('div', { class: 'world-filter' }, chip('all', `All ${out.length}`),
+            ...owned.map((id) => chip(id, `${ISLANDS[id].icon} ${out.filter((c) => c.island === id).length}/${islandCapacity(s, id)}`))));
+          shown = out.filter((c) => this.petWorld === 'all' || c.island === this.petWorld).sort(favFirst);
+          const groups = this.petWorld === 'all' ? owned : [this.petWorld];
+          for (const w of groups) {
+            const here = shown.filter((c) => c.island === w);
+            if (!here.length) continue;
+            if (groups.length > 1) list.append(h('div', { class: 'pets-world' }, `${ISLANDS[w].icon} ${ISLANDS[w].name}`, h('span', { class: 'muted' }, `${here.length}/${islandCapacity(s, w)}`)));
+            for (const c of here) {
+              const row = h('div', { class: `item tappable ${sel?.has(c.id) ? 'picked' : ''}` },
+                this.portrait(c, 'swatch-img'),
+                h('div', { class: 'grow' }, h('div', { class: 'name' }, displayName(c)),
+                  h('div', { class: 'desc row', style: 'gap:6px;flex-wrap:wrap' }, rarityTag(species(c.species).rarity), h('span', { class: 'muted' }, `${ISLANDS[c.island].icon} ${ISLANDS[c.island].name}`)),
+                  h('div', { class: `progress tiny ${isHungry(c) ? 'hungry' : ''}` }, h('i', { style: `width:${Math.round(c.fullness * 100)}%` }))),
+                heart(c),
+                sel ? null : h('button', { class: `btn small ${isHungry(c) ? '' : 'secondary'}`, disabled: c.fullness > 0.97, 'aria-label': `Feed ${displayName(c)}`,
+                  onClick: (e: Event) => { e.stopPropagation(); g.feed(c.id); } }, '🍓 Feed'));
+              list.append(pickable(row, c, () => { this.closeSheet(false); this.focusCreature(c.id); }));
+            }
+          }
+        } else {
+          shown = stored.sort(favFirst);
+          if (!stored.length) b.append(h('p', { class: 'muted' }, 'Nobody is in storage. Store a creature to rest it here: no hunger, no growing, and it frees a spot on its world.'));
+          for (const c of shown) {
+            const row = h('div', { class: `item tappable ${sel?.has(c.id) ? 'picked' : ''}` }, this.portrait(c, 'swatch-img'),
+              h('div', { class: 'grow' }, h('div', { class: 'name' }, displayName(c)), h('div', { class: 'desc' }, rarityTag(species(c.species).rarity))),
+              heart(c),
+              sel ? null : h('button', { class: 'btn small', onClick: (e: Event) => { e.stopPropagation(); g.retrieve(c.id); } }, `Bring to ${ISLANDS[g.world.current].icon}`));
+            list.append(pickable(row, c, () => this.showCreature(c.id)));
+          }
         }
-      }
-      b.append(list);
-      if (this.petsTab === 'storage') {
-        const price = nextSlotPrice(s);
-        b.append(h('button', { class: 'btn wide', style: 'margin-top:10px', disabled: price === null || s.glimmer < price, onClick: () => g.buySlot() },
-          price === null ? 'Storage is as big as it gets' : rich(`Add a storage slot · {coin} ${price}`)));
+        b.append(list);
+        if (this.petsTab === 'storage') {
+          const price = nextSlotPrice(s);
+          b.append(h('button', { class: 'btn wide', style: 'margin-top:10px', disabled: price === null || s.glimmer < price, onClick: () => g.buySlot() },
+            price === null ? 'Storage is as big as it gets' : rich(`Add a storage slot · {coin} ${price.toLocaleString()}`)));
+        }
+        if (sel) {
+          // drop anyone who left the list (sold, moved tab...)
+          for (const id of [...sel]) if (!shown.some((c) => c.id === id)) sel.delete(id);
+          const picked = shown.filter((c) => sel.has(c.id));
+          const here = collectorHere(s, g.now());
+          const total = picked.reduce((n, c) => n + (canSell(s, c) ? 0 : sellPrice(s, c, here)), 0);
+          const none = picked.length === 0;
+          b.append(h('div', { class: 'bulk-bar' },
+            h('div', { class: 'bulk-top' },
+              h('b', null, `${picked.length} picked`),
+              h('button', { class: 'sort-btn', onClick: () => { picked.length === shown.length ? sel.clear() : shown.forEach((c) => sel.add(c.id)); this.rerender(); } }, picked.length === shown.length && shown.length ? 'None' : 'All'),
+              h('button', { class: 'sort-btn', onClick: () => { this.petSel = null; this.rerender(); } }, 'Done')),
+            h('div', { class: 'bulk-btns' },
+              h('button', { class: 'btn small', disabled: none || !total, onClick: () => this.confirmBulk('sell', picked, total) }, rich(`Sell {coin} ${total.toLocaleString()}`)),
+              this.petsTab === 'wandering'
+                ? h('button', { class: 'btn small secondary', disabled: none, onClick: () => g.bulk('store', picked.map((c) => c.id)) }, '📦 Store')
+                : h('button', { class: 'btn small secondary', disabled: none, onClick: () => g.bulk('retrieve', picked.map((c) => c.id)) }, `Bring to ${ISLANDS[g.world.current].icon}`),
+              this.petsTab === 'wandering' && owned.length > 1
+                ? h('button', { class: 'btn small secondary', disabled: none, onClick: () => this.pickWorldFor(picked) }, '🧭 Move')
+                : null,
+              h('button', { class: 'btn small danger', disabled: none, onClick: () => this.confirmBulk('release', picked, 0) }, 'Release'))));
+        }
       }
     }, I.PAW);
+  }
+
+  clearPetSelection(): void {
+    this.petSel = null;
+  }
+
+  /** Sell or release everyone picked, after one clear check. */
+  private confirmBulk(kind: 'sell' | 'release', picked: Creature[], total: number): void {
+    const s = this.game.state;
+    // you always keep at least two out on your worlds
+    let outLeft = s.creatures.filter((c) => !c.stored && !c.trip).length;
+    const ok = picked.filter((c) => {
+      if (kind === 'sell' ? canSell(s, c) : c.favorite || c.trip) return false;
+      if (!c.stored) {
+        if (outLeft <= 2) return false;
+        outLeft -= 1;
+      }
+      return true;
+    });
+    const skipped = picked.length - ok.length;
+    if (kind === 'sell') total = ok.reduce((n, c) => n + sellPrice(s, c, collectorHere(s, this.game.now())), 0);
+    this.modal((m, close) => {
+      m.append(h('h2', null, kind === 'sell' ? `Sell ${ok.length} pet${ok.length === 1 ? '' : 's'}?` : `Release ${ok.length} pet${ok.length === 1 ? '' : 's'}?`),
+        h('div', { class: 'bulk-faces' }, ...ok.slice(0, 8).map((c) => this.portrait(c, 'swatch-img')), ok.length > 8 ? h('span', { class: 'muted' }, `+${ok.length - 8}`) : null),
+        kind === 'sell' ? h('p', { class: 'lv-rewards', style: 'text-align:center' }, rich(`{coin} +${total.toLocaleString()}`)) : h('p', { class: 'muted' }, 'They\'ll wander back into the wild. You can\'t undo this.'),
+        ...(skipped ? [h('p', { class: 'muted' }, `${skipped} can't be ${kind === 'sell' ? 'sold' : 'released'} (favorites, level gifts, or your last two) and will stay.`)] : []),
+        h('div', { class: 'btns' }, h('button', { class: 'btn secondary', onClick: close }, 'Keep them'),
+          h('button', { class: `btn ${kind === 'release' ? 'danger' : ''}`, disabled: !ok.length, onClick: () => { close(); this.game.bulk(kind, ok.map((c) => c.id)); } },
+            kind === 'sell' ? 'Sell' : 'Release')));
+    });
+  }
+
+  /** Where should the picked pets go? */
+  private pickWorldFor(picked: Creature[]): void {
+    const s = this.game.state;
+    this.modal((m, close) => {
+      m.append(h('h2', null, `Move ${picked.length} pet${picked.length === 1 ? '' : 's'} to…`),
+        h('div', { class: 'col', style: 'gap:6px' }, ...ISLAND_ORDER.filter((id) => s.islands[id]?.owned).map((id) => {
+          const room = islandCapacity(s, id) - s.creatures.filter((c) => c.island === id && !c.stored && !c.trip).length;
+          return h('button', { class: 'btn secondary', disabled: room <= 0, onClick: () => { close(); this.game.bulkMove(picked.map((c) => c.id), id); } },
+            `${ISLANDS[id].icon} ${ISLANDS[id].name} · ${room > 0 ? `${room} free` : 'full'}`);
+        })),
+        h('div', { class: 'btns' }, h('button', { class: 'btn secondary', onClick: close }, 'Cancel')));
+    });
   }
 
   showCollector(): void {
