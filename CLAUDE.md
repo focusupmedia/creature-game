@@ -30,7 +30,7 @@ Breeding variety, dig finds auto-collect, capacity per island size/world, rarity
 Lure spots open as worlds grow, graphics clean-up (coin, hands, coach), economy rebalance with an economy sim, more ads + free-coin ads, decor placement rework + tree chopping + 96-piece decor catalog, Favorite heart, Feed in Pets, islands spaced out.
 
 ## Next up (approved, A65-A72; build in this order)
-1. Pet color shades (common / Pastel / Shiny, inherited; mutations tint on top). 2. Friendship hearts. 3. Expeditions. 4. Daily login calendar. 5. Collection rewards. 6. Phone notifications (gentle). 7. Creature voices + ambience. 8. Weekly pet contests. 9. ~10 new creatures incl. 2 Mythicals. 10. Levels 51-100. 11. A 6th world (ask the owner which theme).
+1. Pet color shades (common / Pastel / Shiny, inherited; mutations tint on top). 2. Friendship hearts. 3. Expeditions. 4. Daily login calendar. 5. Collection rewards. 6. Phone notifications (gentle). 7. Creature voices + ambience. 8. Weekly pet contests. 9. ~10 new creatures incl. 2 Mythicals. 10. Levels 51-100. 11. A 6th world: Cloud Isle (sky island, rainbow bridges, bird and spirit creatures, Breeze lure).
 
 ## Open / later
 Real ads/IAP SDKs, native builds, real phone home-screen widgets, cloud save, final art and audio, final game name and bundle ID.

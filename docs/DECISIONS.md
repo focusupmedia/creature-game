@@ -89,7 +89,7 @@
 | A67 | **Daily login calendar:** 7-day reward calendar that grows each day, big day-7 reward | Approved |
 | A68 | **Collection rewards:** finishing a journal page (a world's creatures, all mutations...) pays a big one-time reward + badge | Approved |
 | A69 | **Pet contests:** a weekly show; enter a pet judged on rarity, size and looks; prizes for placing | Approved |
-| A70 | **Content:** ~10 new creatures (incl. 2 Mythicals with secret recipes), levels 51-100 (prestige), a 6th world | Approved |
+| A70 | **Content:** ~10 new creatures (incl. 2 Mythicals with secret recipes), levels 51-100 (prestige), a 6th world: Cloud Isle (sky island, rainbow bridges, bird + spirit creatures, Breeze lure) | Approved |
 | A71 | **Immersion:** friendship hearts (pet/feed/play; best friends follow you, dig better), gentle phone notifications (egg ready, rare visitor, Collector; max a couple a day), creature voices + world/weather ambience | Approved |
 | A72 | **Build order:** colors → friendship → expeditions → login calendar → collections → notifications → voices → contests → new creatures → levels 51-100 → new world | Approved |
 | A37 | **Build order:** quick wins (A29, A30) → round islands (A31) → drag/breed/dig spots (A32) → creatures, islands, mythicals (A34, A35) → Angel then Infernal/Abyssal (A33) → hunger + economy (A36) | Approved |
