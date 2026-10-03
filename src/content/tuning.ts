@@ -65,6 +65,19 @@ export const TUNING = {
   levelXpBase: 8,
   /** XP for things the player does. Idle time earns none. */
   xp: { lure: 6, breed: 15, hatch: 25, newSpecies: 50, newMutation: 30, gift: 2, digSpot: 8, shopEgg: 5, blessing: 40, arrivalNew: 30 } as Record<string, number>,
+  /** Hunger: hours from full to empty; below `hungry` a creature is grumpy and won't dig or breed. */
+  hungerHours: 10,
+  hungry: 0.3,
+  wellFed: 0.7,
+  /** Fruit trees: a fruit every N minutes, up to `fruitMax` waiting. */
+  fruitEveryMin: 90,
+  fruitMax: 3,
+  /** Storage: free slots, then the price of each extra slot. */
+  storageBase: 4,
+  storageSlotPrice: [400, 900, 1800, 3500, 6000],
+  /** The Collector visits every few hours and stays a while. */
+  collectorEveryHours: 6,
+  collectorStayMin: 45,
   digSpotEveryMin: 6,
   digSpotMax: 2,
   digSpotLifeMin: 25,

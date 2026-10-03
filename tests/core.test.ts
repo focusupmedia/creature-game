@@ -27,7 +27,7 @@ function fresh(seed = 42): GameState {
 function spawn(state: GameState, species: string, mutations: Creature['mutations'] = []): Creature {
   const c: Creature = {
     id: `t${state.creatures.length}${species}`, species, mutations, bornAt: T0, seed: 1, history: [],
-    island: 'home', size: 1, growMs: 0, personality: 'friendly', quirks: ['friendly', 'curious'],
+    island: 'home', size: 1, growMs: 0, personality: 'friendly', quirks: ['friendly', 'curious'], fullness: 1,
   };
   state.creatures.push(c);
   return c;
@@ -445,7 +445,7 @@ describe('save', () => {
     for (const c of v1.creatures) { delete c.island; delete c.size; delete c.growMs; delete c.personality; }
     for (const k of ['vent', 'ash', 'reef', 'shallows']) delete v1.spots[k];
     const s = deserialize(JSON.stringify(v1));
-    expect(s.version).toBe(7);
+    expect(s.version).toBe(8);
     expect(s.digSpots).toEqual([]);
     expect(s.islands.home.owned).toBe(true);
     expect(s.creatures.every((c) => c.island === 'home' && c.size > 0.9 && c.growMs === 0 && !!c.personality)).toBe(true);

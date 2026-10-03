@@ -2,7 +2,7 @@
 // curiosities come and go. Premium cosmetics rotate too: urgency without ever
 // selling discovery itself.
 
-import { DECOR, EGG_TIERS, ITEMS, TOOLS } from '../content/world';
+import { DECOR, EGG_TIERS, FOODS, ITEMS, TOOLS } from '../content/world';
 import { TUNING } from '../content/tuning';
 import { mulberry32 } from './rng';
 import type { GameState, IslandId, ShopOffer, ShopState } from './types';
@@ -25,6 +25,9 @@ export function generateShop(seed: number, rotation: number, t: number, owned: I
   if (owned.includes('beach')) add({ kind: 'lure', ref: 'seaspray', price: 50, currency: 'glimmer', qty: 1, stock: 99 });
   if (owned.includes('desert')) add({ kind: 'lure', ref: 'sunbaked', price: 55, currency: 'glimmer', qty: 1, stock: 99 });
 
+  // food is always stocked
+  for (const f of ['snack', 'feast', 'feedbag']) add({ kind: 'food', ref: f, price: FOODS[f].price, currency: 'glimmer', qty: 1, stock: 99 });
+  add({ kind: 'decor', ref: 'fruittree', price: DECOR.fruittree.price, currency: 'glimmer', qty: 1, stock: 99 });
   // trait tools are always stocked, for Starshards
   for (const t of Object.values(TOOLS)) add({ kind: 'tool', ref: t.id, price: t.price, currency: 'shards', qty: 1, stock: 99 });
 
@@ -41,7 +44,7 @@ export function generateShop(seed: number, rotation: number, t: number, owned: I
   egg(['wild', 'ember', 'reef'][rotation % 3], 2);
   egg('starry', 2);
 
-  const basic = Object.values(DECOR).filter((d) => !d.rotating);
+  const basic = Object.values(DECOR).filter((d) => !d.rotating && d.id !== 'fruittree');
   const premium = Object.values(DECOR).filter((d) => d.rotating);
   const d1 = pick(basic);
   let d2 = pick(basic);

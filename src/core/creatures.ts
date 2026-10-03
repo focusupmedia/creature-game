@@ -105,6 +105,7 @@ export function makeCreature(
     growMs: opts.hatchling ? TUNING.growMin * 60_000 : 0,
     personality,
     quirks: rollQuirks(rng, opts.parentQuirks, personality),
+    fullness: 1,
   };
 }
 

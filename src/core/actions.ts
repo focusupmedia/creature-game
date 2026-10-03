@@ -2,7 +2,7 @@
 // show. Keeping these pure makes them testable and server-verifiable later.
 
 import { species } from '../content/species';
-import { DECOR, DIG_KINDS, TOOLS, EGG_TIERS, EVENTS, ITEMS, LURES, MUTATIONS, RESONANCES, SPOTS, SUMMON_WEIGHTS } from '../content/world';
+import { DECOR, DIG_KINDS, FOODS, TOOLS, EGG_TIERS, EVENTS, ITEMS, LURES, MUTATIONS, RESONANCES, SPOTS, SUMMON_WEIGHTS } from '../content/world';
 import { ISLANDS, SIZE_PRICE } from '../content/islands';
 import { WILD_SPECIES } from '../content/species';
 import { islandCapacity, islandPopulation } from './sim';
@@ -44,6 +44,8 @@ export function startCombine(state: GameState, aId: string, bId: string, t: numb
   if (!a || !b) return fail('Choose two creatures.');
   const compat = compatibility(a, b);
   if (!compat.ok) return fail(compat.reason ?? 'Not kindred.');
+  for (const c of [a, b]) if (c.fullness < TUNING.hungry) return fail(`${displayName(c)} is too hungry to breed. Feed it first!`);
+  for (const c of [a, b]) if (c.stored) return fail(`${displayName(c)} is in storage.`);
   const nest = freeNest(state);
   if (nest === null) return fail('Every nest is full. Hatch an egg first, or add a nest.');
   const rng = new StateRng(state);
@@ -277,6 +279,10 @@ export function buyOffer(state: GameState, offerId: string, t: number): Result<{
       state.items[o.ref] = (state.items[o.ref] ?? 0) + o.qty;
       message = `${ITEMS[o.ref].name} added to your satchel.`;
       break;
+    case 'food':
+      state.food[o.ref] = (state.food[o.ref] ?? 0) + o.qty;
+      message = `${FOODS[o.ref]?.name ?? 'Food'} added to your pantry.`;
+      break;
     case 'tool':
       state.tools[o.ref] = (state.tools[o.ref] ?? 0) + o.qty;
       message = `${TOOLS[o.ref]?.name ?? 'Tool'} added to your satchel.`;
@@ -395,7 +401,7 @@ export function useItem(state: GameState, itemId: string, eggId: string): Result
 export function placeDecor(state: GameState, decor: string, x: number, z: number, rot: number): Result {
   if (!state.decorOwned[decor]) return fail('You have none to place.');
   state.decorOwned[decor] -= 1;
-  state.placedDecor.push({ id: newId(state, 'd'), decor, x, z, rot });
+  state.placedDecor.push({ id: newId(state, 'd'), decor, x, z, rot, harvestedAt: decor === 'fruittree' ? state.lastTick : undefined });
   return { ok: true };
 }
 

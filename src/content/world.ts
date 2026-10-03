@@ -273,6 +273,14 @@ export const DIG_KINDS: Record<DigKind, DigKindDef> = {
   },
 };
 
+// ---------------------------------------------------------------- food
+export const FOODS: Record<string, { id: string; name: string; icon: string; blurb: string; price: number; amount: number }> = {
+  fruit: { id: 'fruit', name: 'Berry', icon: '🫐', blurb: 'Fresh from your Berry Trees. Fills a creature halfway.', price: 0, amount: 0.5 },
+  snack: { id: 'snack', name: 'Crunchy Snack', icon: '🍪', blurb: 'Fills one creature halfway.', price: 15, amount: 0.5 },
+  feast: { id: 'feast', name: 'Feast Basket', icon: '🧺', blurb: 'Feeds everyone on an island a big meal.', price: 90, amount: 0.6 },
+  feedbag: { id: 'feedbag', name: 'Feedbag', icon: '🎒', blurb: 'Hang it on an island: 20 portions that feed hungry creatures while you\'re away.', price: 150, amount: 20 },
+};
+
 // ---------------------------------------------------------------- tools (used on creatures)
 export const TOOLS: Record<string, { id: string; name: string; icon: string; blurb: string; price: number }> = {
   traitDeleter: { id: 'traitDeleter', name: 'Trait Deleter', icon: '✂️', price: 30, blurb: 'Remove one trait you choose from a creature (it keeps at least 2).' },
@@ -297,6 +305,7 @@ export const DECOR: Record<string, DecorDef> = {
   flowerbed: { id: 'flowerbed', name: 'Wildflower Patch', blurb: 'A tumble of color.', price: 50, currency: 'glimmer', rotating: false },
   stoneArch: { id: 'stoneArch', name: 'Mossy Arch', blurb: 'Old stones, older moss.', price: 140, currency: 'glimmer', rotating: false },
   mushroomRing: { id: 'mushroomRing', name: 'Fairy Ring', blurb: 'Some say things dance here at night.', price: 110, currency: 'glimmer', rotating: false },
+  fruittree: { id: 'fruittree', name: 'Berry Tree', blurb: 'Grows a fresh berry every hour and a half. Tap it to pick them.', price: 150, currency: 'glimmer', rotating: false },
   crystal: { id: 'crystal', name: 'Dreaming Crystal', blurb: 'Hums a note just below hearing. Glows at night.', price: 40, currency: 'shards', rotating: true },
   windchime: { id: 'windchime', name: 'Moonbell Chime', blurb: 'Rings by itself before an eclipse.', price: 35, currency: 'shards', rotating: true },
   sakura: { id: 'sakura', name: 'Blossom Tree', blurb: 'Petals drift across the sanctuary.', price: 55, currency: 'shards', rotating: true },

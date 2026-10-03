@@ -14,6 +14,7 @@ import { StateRng } from './rng';
 import { refreshShop } from './shop';
 import { stepLegendary } from './legendary';
 import { hasQuirk, temperOf } from './quirks';
+import { stepCare } from './care';
 import { freeNest } from './state';
 import type { DigKind, EventKind, GameEvent, GameState, Gift, IslandId } from './types';
 import { activeEvent, isDark } from './world';
@@ -144,8 +145,9 @@ function step(state: GameState, t: number, dt: number, out: GameEvent[]): void {
 
   // ---- digging: residents dig things up, more or less often depending on personality
   if (state.gifts.length < TUNING.maxGiftsOnGround && state.creatures.length) {
-    const diggers = state.creatures.filter((c) => growth(c, t) >= 0.5);
-    const rate1 = (c: (typeof diggers)[number]) => (TUNING.digRate[temperOf(c) ?? ''] ?? 1) * (hasQuirk(c, 'digger') ? 2 : 1);
+    // hungry creatures don't dig; stored ones are away
+    const diggers = state.creatures.filter((c) => !c.stored && growth(c, t) >= 0.5 && c.fullness >= TUNING.hungry);
+    const rate1 = (c: (typeof diggers)[number]) => (TUNING.digRate[temperOf(c) ?? ''] ?? 1) * (hasQuirk(c, 'digger') ? 2 : 1) * (c.fullness >= TUNING.wellFed ? 1.25 : 1);
     const total = diggers.reduce((s, c) => s + rate1(c), 0);
     // Capped so hoarding creatures isn't an income strategy.
     const rate = Math.min(total, TUNING.giftResidentsCap) / (TUNING.giftEveryMin * MIN);
@@ -185,6 +187,9 @@ function step(state: GameState, t: number, dt: number, out: GameEvent[]): void {
     state.digSpots.push(spot);
     out.push({ type: 'digSpot', spot, t });
   }
+
+  // ---- hunger, feedbags and the Collector
+  stepCare(state, t, dt, rng, out);
 
   // ---- legendary events (very rare)
   stepLegendary(state, t, dt, rng, out);
@@ -226,7 +231,7 @@ function skyTouch(
 }
 
 export function islandPopulation(state: GameState, island: IslandId): number {
-  return state.creatures.reduce((n, c) => n + (c.island === island ? 1 : 0), 0);
+  return state.creatures.reduce((n, c) => n + (c.island === island && !c.stored ? 1 : 0), 0);
 }
 
 export function islandCapacity(state: GameState, island: IslandId): number {

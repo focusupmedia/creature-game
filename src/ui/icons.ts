@@ -141,3 +141,9 @@ export const POTION = svg(`
   <path d="M18 40h28l3 5a7 7 0 0 1-6 9H21a7 7 0 0 1-6-9z" fill="#b26bff"/>
   <circle cx="28" cy="46" r="2.6" fill="#fff" opacity=".85"/><circle cx="36" cy="49" r="1.8" fill="#fff" opacity=".7"/>
   <rect x="23" y="4" width="18" height="7" rx="2.5" fill="#c98a4b" stroke="${INK}" stroke-width="3.5"/>`);
+
+export const FOOD = svg(`
+  <path d="M32 18c-6-6-20-4-22 10-2 13 8 26 16 26 3 0 4-2 6-2s3 2 6 2c8 0 18-13 16-26-2-14-16-16-22-10z" fill="#ff5a5a" stroke="${INK}" stroke-width="4" stroke-linejoin="round"/>
+  <path d="M32 18c0-6 2-10 6-12" fill="none" stroke="${INK}" stroke-width="4" stroke-linecap="round"/>
+  <path d="M34 12c4-6 12-6 14-2-4 4-10 5-14 2z" fill="#7ed321" stroke="${INK}" stroke-width="3" stroke-linejoin="round"/>
+  <ellipse cx="22" cy="30" rx="4" ry="6" fill="#fff" opacity=".7"/>`);

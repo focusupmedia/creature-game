@@ -78,6 +78,22 @@ export function buildDecor(id: string): THREE.Group {
       }
       break;
     }
+    case 'fruittree': {
+      add(new THREE.CylinderGeometry(0.1, 0.16, 1.1, 6), '#7a5236', [0, 0.55, 0]);
+      const greens = ['#5fbf4a', '#4fae3a', '#6fd05a'];
+      for (let i = 0; i < 3; i++) {
+        const b = add(new THREE.IcosahedronGeometry(0.55 - i * 0.08, 0), greens[i], [Math.sin(i * 2.1) * 0.25, 1.25 + i * 0.22, Math.cos(i * 2.1) * 0.25]);
+        b.rotation.set(i, i * 2, 0);
+      }
+      // berries show as they ripen (World turns them on)
+      for (let i = 0; i < 3; i++) {
+        const a = i * 2.1 + 0.4;
+        const berry = add(new THREE.SphereGeometry(0.11, 8, 6), '#6a5aff', [Math.cos(a) * 0.5, 1.2 + (i % 2) * 0.25, Math.sin(a) * 0.5], '#4a3ad0');
+        berry.userData.berry = i;
+        berry.visible = false;
+      }
+      break;
+    }
     default:
       add(new THREE.BoxGeometry(0.5, 0.5, 0.5), '#ff00ff', [0, 0.25, 0]);
   }

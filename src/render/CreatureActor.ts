@@ -4,6 +4,7 @@ import { inWater, isBlocked, onLand, randomLand, randomWater, type Geo } from '.
 import { globeNormal, globePoint, globeStep } from '../content/globe';
 import { creatureTraits, currentScale, displayName } from '../core/creatures';
 import { hasQuirk, temperOf } from '../core/quirks';
+import { TUNING } from '../content/tuning';
 import type { QuirkId } from '../content/quirks';
 import type { Creature, EventKind, Personality, Trait } from '../core/types';
 import { animateGlow, animatePrismatic, buildCreature, disposeCreature, type CreatureModel } from './creatureModels';
@@ -102,7 +103,13 @@ export class CreatureActor {
     if (this.q('social')) { base.social += 0.4; base.squabble *= 0.5; }
     if (this.q('loner')) { base.social = 0; base.squabble = 0; }
     if (this.q('glutton')) base.lure += 0.2;
+    // hungry creatures get grumpy
+    if (this.hungry) { base.squabble += 0.3; base.social *= 0.5; }
     return base;
+  }
+
+  get hungry(): boolean {
+    return (this.creature.fullness ?? 1) < TUNING.hungry;
   }
 
   private q(id: QuirkId): boolean {
@@ -178,7 +185,7 @@ export class CreatureActor {
       case 'celebrate': return 'Celebrating ✨';
       case 'lookup': return 'Staring up at the sky';
       case 'fetch': return 'Off to grab something shiny 💰';
-      case 'idle': return 'Taking in the view';
+      case 'idle': return this.hungry ? 'Hungry… 🍖' : 'Taking in the view';
       default: return this.isSwimmer ? 'Swimming laps' : this.isFlyer ? 'Fluttering about' : 'Wandering about';
     }
   }
@@ -640,6 +647,11 @@ export class CreatureActor {
     if (Math.random() < T.idle) {
       this.state = 'idle';
       this.timer = 1.5 + Math.random() * 4;
+      if (this.hungry && Math.random() < 0.5) {
+        this.emote(Math.random() < 0.5 ? '🍖' : '😠', 1.6);
+        this.note('Hungry… feed me! 🍖');
+        return;
+      }
       if (this.q('curious') && Math.random() < 0.3) this.emote('🔍', 1.5);
       else if (this.q('showoff') && Math.random() < 0.35) {
         this.state = 'celebrate';

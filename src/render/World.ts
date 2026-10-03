@@ -8,6 +8,7 @@ import { CameraRig } from './CameraRig';
 import { CreatureActor, type ActorContext, type FxKind } from './CreatureActor';
 import { animateDigSpot, buildDigSpot, disposeDigSpot, type DigSpotView } from './digSpots';
 import { LegendaryFx } from './legendaryFx';
+import { ripeFruit } from '../core/care';
 import { buildDecor } from './decor';
 import { animateShopkeeper } from './creatureModels';
 import { buildEgg, disposeEgg, type EggModel } from './eggModel';
@@ -223,6 +224,7 @@ export class World {
     // creatures (rebuild when mutations, island or island size change)
     const alive = new Set<string>();
     for (const c of state.creatures) {
+      if (c.stored) continue;
       alive.add(c.id);
       const key = `${c.mutations.join(',')}|${c.island}|${this.sizes[c.island] ?? 0}`;
       const actor = this.actors.get(c.id);
@@ -343,7 +345,16 @@ export class World {
       }
     }
 
-    // decor
+    // decor (Berry Trees show their ripe berries)
+    for (const d of state.placedDecor) {
+      if (d.decor !== 'fruittree') continue;
+      const g = this.decor.get(d.id);
+      if (!g) continue;
+      const ripe = ripeFruit(d.harvestedAt, now);
+      g.traverse((o) => {
+        if (o.userData.berry !== undefined) o.visible = o.userData.berry < ripe;
+      });
+    }
     const decorAlive = new Set(state.placedDecor.map((d) => d.id));
     for (const d of state.placedDecor) {
       if (this.decor.has(d.id)) continue;

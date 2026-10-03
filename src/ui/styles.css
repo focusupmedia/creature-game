@@ -399,14 +399,14 @@ input.rename { font-family: var(--display); font-size: 22px; border: var(--outli
   background: var(--white); border-left: var(--outline); border-bottom: var(--outline);
 }
 @keyframes mango-bob { 0%, 100% { transform: translateY(0) rotate(-3deg); } 50% { transform: translateY(-3px) rotate(3deg); } }
-.shop-tabs { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; margin: 0 0 12px; }
+.shop-tabs { display: grid; grid-template-columns: repeat(6, 1fr); gap: 5px; margin: 0 0 12px; }
 .shop-tab {
-  height: 64px; border-radius: 14px; border: var(--outline); color: var(--white); font-family: var(--display);
+  height: 58px; border-radius: 12px; border: var(--outline); color: var(--white); font-family: var(--display);
   background: linear-gradient(180deg, #8fd8ff, var(--blue-2)); box-shadow: inset 0 -5px 0 rgba(0,0,0,.18), 0 4px 0 var(--ink);
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 0;
 }
-.shop-tab .icon { width: 32px; height: 32px; }
-.shop-tab .lbl { font-size: 12px; -webkit-text-stroke-width: 3px; text-shadow: 0 2px 0 var(--ink); line-height: 1; }
+.shop-tab .icon { width: 28px; height: 28px; }
+.shop-tab .lbl { font-size: 10.5px; -webkit-text-stroke-width: 3px; text-shadow: 0 2px 0 var(--ink); line-height: 1; }
 .shop-tab.on { background: linear-gradient(180deg, var(--orange-1), var(--orange-2)); transform: translateY(2px); box-shadow: inset 0 -4px 0 rgba(160, 70, 0, .35), 0 2px 0 var(--ink); }
 
 .reveal-ui .title.mythic { background: linear-gradient(90deg, #ffe27a, #ff9ec4, #8fffe0, #ffe27a); background-size: 300% 100%; -webkit-background-clip: text; background-clip: text; color: transparent; animation: mythic-shine 3s linear infinite; }
@@ -480,3 +480,13 @@ input.rename { font-family: var(--display); font-size: 22px; border: var(--outli
 .hud-tile .count.hidden { display: none; }
 .item.quest.claimed { opacity: .55; }
 .quest-done { font-size: 24px; }
+
+/* ---- care: food bar, pantry, storage, collector */
+.care { background: var(--white); border: 3px solid var(--sky-3); border-radius: 16px; padding: 10px; margin: 10px 0; }
+.progress.hungry i { background: linear-gradient(90deg, #ff6a4a, #ffb02a); }
+.pantry { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 0 0 8px; }
+.swatch-img { width: 52px; height: 52px; flex: none; }
+.item.wanted { border-color: #ffb02a; }
+.hud-tile.collector { background: linear-gradient(180deg, #c9a6ff, #6a3ce0); }
+.hud-tile.collector .emoji { font-size: 28px; line-height: 1; }
+.hud-tile.hidden { display: none; }

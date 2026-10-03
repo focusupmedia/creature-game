@@ -1,5 +1,5 @@
 import { SPECIES, species } from '../content/species';
-import { DECOR, EGG_TIERS, EVENTS, GIFTABLE_MUTATIONS, TOOLS, ITEMS, LEGENDARY, LEGENDARY_ORDER, LURES, MUTATIONS, SPOTS } from '../content/world';
+import { DECOR, EGG_TIERS, EVENTS, FOODS, GIFTABLE_MUTATIONS, TOOLS, ITEMS, LEGENDARY, LEGENDARY_ORDER, LURES, MUTATIONS, SPOTS } from '../content/world';
 import { ISLANDS, ISLAND_ORDER, SIZE_CAPACITY, SIZE_NAMES, SIZE_PRICE } from '../content/islands';
 import { TUNING } from '../content/tuning';
 import { NESTS, FONT, SHOP_STALL } from '../content/layout';
@@ -18,6 +18,7 @@ import { QUIRKS } from '../content/quirks';
 import { deleteQuirk, wipeQuirks } from '../core/quirks';
 import { MAX_LEVEL, levelProgress, levelReward, type LevelUp } from '../core/levels';
 import { DAILY_POOL, LASTING, claimable, lastingReward, refreshDailies } from '../core/quests';
+import { canSell, collectorHere, isHungry, nextSlotPrice, ripeFruit, sellPrice, storedCount } from '../core/care';
 import { rarityTag } from './rarity';
 
 const fmtClock = (ms: number) => `${Math.floor(Math.max(0, ms) / 60000)}:${String(Math.floor(Math.max(0, ms) / 1000) % 60).padStart(2, '0')}`;
@@ -27,11 +28,12 @@ const HABITAT_ICON: Partial<Record<Trait, string>> = { Grove: '🌳', Tide: '�
 const MUTATION_TRAITS: Trait[] = ['Lunar', 'Storm', 'Giant', 'Prismatic', 'Starlit', 'Frost', 'Angelic', 'Infernal', 'Abyssal'];
 
 /** What Mango says on each shop tab; the line changes with every new stock. */
-const MANGO_LINES: Record<'lure' | 'egg' | 'item' | 'decor' | 'shards', string[]> = {
+const MANGO_LINES: Record<'lure' | 'egg' | 'item' | 'decor' | 'shards' | 'food', string[]> = {
   egg: ['Ooh-ooh! Fresh eggs, still warm!', 'Who knows what is inside? Not me!', 'Shake it gently... I hear wings!'],
   lure: ['A good smell brings good friends.', 'This one makes my nose twitch!', 'Lures! Tastier than bananas. Almost.'],
   item: ['Curious things from far islands.', 'Do not ask where I found these.', 'Handle with care, keeper!'],
   decor: ['Make your island cozy!', 'Pretty things for pretty places.', 'Finest decor this side of the sea!'],
+  food: ['Hungry tummies make grumpy friends!', 'Bananas are not on the menu. Sadly.', 'Plant a Berry Tree and never run out!'],
   shards: ['Starshards! Shiny, shiny!', 'Sparkly stones from fallen stars.', 'They twinkle in my paws!'],
 };
 
@@ -48,6 +50,8 @@ export class UI {
   private questTile = h('button', { class: 'hud-tile quests', 'aria-label': 'Quests', onClick: () => { this.game.audio.play('tap'); this.showQuests(); } },
     h('span', { class: 'emoji' }, '📜'), h('span', { class: 'lbl' }, 'QUESTS'), this.questBadge);
   private questTab: 'daily' | 'lasting' = 'daily';
+  private collectorTile = h('button', { class: 'hud-tile collector hidden', 'aria-label': 'The Collector is visiting', onClick: () => { this.game.audio.play('tap'); this.showCollector(); } },
+    h('span', { class: 'emoji' }, '🎩'), h('span', { class: 'lbl' }, 'BUYER'));
   private levelNum = h('span', { class: 'lv-num' });
   private levelFill = h('i');
   private levelBadge = h('button', { class: 'level-badge', 'aria-label': 'Keeper level and rewards', onClick: () => { this.game.audio.play('tap'); this.showLevels(); } },
@@ -71,7 +75,7 @@ export class UI {
   private refreshTimer = 0;
   private fontPick: [string | null, string | null] = [null, null];
   private journalTab: 'creatures' | 'mutations' | 'notes' = 'creatures';
-  private shopTab: 'lure' | 'egg' | 'item' | 'decor' | 'shards' = 'egg';
+  private shopTab: 'lure' | 'egg' | 'item' | 'decor' | 'shards' | 'food' = 'egg';
   private coachDismissed = -1;
   private coachShownAt = 0;
   private seenShopRotation = 0;
@@ -99,6 +103,7 @@ export class UI {
             h('button', { class: 'hud-tile islands', 'aria-label': 'Islands', onClick: () => { this.game.audio.play('tap'); this.showIslands(); } },
               I.icon(I.ISLANDS), h('span', { class: 'lbl' }, 'ISLANDS')),
             this.questTile,
+            this.collectorTile,
             this.giftTile,
           ),
         ),
@@ -157,6 +162,7 @@ export class UI {
       this.levelNum.textContent = `Lv ${lp.level}`;
       this.levelFill.style.width = `${Math.round(lp.pct * 100)}%`;
     }
+    this.collectorTile.classList.toggle('hidden', !collectorHere(s, t));
     const ready = claimable(s);
     this.questBadge.textContent = String(ready);
     this.questBadge.classList.toggle('hidden', ready === 0);
@@ -362,6 +368,22 @@ export class UI {
       const t = this.game.now();
       const grown = growth(c, t);
       const tools = this.game.state.tools;
+      const g = this.game;
+      const full = Math.round(c.fullness * 100);
+      const here = collectorHere(g.state, g.now());
+      const price = sellPrice(g.state, c, here);
+      const noSell = canSell(g.state, c);
+      b.append(h('div', { class: 'care' },
+        h('div', { class: 'row', style: 'gap:8px;align-items:center' },
+          h('span', null, isHungry(c) ? '🍖' : '🍓'),
+          h('div', { class: 'grow' }, h('div', { class: `progress small ${isHungry(c) ? 'hungry' : ''}` }, h('i', { style: `width:${full}%` })),
+            h('span', { class: 'muted' }, isHungry(c) ? 'Hungry! It won\'t dig or breed until it eats.' : c.fullness >= 0.7 ? 'Well fed and happy' : 'Peckish')),
+          h('button', { class: 'btn small', onClick: () => g.feed(c.id) }, `Feed (${(g.state.food.fruit ?? 0) + (g.state.food.snack ?? 0)})`)),
+        h('div', { class: 'btns', style: 'margin-top:8px' },
+          h('button', { class: `btn small ${c.favorite ? '' : 'secondary'}`, onClick: () => { c.favorite = !c.favorite; g.saveSoon(); this.rerender(); } }, c.favorite ? '❤️ Favourite' : '🤍 Favourite'),
+          h('button', { class: 'btn small secondary', onClick: () => g.store(c.id) }, '📦 Store'),
+          h('button', { class: 'btn small secondary', disabled: !!noSell, title: noSell ?? '', onClick: () => this.confirmSell(c) }, rich(here ? `🎩 Sell · {coin} ${price}` : `Sell · {coin} ${price}`))),
+        noSell ? h('div', { class: 'muted' }, noSell) : null));
       b.append(h('div', { class: 'stats' },
         h('div', { class: 'stat' }, h('span', { class: 'k' }, `Traits (${c.quirks.length})`),
           ...c.quirks.map((q) => h('div', { class: 'quirk-line' }, h('b', null, `${QUIRKS[q].icon} ${QUIRKS[q].name}`), h('span', { class: 'muted' }, ` ${QUIRKS[q].blurb}`))),
@@ -432,6 +454,58 @@ export class UI {
             this.rerender();
           } }, 'Wipe them')));
     });
+  }
+
+  private confirmSell(c: Creature): void {
+    const g = this.game;
+    const here = collectorHere(g.state, g.now());
+    const price = sellPrice(g.state, c, here);
+    this.modal((m, close) => {
+      m.append(h('h2', null, `Sell ${displayName(c)}?`),
+        h('p', null, rich(`${here ? 'The Collector offers' : 'You\'ll get'} {coin} ${price}.`)),
+        h('p', { class: 'muted' }, here ? 'He\'ll give it a lovely home in his travelling menagerie.' : 'Tip: the travelling Collector pays at least double.'),
+        h('p', { class: 'muted' }, 'You can\'t undo this.'),
+        h('div', { class: 'btns' }, h('button', { class: 'btn secondary', onClick: close }, 'Keep it'),
+          h('button', { class: 'btn danger', onClick: () => { close(); g.sell(c.id); } }, 'Sell')));
+    });
+  }
+
+  // ---- storage and the Collector
+
+  showStorage(): void {
+    const s = this.game.state;
+    const g = this.game;
+    this.openSheet('Storage', `${storedCount(s)} of ${s.storageSlots} slots used. Stored creatures rest: no hunger, no growing.`, (b) => {
+      const stored = s.creatures.filter((c) => c.stored);
+      if (!stored.length) b.append(h('p', { class: 'muted' }, 'Nobody is in storage. Use "📦 Store" on a creature\'s card to rest it here.'));
+      const list = h('div', { class: 'list' });
+      for (const c of stored) {
+        list.append(h('div', { class: 'item' }, this.portrait(c, 'swatch-img'),
+          h('div', { class: 'grow' }, h('div', { class: 'name' }, displayName(c)), h('div', { class: 'desc' }, species(c.species).name)),
+          h('button', { class: 'btn small', onClick: () => g.retrieve(c.id) }, `Bring to ${ISLANDS[g.world.current].icon}`)));
+      }
+      b.append(list);
+      const price = nextSlotPrice(s);
+      b.append(h('button', { class: 'btn wide', style: 'margin-top:10px', disabled: price === null || s.glimmer < price, onClick: () => g.buySlot() },
+        price === null ? 'Storage is as big as it gets' : rich(`Add a slot · {coin} ${price}`)));
+    }, '📦');
+  }
+
+  showCollector(): void {
+    const s = this.game.state;
+    const g = this.game;
+    if (!collectorHere(s, g.now())) return this.toast('The Collector has moved on. He\'ll be back!');
+    this.openSheet('The Collector', `He pays double, and triple for ${s.collector.wants} creatures. Leaves in ${fmtDuration(s.collector.until - g.now())}.`, (b) => {
+      const list = h('div', { class: 'list' });
+      for (const c of s.creatures.filter((x) => !x.stored)) {
+        const why = canSell(s, c);
+        const wanted = species(c.species).traits.includes(s.collector.wants);
+        list.append(h('div', { class: `item ${wanted ? 'wanted' : ''}` }, this.portrait(c, 'swatch-img'),
+          h('div', { class: 'grow' }, h('div', { class: 'name' }, `${displayName(c)}${wanted ? ' ⭐' : ''}`), h('div', { class: 'desc' }, why ?? rarityTag(species(c.species).rarity))),
+          h('button', { class: 'btn small', disabled: !!why, onClick: () => this.confirmSell(c) }, rich(`{coin} ${sellPrice(s, c, true)}`))));
+      }
+      b.append(list);
+    }, '🎩');
   }
 
   private confirmRelease(c: Creature): void {
@@ -605,7 +679,7 @@ export class UI {
     this.openSheet(def.giftTitle, def.giftBlurb, (body) => {
       body.append(h('p', { class: 'muted' }, `The gift fades in ${fmtDuration(b.expiresAt - this.game.now())}.`));
       const grid = h('div', { class: 'grid' });
-      for (const c of s.creatures) {
+      for (const c of s.creatures.filter((x) => !x.stored)) {
         grid.append(h('button', { class: 'tile', onClick: () => this.chooseGift(c) }, this.portrait(c, ''), displayName(c)));
       }
       body.append(grid);
@@ -673,7 +747,7 @@ export class UI {
     const other = s.creatures.find((c) => c.id === this.fontPick[1 - i]) ?? null;
     this.openSheet('Choose a creature', other ? `Pairing with ${displayName(other)}` : 'Who will visit the Font?', (b) => {
       const grid = h('div', { class: 'grid' });
-      for (const c of s.creatures) {
+      for (const c of s.creatures.filter((x) => !x.stored)) {
         const comp = other ? compatibility(other, c) : { ok: true, shared: [] as Trait[] };
         grid.append(h('button', {
           class: `tile ${comp.ok ? '' : 'dim'} ${this.fontPick[i] === c.id ? 'sel' : ''}`,
@@ -802,7 +876,7 @@ export class UI {
       const line = MANGO_LINES[this.shopTab][s.shop.rotation % MANGO_LINES[this.shopTab].length];
       b.append(h('div', { class: 'shopkeeper' }, I.icon(I.MONKEY, 'icon mango'), h('div', { class: 'speech' }, line)));
       const tabs: [typeof this.shopTab, string, string][] = [
-        ['egg', 'EGGS', I.CREATE], ['lure', 'LURES', I.LURE], ['item', 'ITEMS', I.POTION], ['decor', 'DECOR', I.DECOR], ['shards', 'BANK', I.GEM],
+        ['egg', 'EGGS', I.CREATE], ['lure', 'LURES', I.LURE], ['food', 'FOOD', I.FOOD], ['item', 'ITEMS', I.POTION], ['decor', 'DECOR', I.DECOR], ['shards', 'BANK', I.GEM],
       ];
       b.append(h('div', { class: 'shop-tabs' }, ...tabs.map(([id, label, icon]) =>
         h('button', { class: `shop-tab ${this.shopTab === id ? 'on' : ''}`, 'aria-label': label, onClick: () => { this.game.audio.play('tap'); this.shopTab = id; this.rerender(); } },
@@ -835,7 +909,18 @@ export class UI {
         A.adsLeft(s, t) > 0 ? h('button', { class: 'btn ad small', onClick: () => this.game.adRefreshShop() }, '▶ Watch ad · refresh') : null,
       ));
       const list = h('div', { class: 'list' });
-      const offers = s.shop.offers.filter((x) => x.kind === this.shopTab || (this.shopTab === 'item' && x.kind === 'tool'));
+      if (this.shopTab === 'food') {
+        const g = this.game;
+        const here = g.world.current;
+        b.append(h('div', { class: 'pantry' },
+          h('b', null, 'Your pantry: '), ...['fruit', 'snack', 'feast', 'feedbag'].map((f) => h('span', { class: 'quirk' }, `${FOODS[f].icon} ${s.food[f] ?? 0}`))));
+        b.append(h('div', { class: 'btns' },
+          h('button', { class: 'btn small', disabled: !(s.food.feast ?? 0), onClick: () => g.feast() }, `🧺 Feast for ${ISLANDS[here].name}`),
+          h('button', { class: 'btn small secondary', disabled: !(s.food.feedbag ?? 0), onClick: () => g.hangBag() }, `🎒 Hang a feedbag here (${s.feedbags[here] ?? 0} left)`)));
+        b.append(h('p', { class: 'muted' }, 'Feed a creature from its card. Berry Trees grow free berries: plant one from the list below.'));
+      }
+      const offers = s.shop.offers.filter((x) => x.kind === this.shopTab || (this.shopTab === 'item' && x.kind === 'tool')
+        || (this.shopTab === 'food' && x.kind === 'decor' && x.ref === 'fruittree')).filter((x) => !(this.shopTab === 'decor' && x.ref === 'fruittree'));
       if (!offers.length) list.append(h('p', { class: 'muted' }, 'Nothing of this kind today. Check back when new stock arrives!'));
       for (const o of offers) {
         let name = '';
@@ -844,6 +929,7 @@ export class UI {
         let style = '';
         if (o.kind === 'lure') { const l = LURES[o.ref]; name = l.name; desc = l.scent; icon = HABITAT_ICON[l.attracts] ?? '🫙'; style = `background:${l.color}33`; }
         if (o.kind === 'item') { const it = ITEMS[o.ref]; name = it.name; desc = it.blurb; icon = it.effect === 'warmth' ? '🔥' : '🧪'; }
+        if (o.kind === 'food') { const f = FOODS[o.ref]; name = `${f.name} (have ${s.food[o.ref] ?? 0})`; desc = f.blurb; icon = f.icon; }
         if (o.kind === 'tool') { const tl = TOOLS[o.ref]; name = `${tl.name} (have ${s.tools[o.ref] ?? 0})`; desc = tl.blurb; icon = tl.icon; }
         if (o.kind === 'egg') {
           const tier = EGG_TIERS[o.ref];
@@ -996,6 +1082,10 @@ export class UI {
     const d = this.game.state.placedDecor.find((x) => x.id === id);
     if (!d) return;
     this.openSheet(DECOR[d.decor].name, DECOR[d.decor].blurb, (b) => {
+      if (d.decor === 'fruittree') {
+        const ripe = ripeFruit(d.harvestedAt, this.game.now());
+        b.append(h('button', { class: 'btn wide', style: 'margin-bottom:8px', disabled: !ripe, onClick: () => this.game.harvest(id) }, ripe ? `🫐 Pick ${ripe} ${ripe === 1 ? 'berry' : 'berries'}` : 'No berries yet'));
+      }
       b.append(h('button', { class: 'btn secondary wide', onClick: () => {
         A.storeDecor(this.game.state, id);
         this.game.saveSoon();
@@ -1205,12 +1295,13 @@ export class UI {
 
   showIslands(highlight?: IslandId): void {
     const s = this.game.state;
-    this.openSheet('Islands', 'Tap an island on the horizon, or two-finger swipe past the edge, to hop between them.', (b) => {
+    this.openSheet('Islands', 'Tap an island to visit it. Roll each globe to explore it.', (b) => {
+      b.append(h('button', { class: 'btn secondary wide', style: 'margin-bottom:10px', onClick: () => this.showStorage() }, `📦 Storage (${storedCount(s)} / ${s.storageSlots})`));
       for (const id of ISLAND_ORDER) {
         const def = ISLANDS[id];
         const isl = s.islands[id] ?? { owned: false, size: 0 };
         const here = this.game.world.current === id;
-        const pop = s.creatures.filter((c) => c.island === id).length;
+        const pop = s.creatures.filter((c) => c.island === id && !c.stored).length;
         const card = h('div', { class: `island-card ${highlight === id ? 'hl' : ''} ${def.status === 'soon' ? 'soon' : ''}` },
           h('div', { class: 'row' },
             h('div', { class: 'swatch big', style: `background:linear-gradient(160deg, ${def.palette.top}, ${def.palette.lip})` }, def.icon),

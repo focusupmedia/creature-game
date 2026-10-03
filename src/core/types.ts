@@ -187,6 +187,13 @@ export interface Creature {
   personality: Personality;
   /** Behaviour traits, 2-5 (see content/quirks.ts). */
   quirks: QuirkId[];
+  /** 1 = full, 0 = starving. Empties over about 10 hours. */
+  fullness: number;
+  /** Favourites can't be sold. */
+  favorite?: boolean;
+  /** In storage: paused (no hunger, no growing), not on any island. */
+  stored?: boolean;
+  storedAt?: number;
 }
 
 export interface Egg {
@@ -249,7 +256,7 @@ export interface Gift {
 
 export interface ShopOffer {
   id: string;
-  kind: 'lure' | 'item' | 'egg' | 'decor' | 'tool';
+  kind: 'lure' | 'item' | 'egg' | 'decor' | 'tool' | 'food';
   ref: string;
   price: number;
   currency: 'glimmer' | 'shards';
@@ -269,6 +276,8 @@ export interface PlacedDecor {
   x: number;
   z: number;
   rot: number;
+  /** Fruit trees: when fruit was last picked (or the tree was planted). */
+  harvestedAt?: number;
 }
 
 export interface JournalState {
@@ -300,6 +309,14 @@ export interface GameState {
   quests: { day: string; daily: { id: string; progress: number; claimed: boolean }[]; tiers: Record<string, number> };
   /** Lifetime counts that quests read. */
   questStats: Record<string, number>;
+  /** Pantry: fruit, snack, feast, feedbag. */
+  food: Record<string, number>;
+  /** Feedbag portions hanging on each island; they feed hungry creatures while you're away. */
+  feedbags: Partial<Record<IslandId, number>>;
+  storageSlots: number;
+  /** The travelling Collector: pays more than a quick sale, most for one type of creature. */
+  collector: { nextAt: number; until: number; wants: Trait };
+  hungerNotifiedDay?: string;
   decorOwned: Record<DecorId, number>;
   placedDecor: PlacedDecor[];
   creatures: Creature[];
@@ -345,5 +362,6 @@ export type GameEvent =
   | { type: 'digSpot'; spot: DigSpot; t: number }
   | { type: 'legendary'; kind: LegendaryKind; creature: Creature | null; discovered: boolean; t: number }
   | { type: 'legendaryEnd'; kind: LegendaryKind; t: number }
+  | { type: 'collector'; wants: Trait; until: number; t: number }
   | { type: 'shopRefresh'; t: number }
   | { type: 'note'; text: string; t: number };

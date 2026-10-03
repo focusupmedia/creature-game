@@ -3,6 +3,8 @@ import { DIG_KINDS, EVENTS, ITEMS, LEGENDARY, LURES, MUTATIONS, SPOTS } from '..
 import { claimBlessing, startLegendary } from '../core/legendary';
 import { addXp } from '../core/levels';
 import { claimDaily, claimLasting, questEvent, refreshDailies } from '../core/quests';
+import { buyStorageSlot, feastIsland, feedCreature, hangFeedbag, harvestTree, nextHungryAt, retrieveCreature, sellCreature, storeCreature } from '../core/care';
+import { islandCapacity } from '../core/sim';
 import { xpFor, type PlayEvent } from '../core/progress';
 import { ISLANDS } from '../content/islands';
 import { refreshShop } from '../core/shop';
@@ -162,6 +164,13 @@ export class Game {
   }
 
   private scheduleNotifications(): void {
+    // at most one "peckish" reminder a day
+    const hungryAt = nextHungryAt(this.state, this.now());
+    const day = hungryAt ? new Date(hungryAt).toISOString().slice(0, 10) : '';
+    if (hungryAt && this.state.hungerNotifiedDay !== day) {
+      this.state.hungerNotifiedDay = day;
+      this.notifications.schedule('hunger', hungryAt, 'Your pets are getting peckish 🍓', 'Pop by with a snack. A feedbag can feed them while you\'re away.');
+    }
     for (const e of this.state.eggs) {
       if (e.nest === null || e.progressMs >= e.incubationMs) continue;
       this.notifications.schedule(`egg-${e.id}`, this.now() + A.remainingMs(e), 'Something is moving inside an egg…', 'Come see what hatches.');
@@ -278,6 +287,9 @@ export class Game {
           this.ui.toast(`${LEGENDARY[ev.kind].icon} ${LEGENDARY[ev.kind].leave}`);
           this.ui.legendaryOverlayEnd();
           this.world.legendaryEnd();
+          break;
+        case 'collector':
+          if (live) this.ui.toast(`🎩 The Collector is visiting! He pays double, and triple for ${ev.wants} creatures. Tap BUYER.`, 'discovery', undefined, 6000);
           break;
         case 'digSpot':
           if (live && ev.spot.island === this.world.current && this.digHints < 2) {
@@ -589,6 +601,62 @@ export class Game {
       setTimeout(() => this.ui.showLevelUp(up), this.world.revealing ? 2500 : 400);
     }
     if (ups.length) this.saveSoon();
+  }
+
+  // ------------------------------------------------------------------ care
+
+  private careResult(r: { ok: true; message: string } | { ok: false; error: string }, sfx: 'coin' | 'place' | 'chime' = 'place'): boolean {
+    if (!r.ok) {
+      this.audio.play('error');
+      this.ui.toast(r.error);
+      return false;
+    }
+    this.audio.play(sfx);
+    this.ui.toast(r.message);
+    this.ui.rerender();
+    this.saveSoon();
+    return true;
+  }
+
+  feed(id: string): void {
+    if (this.careResult(feedCreature(this.state, id))) {
+      this.world.emote(id, '😋');
+      this.analytics.track('fed', { how: 'one' });
+    }
+  }
+
+  feast(): void {
+    if (this.careResult(feastIsland(this.state, this.world.current), 'chime')) this.analytics.track('fed', { how: 'feast' });
+  }
+
+  hangBag(): void {
+    this.careResult(hangFeedbag(this.state, this.world.current));
+  }
+
+  harvest(decorId: string): void {
+    if (this.careResult(harvestTree(this.state, decorId, this.now()), 'coin')) this.ui.closeSheet();
+  }
+
+  store(id: string): void {
+    if (this.careResult(storeCreature(this.state, id, this.now()))) this.ui.closeSheet();
+  }
+
+  retrieve(id: string): void {
+    const here = this.world.current;
+    this.careResult(retrieveCreature(this.state, id, here, this.now(), islandCapacity(this.state, here)));
+  }
+
+  buySlot(): void {
+    this.careResult(buyStorageSlot(this.state), 'coin');
+  }
+
+  sell(id: string): void {
+    const c = this.state.creatures.find((x) => x.id === id);
+    const r = sellCreature(this.state, id, this.now());
+    if (this.careResult(r, 'coin')) {
+      this.ui.closeSheet();
+      this.analytics.track('sold', { species: c?.species ?? '' });
+    }
   }
 
   claimQuest(kind: 'daily' | 'lasting', id: string): void {
