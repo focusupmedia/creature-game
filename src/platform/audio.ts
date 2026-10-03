@@ -89,7 +89,7 @@ export class Audio {
     const storm = sky === 'storm';
     const t = this.ctx.currentTime;
     // each world and sky has its own bed of sound
-    const windy = sky === 'blizzard' ? 0.16 : storm ? 0.12 : world === 'desert' ? 0.07 : sky === 'fog' ? 0.02 : 0.04;
+    const windy = sky === 'blizzard' ? 0.16 : storm ? 0.12 : world === 'desert' ? 0.07 : world === 'cloud' ? 0.09 : sky === 'fog' ? 0.02 : 0.04;
     this.rain.gain.setTargetAtTime(storm ? 0.09 : sky === 'rainbow' ? 0.025 : 0, t, 1.5);
     this.wind.gain.setTargetAtTime(windy, t, 2);
     const shore = world === 'lagoon' || world === 'beach';

@@ -6,7 +6,7 @@ import type { QuirkId } from '../content/quirks';
 
 export type Trait =
   // Habitats — what lures and places attract
-  | 'Grove' | 'Tide' | 'Bloom' | 'Mystic' | 'Ember' | 'Reef' | 'Sand' | 'Shore'
+  | 'Grove' | 'Tide' | 'Bloom' | 'Mystic' | 'Ember' | 'Reef' | 'Sand' | 'Shore' | 'Sky'
   // Kinds — body plans
   | 'Amphibian' | 'Reptile' | 'Insect' | 'Bird' | 'Fish' | 'Mammal' | 'Fungus' | 'Spirit' | 'Dragon' | 'Primate' | 'Arachnid'
   // Mutation traits — acquired, never native
@@ -20,7 +20,7 @@ export type LureId = string;
 export type ItemId = string;
 export type DecorId = string;
 export type SpotId = string;
-export type IslandId = 'home' | 'volcano' | 'lagoon' | 'beach' | 'desert';
+export type IslandId = 'home' | 'volcano' | 'lagoon' | 'beach' | 'desert' | 'cloud';
 export type Personality = 'energetic' | 'lazy' | 'shy' | 'curious' | 'grumpy' | 'friendly';
 export type WandererKind = 'fortune' | 'treasure' | 'chef' | 'gnome' | 'goblin';
 export type EventKind = 'storm' | 'eclipse' | 'starry' | 'fullmoon' | 'blizzard' | 'rainbow' | 'aurora' | 'meteor' | 'fog';

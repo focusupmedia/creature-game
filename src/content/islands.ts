@@ -102,9 +102,19 @@ export const ISLANDS: Record<IslandId, IslandDef> = {
     shelters: [{ x: 1.6, z: 4.4, s: 1 }, { x: -3.8, z: -3.4, s: 1 }],
     starters: ['sandpincer', 'dunecoil'],
   },
+  cloud: {
+    id: 'cloud', name: 'Cloud Isle', icon: '☁️', habitat: 'Sky', status: 'buyable',
+    blurb: 'A soft island floating above the sea, joined to the others by rainbow bridges. Birds and sky spirits drift here on the breeze.',
+    ox: 0, oz: -78, baseRadius: 8.5, price: { coins: 25000, level: 26 }, capacityBonus: 5,
+    palette: { top: '#a8d0ff', patch: '#f4f8ff', lip: '#8ab0e8', under: '#7a98d8', rock: '#c9b8ff', grass: '#c8f0ff' },
+    water: [{ x: 2.2, z: 2.0, r: 1.5 }],
+    obstacles: [{ x: -3.4, z: -3.0, r: 0.7 }, { x: 4.2, z: -2.6, r: 0.7 }, { x: -4.4, z: 2.6, r: 0.6 }, { x: 0.4, z: -5.4, r: 0.9 }],
+    shelters: [{ x: -3.4, z: -3.0, s: 1 }, { x: 4.2, z: -2.6, s: 1 }, { x: -4.4, z: 2.6, s: 0.9 }],
+    starters: ['kitewing', 'cloudlamb'],
+  },
 };
 
-export const ISLAND_ORDER: IslandId[] = ['home', 'volcano', 'lagoon', 'beach', 'desert'];
+export const ISLAND_ORDER: IslandId[] = ['home', 'volcano', 'lagoon', 'beach', 'desert', 'cloud'];
 
 /** World-space geometry of an island at a given size. */
 export interface Geo {

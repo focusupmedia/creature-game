@@ -39,6 +39,15 @@ const MIGRATIONS: Record<number, Migration> = {
   2: (raw) => {
     raw.digSpots = [];
   },
+  // v11 → v12: Cloud Isle.
+  11: (raw) => {
+    const islands = (raw.islands ?? {}) as Record<string, unknown>;
+    islands.cloud ??= { owned: false, size: 0 };
+    raw.islands = islands;
+    const spots = (raw.spots ?? {}) as Record<string, unknown>;
+    for (const k of ['cloudtop', 'mistpool', 'windmill', 'skyshrine']) spots[k] ??= null;
+    raw.spots = spots;
+  },
   // v10 → v11: expeditions.
   10: (raw) => {
     raw.expeditions = [];

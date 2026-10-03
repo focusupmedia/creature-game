@@ -129,6 +129,10 @@ export const LURES: Record<string, LureDef> = {
     id: 'sunbaked', name: 'Sunbaked Lure', attracts: 'Sand', durationMin: 6, expectedVisitors: 2.2,
     price: 55, scent: 'Hot dust and cactus flowers. Something clicks in the dunes.', color: '#f2b04a',
   },
+  breeze: {
+    id: 'breeze', name: 'Breeze Lure', attracts: 'Sky', durationMin: 6, expectedVisitors: 2.2,
+    price: 65, scent: 'Fresh as the top of a mountain. Feathers and wisps drift closer.', color: '#a8d8ff',
+  },
   moonpetal: {
     id: 'moonpetal', name: 'Moonpetal Lure', attracts: 'Mystic', durationMin: 8, expectedVisitors: 1.8,
     price: 60, scent: 'Faintly silver, faintly cold. It smells like a secret.', color: '#b9a6ff',
@@ -140,6 +144,7 @@ const V = ISLANDS.volcano;
 const L = ISLANDS.lagoon;
 const B = ISLANDS.beach;
 const D = ISLANDS.desert;
+const C = ISLANDS.cloud;
 export const SPOTS: Record<string, SpotDef> = {
   glade: { id: 'glade', island: 'home', name: 'Mossy Glade', x: -2.4, z: 4.9, affinity: { Grove: 1.5, Mystic: 1.3 }, water: false },
   pond: { id: 'pond', island: 'home', name: 'Pond Edge', x: 3.0, z: 2.7, affinity: { Tide: 2, Amphibian: 1.5 }, water: true },
@@ -161,6 +166,10 @@ export const SPOTS: Record<string, SpotDef> = {
   driftwood: { id: 'driftwood', island: 'beach', name: 'Driftwood Cove', x: B.ox + 2.4, z: B.oz - 9, affinity: { Shore: 1.5, Reptile: 1.5 }, water: false, minSize: 1 },
   gullrocks: { id: 'gullrocks', island: 'beach', name: 'Gull Rocks', x: B.ox - 8.9, z: B.oz - 7.4, affinity: { Bird: 2, Shore: 1.3 }, water: false, minSize: 2 },
   cactus: { id: 'cactus', island: 'desert', name: 'Cactus Patch', x: D.ox - 5.4, z: D.oz + 7.7, affinity: { Sand: 1.5, Insect: 1.5 }, water: false, minSize: 1 },
+  cloudtop: { id: 'cloudtop', island: 'cloud', name: 'Cloud Tops', x: C.ox - 1.6, z: C.oz + 0.4, affinity: { Sky: 2, Bird: 1.5 }, water: false },
+  mistpool: { id: 'mistpool', island: 'cloud', name: 'Mist Pool', x: C.ox + 2.2, z: C.oz + 2.0, affinity: { Sky: 1.5, Spirit: 1.5, Tide: 1.3 }, water: true },
+  windmill: { id: 'windmill', island: 'cloud', name: 'Windmill Hill', x: C.ox + 6.4, z: C.oz - 7.6, affinity: { Sky: 1.5, Bird: 2 }, water: false, minSize: 1 },
+  skyshrine: { id: 'skyshrine', island: 'cloud', name: 'Sky Shrine', x: C.ox - 8.4, z: C.oz - 8.0, affinity: { Sky: 1.3, Spirit: 2, Mystic: 1.5 }, water: false, minSize: 2 },
   ruins: { id: 'ruins', island: 'desert', name: 'Old Ruins', x: D.ox + 6.6, z: D.oz - 9.5, affinity: { Sand: 1.3, Mystic: 1.5, Spirit: 1.5 }, water: false, minSize: 2 },
 };
 
@@ -346,15 +355,15 @@ export interface DigKindDef {
 
 export const DIG_KINDS: Record<DigKind, DigKindDef> = {
   dust: {
-    name: 'Sparkly dust', verb: 'Dug up', icon: '✨', islands: { home: 3, volcano: 4, lagoon: 3, beach: 3, desert: 5 },
+    name: 'Sparkly dust', verb: 'Dug up', icon: '✨', islands: { home: 3, volcano: 4, lagoon: 3, beach: 3, desert: 5, cloud: 4 },
     glimmer: [12, 28], shardChance: 0.12, itemChance: 0.06, items: ['warmstone', 'rootswell'], eggChance: 0.03,
   },
   puddle: {
-    name: 'Bubbling puddle', verb: 'Fished up', icon: '🫧', islands: { home: 2, lagoon: 3, beach: 3, desert: 1 },
+    name: 'Bubbling puddle', verb: 'Fished up', icon: '🫧', islands: { home: 2, lagoon: 3, beach: 3, desert: 1, cloud: 2 },
     glimmer: [8, 22], shardChance: 0.08, itemChance: 0.08, items: ['rootswell'], eggChance: 0.01,
   },
   bush: {
-    name: 'Berry bush', verb: 'Foraged', icon: '🫐', islands: { home: 3, lagoon: 1, volcano: 1, beach: 1, desert: 1 },
+    name: 'Berry bush', verb: 'Foraged', icon: '🫐', islands: { home: 3, lagoon: 1, volcano: 1, beach: 1, desert: 1, cloud: 1 },
     glimmer: [6, 16], shardChance: 0.05, itemChance: 0.12, items: ['rootswell', 'warmstone'], eggChance: 0,
   },
 };

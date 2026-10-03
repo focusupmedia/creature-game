@@ -5,7 +5,7 @@ import { recordSpecies } from './journal';
 import { generateShop } from './shop';
 import type { GameState } from './types';
 
-export const SAVE_VERSION = 11;
+export const SAVE_VERSION = 12;
 
 export function createGame(now: number, seed = Math.floor(Math.random() * 2 ** 31)): GameState {
   const state: GameState = {
@@ -36,7 +36,7 @@ export function createGame(now: number, seed = Math.floor(Math.random() * 2 ** 3
     creatures: [],
     islands: {
       home: { owned: true, size: 0 }, volcano: { owned: false, size: 0 }, lagoon: { owned: false, size: 0 },
-      beach: { owned: false, size: 0 }, desert: { owned: false, size: 0 },
+      beach: { owned: false, size: 0 }, desert: { owned: false, size: 0 }, cloud: { owned: false, size: 0 },
     },
     eggs: [],
     nests: TUNING.freeNests,

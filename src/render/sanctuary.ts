@@ -369,7 +369,7 @@ export function buildIsland(id: IslandId, size: number, owned: boolean, chopped:
     for (let i = 0; i < 4; i++) {
       const a = rand() * Math.PI * 2;
       const r = g.r * (0.3 + rand() * 0.45);
-      M.add(new THREE.IcosahedronGeometry(1 + rand() * 0.6, 0), mix(id === 'volcano' ? '#5a4a4a' : '#5fc23f', fog, 0.5), { x: g.ox + Math.cos(a) * r, y: 1.1, z: g.oz + Math.sin(a) * r });
+      M.add(new THREE.IcosahedronGeometry(1 + rand() * 0.6, 0), mix(id === 'volcano' ? '#5a4a4a' : id === 'cloud' ? '#ffffff' : '#5fc23f', fog, 0.5), { x: g.ox + Math.cos(a) * r, y: 1.1, z: g.oz + Math.sin(a) * r });
     }
     if (id === 'volcano') M.add(new THREE.ConeGeometry(3.4, 4.2, 12, 1, true), mix('#4a3434', fog, 0.4), { x: g.ox, y: 0.9, z: g.oz - 3.6 });
     group.add(M.build());
@@ -384,6 +384,7 @@ export function buildIsland(id: IslandId, size: number, owned: boolean, chopped:
   if (id === 'lagoon') buildLagoon(view, M, g, rand);
   if (id === 'beach') buildBeach(view, M, g, rand);
   if (id === 'desert') buildDesert(view, M, g, rand);
+  if (id === 'cloud') buildCloud(view, M, g, rand);
 
   view.spotDishes = lureSpots(M, id, size, view.pickables, group, id === 'volcano' ? '#4a3a3a' : '#8d8f86');
 
@@ -812,4 +813,96 @@ function buildDesert(view: IslandView, M: Merger, g: Geo, rand: () => number): v
     if (inWater(g, x, z, 0.4) || isBlocked(g, x, z, 0.3)) continue;
     M.add(new THREE.DodecahedronGeometry(0.12 + rand() * 0.12, 0), i % 2 ? '#c09060' : '#a87a4a', { x, y: 0.06, z }, { x: rand(), y: rand(), z: rand() });
   }
+}
+
+// ---------------------------------------------------------------- Cloud Isle
+
+const RAINBOW_BANDS = ['#ff5a5a', '#ffa83a', '#ffe14d', '#5fd06a', '#4ab8ff', '#9a6aff'];
+
+function buildCloud(view: IslandView, M: Merger, g: Geo, rand: () => number): void {
+  // the mist pool, ringed with little clouds
+  const pool = g.water[0];
+  flatDisc(M, pool.r + 0.35, '#e0ecff', pool.x, pool.z, 0.03);
+  const water = waterDisc(g, pool, '#bfe8ff', '#8ad0ff');
+  view.group.add(water);
+  view.water.push(water);
+  for (let i = 0; i < 10; i++) {
+    const a = (i / 10) * Math.PI * 2 + rand() * 0.3;
+    M.add(new THREE.IcosahedronGeometry(0.28 + rand() * 0.14, 1), i % 3 ? '#ffffff' : '#eef2ff',
+      { x: pool.x + Math.cos(a) * (pool.r + 0.15), y: 0.12, z: pool.z + Math.sin(a) * (pool.r + 0.15) }, { x: 0, y: 0, z: 0 }, { x: 1, y: 0.7, z: 1 });
+  }
+  // a little rainbow arching over the pool
+  const arch = new THREE.Group();
+  arch.position.set(pool.x, 0, pool.z);
+  RAINBOW_BANDS.forEach((c, i) => {
+    const band = new THREE.Mesh(new THREE.TorusGeometry(1.9 - i * 0.12, 0.07, 6, 28, Math.PI), toon(c, c, 0.25));
+    band.rotation.y = 0.6;
+    arch.add(band);
+  });
+  view.group.add(arch);
+  // cloud trees (shelters from the weather)
+  for (const s of g.shelters) tree(view, M, s, rand, ['#ffffff', '#f4f0ff', '#e8f4ff'], '#c9b8ff');
+  // a little sky temple
+  const t = g.obstacles[3];
+  M.piece(t.x, t.z, () => {
+    M.add(new THREE.CylinderGeometry(1.0, 1.1, 0.2, 12), '#f4f0ff', { x: t.x, y: 0.1, z: t.z });
+    for (let i = 0; i < 5; i++) {
+      const a = (i / 5) * Math.PI * 2;
+      M.add(new THREE.CylinderGeometry(0.08, 0.08, 1.2, 8), '#ffffff', { x: t.x + Math.cos(a) * 0.75, y: 0.8, z: t.z + Math.sin(a) * 0.75 });
+    }
+    M.add(new THREE.CylinderGeometry(0.95, 0.95, 0.12, 12), '#e8e0ff', { x: t.x, y: 1.45, z: t.z });
+    M.add(new THREE.SphereGeometry(0.85, 14, 8, 0, Math.PI * 2, 0, Math.PI / 2), '#c9b8ff', { x: t.x, y: 1.5, z: t.z });
+    M.add(new THREE.SphereGeometry(0.14, 8, 6), '#ffe14d', { x: t.x, y: 2.4, z: t.z });
+  });
+  // soft cloud tufts on the ground and pastel flowers
+  for (let i = 0; i < 12; i++) {
+    const a = rand() * Math.PI * 2;
+    const r = 1.5 + rand() * (g.r - 2.5);
+    const x = g.ox + Math.cos(a) * r;
+    const z = g.oz + Math.sin(a) * r;
+    if (inWater(g, x, z, 0.8) || isBlocked(g, x, z, 0.6)) continue;
+    if (Object.values(SPOTS).some((sp) => sp.island === 'cloud' && Math.hypot(sp.x - x, sp.z - z) < 1.6)) continue;
+    for (let j = 0; j < 3; j++) {
+      M.add(new THREE.IcosahedronGeometry(0.3 + rand() * 0.2, 1), j % 2 ? '#ffffff' : '#f2f6ff',
+        { x: x + (j - 1) * 0.35, y: 0.12 + (j % 2) * 0.1, z: z + (rand() - 0.5) * 0.3 }, { x: 0, y: 0, z: 0 }, { x: 1, y: 0.6, z: 1 });
+    }
+  }
+  // clouds drifting around the underside: the island floats
+  const c = globeCenter(g);
+  const R = globeRadius(g);
+  for (let i = 0; i < 9; i++) {
+    const a = (i / 9) * Math.PI * 2 + rand() * 0.4;
+    const puff = new THREE.Group();
+    for (let j = 0; j < 4; j++) {
+      const p = new THREE.Mesh(new THREE.IcosahedronGeometry(1 + rand() * 0.7, 1), toon('#ffffff', '#dfefff', 0.3));
+      p.position.set(j * 1.1 - 1.6, rand() * 0.5, rand() * 0.6);
+      puff.add(p);
+    }
+    puff.position.set(c.x + Math.cos(a) * R * 1.05, c.y - R * (0.15 + rand() * 0.35), c.z + Math.sin(a) * R * 1.05);
+    puff.rotation.y = -a;
+    puff.userData.placed = true;
+    view.group.add(puff);
+  }
+  // rainbow bridges to the nearest worlds
+  for (const to of ['home', 'volcano', 'lagoon'] as IslandId[]) rainbowBridge(M, g, islandGeo(to, 0));
+}
+
+/** A rainbow arcing from this globe's side to another's. */
+function rainbowBridge(M: Merger, from: Geo, to: Geo): void {
+  const a = globeCenter(from);
+  const b = globeCenter(to);
+  const ra = globeRadius(from);
+  const rb = globeRadius(to);
+  const d = new THREE.Vector3(b.x - a.x, 0, b.z - a.z).normalize();
+  // from each globe's side (its equator), arching gently between them: on the horizon, never across your view
+  const start = new THREE.Vector3(a.x + d.x * ra * 0.98, a.y, a.z + d.z * ra * 0.98);
+  const end = new THREE.Vector3(b.x - d.x * rb * 0.98, b.y, b.z - d.z * rb * 0.98);
+  const mid = start.clone().lerp(end, 0.5);
+  mid.y = Math.max(start.y, end.y) + 9;
+  const side = new THREE.Vector3(-d.z, 0, d.x);
+  RAINBOW_BANDS.forEach((col, i) => {
+    const off = side.clone().multiplyScalar((i - 2.5) * 0.22);
+    const curve = new THREE.QuadraticBezierCurve3(start.clone().add(off), mid.clone().add(off), end.clone().add(off));
+    M.add(new THREE.TubeGeometry(curve, 48, 0.12, 5, false), col, { x: 0, y: 0, z: 0 }, { x: 0, y: 0, z: 0 }, { x: 1, y: 1, z: 1 }, 'fixed');
+  });
 }

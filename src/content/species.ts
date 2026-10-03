@@ -345,6 +345,35 @@ export const SPECIES: SpeciesDef[] = [
     hint: 'Something shimmers in the pond, but only under a rainbow.',
     eggColors: ['#ff6a8a', '#6ad8ff'],
   },
+  // ---- Cloud Isle
+  {
+    id: 'cloudlamb', name: 'Cloudlamb', traits: ['Mammal', 'Sky'], rarity: 'common',
+    activity: 'day', movement: 'hop', origin: 'wild',
+    blurb: 'Its wool is a real cloud. On hot days it rains on itself, just a little.',
+    hint: 'A fluffy hopper that lives up where the breeze blows.',
+    eggColors: ['#ffffff', '#bfe0ff'],
+  },
+  {
+    id: 'kitewing', name: 'Kitewing', traits: ['Bird', 'Sky'], rarity: 'common',
+    activity: 'day', movement: 'fly', origin: 'wild',
+    blurb: 'Flies like a kite, ribbons and all. Never needs a string.',
+    hint: 'A bird with a ribbon tail that rides the wind.',
+    eggColors: ['#ff7a8a', '#ffe14d'],
+  },
+  {
+    id: 'zephyrwisp', name: 'Zephyrwisp', traits: ['Spirit', 'Sky'], rarity: 'uncommon',
+    activity: 'any', movement: 'float', origin: 'wild',
+    blurb: 'A little gust that decided to stay. It ruffles your hair to say hello.',
+    hint: 'A playful spirit carried on the breeze.',
+    eggColors: ['#c8f0ff', '#e8d8ff'],
+  },
+  {
+    id: 'breezedrake', name: 'Breezedrake', traits: ['Dragon', 'Sky'], rarity: 'rare',
+    activity: 'day', movement: 'fly', origin: 'wild',
+    blurb: 'A small dragon with feathered wings. It sneezes tiny whirlwinds.',
+    hint: 'A rare dragon of the high winds. Patience on the cloud tops.',
+    eggColors: ['#7ad8c8', '#ffffff'],
+  },
   // ---- Level rewards: only from reaching keeper levels (one every 5)
   {
     id: 'jackalope', name: 'Jackalope', traits: ['Mammal', 'Grove', 'Mystic'], rarity: 'legendary',

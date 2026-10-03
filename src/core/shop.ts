@@ -24,6 +24,7 @@ export function generateShop(seed: number, rotation: number, t: number, owned: I
   if (owned.includes('lagoon')) add({ kind: 'lure', ref: 'saltkelp', price: 45, currency: 'glimmer', qty: 1, stock: 99 });
   if (owned.includes('beach')) add({ kind: 'lure', ref: 'seaspray', price: 50, currency: 'glimmer', qty: 1, stock: 99 });
   if (owned.includes('desert')) add({ kind: 'lure', ref: 'sunbaked', price: 55, currency: 'glimmer', qty: 1, stock: 99 });
+  if (owned.includes('cloud')) add({ kind: 'lure', ref: 'breeze', price: 65, currency: 'glimmer', qty: 1, stock: 99 });
 
   // food is always stocked
   for (const f of ['snack', 'feast', 'feedbag']) add({ kind: 'food', ref: f, price: FOODS[f].price, currency: 'glimmer', qty: 1, stock: 99 });

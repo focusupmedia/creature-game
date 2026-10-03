@@ -2330,3 +2330,123 @@ Object.assign(BUILDERS, {
     m.height = 1.25;
   },
 } satisfies Record<string, Builder>);
+
+// ---------------------------------------------------------------- Cloud Isle creatures
+
+Object.assign(PALETTES, {
+  cloudlamb: { main: '#ffffff', second: '#5a6488', accent: '#ffb0c8', belly: '#eef4ff' },
+  kitewing: { main: '#ff7a8a', second: '#ffe14d', accent: '#ff9f3a', belly: '#fff0e0' },
+  zephyrwisp: { main: '#d8f4ff', second: '#a8e0ff', accent: '#e8d8ff', belly: '#ffffff' },
+  breezedrake: { main: '#7ad8c8', second: '#ffffff', accent: '#a8e8ff', belly: '#e8fff8' },
+});
+
+Object.assign(BUILDERS, {
+  cloudlamb: (k, P, m) => {
+    const b = m.body;
+    // a body of cloud puffs
+    for (let i = 0; i < 9; i++) {
+      const a = i * 2.39996;
+      b.add(k.ball(0.15 + (i % 3) * 0.02, P.main, [Math.cos(a) * 0.16, 0.34 + Math.sin(i * 1.3) * 0.08, Math.sin(a) * 0.2 - 0.04]));
+    }
+    b.add(k.ball(0.26, P.main, [0, 0.34, -0.04], [1, 0.85, 1.1]));
+    const head = new THREE.Group();
+    head.position.set(0, 0.46, 0.3);
+    head.add(k.ball(0.13, P.second, [0, 0, 0], [0.95, 1, 1.1]));
+    k.eye(head, 0.06, 0.03, 0.11, 0.04);
+    k.eye(head, -0.06, 0.03, 0.11, 0.04);
+    head.add(k.ball(0.1, P.main, [0, 0.12, -0.02], [1.2, 0.7, 1]));
+    for (const s of [1, -1]) {
+      const ear = k.ball(0.05, P.second, [s * 0.14, 0.03, -0.02], [1.6, 0.6, 0.8]);
+      ear.rotation.z = 0.4 * s;
+      head.add(ear);
+      head.add(k.ball(0.025, P.accent, [s * 0.07, -0.05, 0.1], [1, 0.6, 0.5]));
+      for (const z of [0.12, -0.18]) {
+        const leg = pivot(s * 0.11, 0.18, z, k.mesh(G.cyl, P.second, [0.035, 0.18, 0.035], [0, -0.08, 0]));
+        b.add(leg);
+        m.legs.push(leg);
+      }
+    }
+    b.add(head);
+    m.wings.push(head);
+    const tail = new THREE.Group();
+    tail.position.set(0, 0.4, -0.3);
+    tail.add(k.ball(0.07, P.main, [0, 0, -0.03]));
+    b.add(tail);
+    m.tail = tail;
+    m.height = 0.8;
+  },
+  kitewing: (k, P, m) => {
+    bird(k, P, m, false);
+    // a kite-ribbon tail with little bows
+    const tail = m.tail!;
+    for (let i = 0; i < 4; i++) {
+      const z = -0.16 - i * 0.14;
+      const y = -0.04 - i * 0.05;
+      tail.add(k.mesh(G.cyl, P.second, [0.01, 0.15, 0.01], [0, y + 0.02, z + 0.07]).rotateX(Math.PI / 2 - 0.3));
+      for (const s of [1, -1]) {
+        const bow = k.mesh(G.cone, i % 2 ? P.accent : P.second, [0.035, 0.07, 0.02], [s * 0.035, y, z]);
+        bow.rotation.z = (Math.PI / 2) * s;
+        tail.add(bow);
+      }
+    }
+    // diamond kite markings on the wings
+    for (const w of m.wings) {
+      const s = w.position.x > 0 ? 1 : -1;
+      const d = k.mesh(G.tetra, P.second, [0.06, 0.09, 0.02], [0.08 * s, -0.04, 0.02]);
+      d.rotation.z = Math.PI / 4;
+      w.add(d);
+    }
+  },
+  zephyrwisp: (k, P, m) => {
+    const b = m.body;
+    b.add(k.ball(0.18, P.main, [0, 0, 0], [1, 1, 1], P.second));
+    const shell = new THREE.Mesh(G.sphere, new THREE.MeshToonMaterial({ color: P.accent, transparent: true, opacity: 0.4, emissive: P.second, emissiveIntensity: 0.4 }));
+    shell.scale.set(0.28, 0.3, 0.28);
+    b.add(shell);
+    k.eye(b, 0.08, 0.05, 0.25, 0.045);
+    k.eye(b, -0.08, 0.05, 0.25, 0.045);
+    // little gusts swirling round it
+    const swirl = new THREE.Group();
+    for (let i = 0; i < 3; i++) {
+      const ring = k.mesh(G.torus, i === 1 ? P.accent : P.belly, [0.36 - i * 0.05, 0.36 - i * 0.05, 0.08], [0, -0.22 + i * 0.1, -0.04]);
+      ring.rotation.set(Math.PI / 2 + 0.15, 0, i * 2.1);
+      ring.userData.noOutline = true;
+      swirl.add(ring);
+    }
+    b.add(swirl);
+    m.wings.push(swirl);
+    const tail = new THREE.Group();
+    tail.position.set(0, -0.12, -0.12);
+    const wisp = k.mesh(G.cone, P.main, [0.13, 0.4, 0.13], [0, -0.12, -0.08], P.second);
+    wisp.rotation.x = Math.PI + 0.7;
+    tail.add(wisp);
+    b.add(tail);
+    m.tail = tail;
+    const glow = glowSprite(P.second, 1.3, 0.6);
+    b.add(glow);
+    m.glows.push(glow);
+    m.height = 0.55;
+  },
+  breezedrake: (k, P, m) => {
+    dragon(k, P, m, false);
+    // feathered wings instead of leathery ones, and no fiery glow
+    for (const w of m.wings) {
+      const s = w.position.x > 0 ? 1 : -1;
+      w.remove(w.children[1]);
+      for (let i = 0; i < 4; i++) {
+        const f = k.ball(0.15 - i * 0.015, i % 2 ? P.second : P.accent, [(0.12 + i * 0.09) * s, 0.1 - i * 0.05, -0.04 - i * 0.03], [1.1, 0.22, 0.7]);
+        f.rotation.z = (-0.5 + i * 0.12) * s;
+        w.add(f);
+      }
+    }
+    for (const g of m.glows) g.removeFromParent();
+    m.glows.length = 0;
+    // a white feather crest
+    const head = m.body.children.find((c) => c instanceof THREE.Group && c.position.z > 0.2)!;
+    for (let i = 0; i < 3; i++) {
+      const f = k.ball(0.05, P.second, [0, 0.2 + i * 0.02, -0.06 - i * 0.07], [0.5, 1.6, 0.6]);
+      f.rotation.x = -0.6 - i * 0.2;
+      head.add(f);
+    }
+  },
+} satisfies Record<string, Builder>);
