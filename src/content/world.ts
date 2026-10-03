@@ -507,6 +507,7 @@ export const FOODS: Record<string, { id: string; name: string; icon: string; blu
   snack: { id: 'snack', name: 'Crunchy Snack', icon: '🍪', blurb: 'Fills one creature halfway.', price: 15, amount: 0.5 },
   feast: { id: 'feast', name: 'Feast Basket', icon: '🧺', blurb: 'Feeds everyone on an island a big meal.', price: 90, amount: 0.6 },
   feedbag: { id: 'feedbag', name: 'Feedbag', icon: '🎒', blurb: 'Hang it on an island: 20 portions that feed hungry creatures while you\'re away.', price: 150, amount: 20 },
+  sprout: { id: 'sprout', name: 'Sprout Snack', icon: '🌿', blurb: 'For little ones still growing: each one helps them grow up a good bit faster.', price: 45, amount: 0.3 },
 };
 
 // ---------------------------------------------------------------- tools (used on creatures)

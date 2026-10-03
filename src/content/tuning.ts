@@ -36,6 +36,10 @@ export const TUNING = {
   /** Combining two of the same species can awaken Giant. */
   purebredGiantChance: 0.12,
   tonicGiantChance: 0.6,
+  /** Chance a legendary or mythical parent's baby is NOT a copy of it (they stay special). */
+  rareCopyDamp: 0.75,
+  /** Hidden pity: a keeper's eggs are sure to hold a legendary (that shares a type with a parent) after this many without one; the first time sooner. */
+  legendaryPity: { first: 30, then: 50 },
   /** Chance a baby carries one of its parents' mutations (most hatch with none). */
   inheritOneChance: 0.12,
   /** Chance a new mutation of the active sky event sparks during combining. */
@@ -43,7 +47,7 @@ export const TUNING = {
   /** Hybrid rule chance multiplier when a required trait only comes from the sky. */
   skyResonanceFactor: 0.5,
 
-  incubationMin: { common: 2, uncommon: 5, rare: 12, legendary: 30, mythical: 45 } as Record<string, number>,
+  incubationMin: { common: 3, uncommon: 7, rare: 18, legendary: 45, mythical: 60 } as Record<string, number>,
   /** Extra minutes per mutation the egg carries. */
   incubationPerMutationMin: 1.5,
   /** Extra nests from Mango's shop, in Starshards (each one costs a little more; eight in all). */
@@ -53,8 +57,11 @@ export const TUNING = {
   capacity: 20,
   /** Hatchlings start at this fraction of their grown size... */
   hatchlingScale: 0.45,
-  /** ...and take this long to grow up. */
-  growMin: 15,
+  /** ...and take this long to grow up (times the rarity factor below). Growing carries on while you're away. */
+  growMin: 40,
+  growRarity: { common: 1, uncommon: 1.3, rare: 1.8, legendary: 2.5, mythical: 3 } as Record<string, number>,
+  /** A Sprout Snack skips this share of a pet's growing time. */
+  sproutShare: 0.2,
   /** Grown size range (before Giant). */
   sizeRange: [0.88, 1.14] as [number, number],
   /** Rare outliers outside the normal range. */

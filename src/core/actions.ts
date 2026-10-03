@@ -56,7 +56,28 @@ export function startCombine(state: GameState, aId: string, bId: string, t: numb
   const sky = activeEvent(state, t)?.kind ?? null;
   const known = new Set(Object.keys(state.journal.species));
   const forceNew = state.stats.combines < TUNING.firstNewEggs;
-  const o = combine(a, b, rng, sky, { known, forceNew });
+  const o = combine(a, b, rng, sky, { known, forceNew, recent: state.recentEggs });
+  // Hidden pity: a long run of eggs without a legendary ends with one that suits the parents.
+  const pity = (state.legendaryPity ??= { eggs: 0, got: 0 });
+  const rare = (id: SpeciesId) => ['legendary', 'mythical'].includes(species(id).rarity);
+  if (rare(o.species)) {
+    pity.eggs = 0;
+    pity.got += 1;
+  } else {
+    pity.eggs += 1;
+    if (pity.eggs >= (pity.got ? TUNING.legendaryPity.then : TUNING.legendaryPity.first)) {
+      const parentTraits = new Set([...species(a.species).traits, ...species(b.species).traits]);
+      const fits = SPECIES.filter((sp) => sp.rarity === 'legendary' && sp.origin !== 'reward' && !sp.onlyDuring && sp.traits.some((t) => parentTraits.has(t)));
+      if (fits.length) {
+        o.species = rng.pick(fits).id;
+        o.relative = !rare(a.species) && !rare(b.species) && o.species !== a.species && o.species !== b.species;
+        o.mutations = o.mutations.filter((m) => !species(o.species).traits.includes(MUTATIONS[m].trait));
+        pity.eggs = 0;
+        pity.got += 1;
+      }
+    }
+  }
+  state.recentEggs = [...(state.recentEggs ?? []), o.species].slice(-3);
   const egg: Egg = {
     id: newId(state, 'e'),
     species: o.species,
@@ -75,6 +96,8 @@ export function startCombine(state: GameState, aId: string, bId: string, t: numb
     parentShades: [a.shade, b.shade],
     parentQuirks: [a.quirks, b.quirks],
   };
+  // a Doting parent keeps the egg extra cosy
+  if (hasQuirk(a, 'doting') || hasQuirk(b, 'doting')) egg.incubationMs = Math.round(egg.incubationMs * 0.75);
   if (state.tutorial < 4) egg.incubationMs = Math.min(egg.incubationMs, 40_000);
   state.eggs.push(egg);
   state.stats.combines += 1;

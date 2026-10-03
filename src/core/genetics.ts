@@ -44,6 +44,8 @@ export interface CombineOpts {
   known?: Set<string>;
   /** Early eggs: always hatch something new, so first-time players feel the discovery loop. */
   forceNew?: boolean;
+  /** Species of the keeper's most recent eggs (oldest first), to break up long runs of the same kind. */
+  recent?: SpeciesId[];
 }
 
 /** Wild, non-legendary species that share a trait with either parent (preferring both). */
@@ -103,6 +105,30 @@ export function combine(a: Creature, b: Creature, rng: StateRng, sky: EventKind 
   } else if (!chosen && rng.chance(TUNING.distantRelativeChance)) {
     const rel = relatives(a, b);
     if (rel.length) {
+      sp = rng.weighted(rel) ?? sp;
+      relative = true;
+    }
+  }
+
+  // 1b. Legendary and mythical parents rarely pass on their own kind: they stay special.
+  const rarest = (id: SpeciesId) => ['legendary', 'mythical'].includes(species(id).rarity);
+  if (!chosen && !relative && rarest(sp) && rng.chance(TUNING.rareCopyDamp)) {
+    const other = sp === a.species ? b.species : a.species;
+    const rel = relatives(a, b);
+    if (!rarest(other)) sp = other;
+    else if (rel.length) {
+      sp = rng.weighted(rel) ?? sp;
+      relative = true;
+    }
+  }
+
+  // 1c. Variety: after three eggs of the same kind in a row, the next one is something else if it can be.
+  const last3 = opts.recent?.slice(-3) ?? [];
+  if (last3.length === 3 && last3.every((x) => x === sp)) {
+    const other = sp === a.species ? b.species : a.species;
+    const rel = relatives(a, b).filter(([id]) => id !== sp);
+    if (other !== sp) sp = other;
+    else if (rel.length) {
       sp = rng.weighted(rel) ?? sp;
       relative = true;
     }

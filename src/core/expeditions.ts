@@ -5,7 +5,7 @@ import { ITEMS } from '../content/world';
 import { TUNING } from '../content/tuning';
 import { addMutation, displayName, growth } from './creatures';
 import { recordMutation } from './journal';
-import { findBonus } from './friendship';
+import { findBonus, isBestFriend } from './friendship';
 import { levelOf } from './levels';
 import { hasQuirk } from './quirks';
 import { StateRng } from './rng';
@@ -32,7 +32,8 @@ export function sendOnExpedition(state: GameState, creatureId: string, dest: Exp
   if (growth(c, t) < 1) return fail(`${displayName(c)} is too little to go exploring. Let it grow up first.`);
   if (c.fullness < TUNING.hungry) return fail(`${displayName(c)} is too hungry to go. Feed it first!`);
   if (state.expeditions.length >= expeditionSlots(levelOf(state.xp))) return fail('Everyone who can go is already out exploring. More can go as you level up.');
-  state.expeditions.push({ creatureId: c.id, dest, start: t, end: t + def.hours * HOUR });
+  // best friends hurry home to you
+  state.expeditions.push({ creatureId: c.id, dest, start: t, end: t + def.hours * HOUR * (isBestFriend(c) ? 0.8 : 1) });
   c.trip = t + def.hours * HOUR;
   return { ok: true, message: `${displayName(c)} set off for the ${def.name}. Back in ${def.hours} hour${def.hours === 1 ? '' : 's'}!` };
 }

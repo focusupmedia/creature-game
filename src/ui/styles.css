@@ -714,3 +714,7 @@ input.rename { font-family: var(--display); font-size: 22px; border: var(--outli
 .grade.g-epic { background: #8a4dff; }
 .grade.g-legendary { background: #f09a00; }
 .grade.g-mythical { background: linear-gradient(90deg, #ff5fb5, #7a5cff, #2ad0c8); }
+
+/* best friend perks on the creature card */
+.perks { margin: 4px 0 0; padding-left: 18px; font-size: 13px; color: #6a4a00; }
+.perks li { margin: 1px 0; }

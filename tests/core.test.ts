@@ -368,8 +368,10 @@ describe('growth, personalities and first eggs', () => {
     const born = c.bornAt;
     expect(growth(c, born)).toBe(0);
     expect(currentScale(c, born)).toBeCloseTo(c.size * TUNING.hatchlingScale, 5);
-    expect(growth(c, born + TUNING.growMin * MIN)).toBe(1);
-    expect(currentScale(c, born + TUNING.growMin * MIN)).toBeCloseTo(c.size, 5);
+    expect(growth(c, born + c.growMs)).toBe(1);
+    expect(currentScale(c, born + c.growMs)).toBeCloseTo(c.size, 5);
+    // rarer kinds take longer to grow up, and growing carries on while you're away
+    expect(c.growMs).toBeGreaterThanOrEqual(TUNING.growMin * MIN * (c.quirks.includes('sprouty') ? 0.5 : 1));
     const sizes = new Set(Array.from({ length: 40 }, (_, i) => createGame(T0, i + 1).creatures[0].size.toFixed(3)));
     expect(sizes.size).toBeGreaterThan(30);
   });
@@ -757,5 +759,78 @@ describe('nests on every world', () => {
     s.shards = 1000;
     expect(buyNest(s).ok).toBe(true);
     expect(s.decorOwned.nest).toBe(1);
+  });
+});
+
+describe('breeding variety and the hidden legendary', () => {
+  it('after three eggs of the same kind in a row, the next one is something else', () => {
+    const s = fresh(11);
+    s.tutorial = 9;
+    s.stats.combines = 99;
+    const mk = (sp: string) => ({ ...s.creatures[0], id: sp + Math.random(), species: sp, mutations: [] as never[] });
+    const a = mk('mossfrog');
+    const b = mk('mossfrog');
+    for (let i = 0; i < 200; i++) {
+      s.rng = i * 7919;
+      const o = combine(a, b, new StateRng(s), null, { recent: ['mossfrog', 'mossfrog', 'mossfrog'] });
+      expect(o.species).not.toBe('mossfrog');
+    }
+  });
+
+  it('a long run of eggs without a legendary ends with one that shares a type with a parent', async () => {
+    const { startCombine: breed } = await import('../src/core/actions');
+    const s = fresh(12);
+    s.tutorial = 9;
+    s.stats.combines = 99;
+    s.legendaryPity = { eggs: TUNING.legendaryPity.first - 1, got: 0 };
+    const [a, b] = s.creatures;
+    const r = breed(s, a.id, b.id, T0);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const sp = SPECIES_BY_ID[r.egg.species];
+    expect(sp.rarity).toBe('legendary');
+    const parents = new Set([...SPECIES_BY_ID[a.species].traits, ...SPECIES_BY_ID[b.species].traits]);
+    expect(sp.traits.some((t) => parents.has(t))).toBe(true);
+    expect(s.legendaryPity).toEqual({ eggs: 0, got: 1 });
+  });
+
+  it('legendary parents rarely hatch copies of themselves', () => {
+    const s = fresh(13);
+    const mk = (sp: string) => ({ ...s.creatures[0], id: sp + Math.random(), species: sp, mutations: [] as never[] });
+    const a = mk('axolotl');
+    const b = mk('mossfrog');
+    let copies = 0;
+    for (let i = 0; i < 400; i++) {
+      s.rng = i * 7919;
+      if (combine(a, b, new StateRng(s), null).species === 'axolotl') copies++;
+    }
+    expect(copies / 400).toBeLessThan(0.2);
+  });
+});
+
+describe('traits that matter', () => {
+  it('Haggler raises sell prices on its world, Hearty gets hungry slower, Sprout Snacks speed up growing', async () => {
+    const { sellPrice, feedSprout } = await import('../src/core/care');
+    const s = fresh(14);
+    const [a, b, c] = s.creatures;
+    a.quirks = ['friendly'];
+    a.species = 'axolotl';
+    b.quirks = ['lazy'];
+    c.quirks = ['grumpy'];
+    const before = sellPrice(s, a, false);
+    b.quirks.push('haggler');
+    expect(sellPrice(s, a, false)).toBeGreaterThan(before);
+    a.quirks.push('hearty');
+    a.fullness = 1;
+    b.fullness = 1;
+    tick(s, T0 + 60 * MIN, { maxStepMs: 60_000 });
+    expect(a.fullness).toBeGreaterThan(b.fullness);
+    // a hatchling eating Sprout Snacks grows up sooner
+    c.growMs = 60 * MIN;
+    c.bornAt = s.lastTick;
+    s.food.sprout = 5;
+    const g0 = growth(c, s.lastTick);
+    expect(feedSprout(s, c.id, s.lastTick).ok).toBe(true);
+    expect(growth(c, s.lastTick)).toBeGreaterThan(g0 + 0.15);
   });
 });

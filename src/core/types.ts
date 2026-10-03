@@ -214,6 +214,10 @@ export interface Creature {
   size: number;
   /** How long it takes to grow up (0 = already grown). Hatchlings start small. */
   growMs: number;
+  /** Growing time skipped by Sprout Snacks. */
+  growBoostMs?: number;
+  /** The day a best friend last left you its daily present. */
+  bfGiftDay?: string;
   personality: Personality;
   /** Behaviour traits, 2-5 (see content/quirks.ts). */
   quirks: QuirkId[];
@@ -370,6 +374,8 @@ export interface JournalState {
   resonances: Record<string, number>;
   notes: { t: number; key: string; text: string }[];
   eventsSeen: Partial<Record<EventKind, number>>;
+  /** Behaviour traits you've seen on your own pets (first time seen). */
+  quirks?: Partial<Record<QuirkId, number>>;
 }
 
 export interface GameState {
@@ -454,6 +460,10 @@ export interface GameState {
   /** An event summoned by the player (rewarded ad). Takes precedence over the schedule. */
   summoned?: { kind: EventKind; start: number; end: number } | null;
   tutorial: number;
+  /** Species of the last few eggs you bred (to break up runs of the same kind). */
+  recentEggs?: SpeciesId[];
+  /** Hidden: bred eggs since the last legendary, and how many legendaries breeding has given. */
+  legendaryPity?: { eggs: number; got: number };
   /** Stocks you looked at in a row without a Legendary / Mythical egg (they're then guaranteed). */
   shopPity?: { legendary: number; mythical: number };
   /** Rewarded ads watched today: `count` for events, hatching and shop refreshes; `coins` for free coins. */

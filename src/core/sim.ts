@@ -27,6 +27,9 @@ const MIN = 60_000;
 /** `live`: the keeper is playing right now (wanderers only come then); `here`: the world they're looking at. */
 export function tick(state: GameState, now: number, opts: { maxStepMs?: number; live?: boolean; here?: IslandId } = {}): GameEvent[] {
   const out: GameEvent[] = [];
+  // the journal remembers every behaviour trait you've seen on your own pets
+  const seenQuirks = (state.journal.quirks ??= {});
+  for (const c of state.creatures) for (const q of c.quirks ?? []) seenQuirks[q] ??= now;
   const maxStep = opts.maxStepMs ?? 1000;
   const cap = TUNING.offlineCapHours * 60 * MIN;
   if (now - state.lastTick > cap) state.lastTick = now - cap;
@@ -95,6 +98,8 @@ function step(state: GameState, t: number, dt: number, out: GameEvent[], live = 
       continue;
     }
     let p = arrivalChance(active.lure, dt, sky);
+    // a Lure Lover on this world makes lures a little more tempting
+    if (state.creatures.some((c) => !c.stored && !c.trip && c.island === SPOTS[spotId].island && hasQuirk(c, 'lurelover'))) p *= 1.15;
     // First-ever lure: guarantee a quick first discovery.
     if (state.stats.arrivals === 0 && t - active.placedAt > 6000) p = Math.max(p, 0.25 * (dt / 1000));
     if (!rng.chance(p)) continue;

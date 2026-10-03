@@ -4,13 +4,15 @@
 
 import { species } from '../content/species';
 import { FOODS, MUTATIONS } from '../content/world';
-import { ISLAND_ORDER } from '../content/islands';
+import { ISLAND_ORDER, islandGeo, randomLand } from '../content/islands';
 import { TUNING } from '../content/tuning';
-import { displayName, isOutlier } from './creatures';
-import { addBond, hearts } from './friendship';
+import { displayName, growth, isOutlier, newId } from './creatures';
+import { today } from './quests';
+import { hasQuirk } from './quirks';
+import { addBond, hearts, isBestFriend } from './friendship';
 import { StateRng } from './rng';
 import { layEgg, rollEggTier } from './actions';
-import type { Creature, GameEvent, GameState, IslandId, Rarity, Trait } from './types';
+import type { Creature, GameEvent, GameState, Gift, IslandId, Rarity, Trait } from './types';
 
 const MIN = 60_000;
 const HOUR = 60 * MIN;
@@ -25,14 +27,27 @@ export function isHungry(c: Pick<Creature, 'fullness'>): boolean {
 /** Runs inside the sim step: hunger drains, feedbags refill, the Collector comes and goes. */
 export function stepCare(state: GameState, t: number, dt: number, rng: StateRng, out: GameEvent[]): void {
   const drain = dt / (TUNING.hungerHours * HOUR);
+  // a Musical pet out on a world cheers everyone there up: they get hungry a bit slower
+  const music = new Set(state.creatures.filter((c) => !c.stored && !c.trip && hasQuirk(c, 'musical')).map((c) => c.island));
   for (const c of state.creatures) {
     if (c.stored) continue;
-    c.fullness = Math.max(0, (c.fullness ?? 1) - drain);
+    const rate = (hasQuirk(c, 'hearty') ? 0.5 : 1) * (music.has(c.island) ? 0.85 : 1) * (isBestFriend(c) ? 0.7 : 1);
+    c.fullness = Math.max(0, (c.fullness ?? 1) - drain * rate);
     const bag = state.feedbags[c.island] ?? 0;
     if (bag > 0 && c.fullness < 0.45) {
       state.feedbags[c.island] = bag - 1;
       c.fullness = Math.min(1, c.fullness + 0.5);
     }
+  }
+  // best friends leave you a little present once a day, somewhere on their world
+  const day = today(t);
+  for (const c of state.creatures) {
+    if (c.stored || c.trip || !isBestFriend(c) || c.bfGiftDay === day || !state.islands[c.island]?.owned) continue;
+    c.bfGiftDay = day;
+    const p = randomLand(islandGeo(c.island, state.islands[c.island].size), () => rng.next());
+    const gift: Gift = { id: newId(state, 'g'), x: p.x, z: p.z, glimmer: rng.int(30, 60), shards: rng.chance(0.25) ? 2 : 0, island: c.island, from: c.id };
+    state.gifts.push(gift);
+    out.push({ type: 'gift', gift, t });
   }
   const col = state.collector;
   if (col.until && t >= col.until) {
@@ -63,6 +78,19 @@ export function feedCreature(state: GameState, id: string): Result {
   // feeding by hand makes friends
   const r = addBond(c, 2, state);
   return { ok: true, message: `${displayName(c)} munched a ${FOODS[food].name}. Yum!${r.newHeart ? ` Friendship grew to ${hearts(c)} hearts!` : ''}${r.golden ? ' So much love turned it Golden! ✨' : ''}` };
+}
+
+/** A Sprout Snack: a growing pet skips part of its growing time (and enjoys a little snack). */
+export function feedSprout(state: GameState, id: string, t: number): Result {
+  const c = state.creatures.find((x) => x.id === id);
+  if (!c) return fail('Who?');
+  if (growth(c, t) >= 1) return fail(`${displayName(c)} is all grown up.`);
+  if ((state.food.sprout ?? 0) < 1) return fail('You need a Sprout Snack from Mango (FOOD tab).');
+  state.food.sprout -= 1;
+  c.growBoostMs = (c.growBoostMs ?? 0) + c.growMs * TUNING.sproutShare;
+  c.fullness = Math.min(1, c.fullness + FOODS.sprout.amount);
+  addBond(c, 2, state);
+  return { ok: true, message: growth(c, t) >= 1 ? `${displayName(c)} gobbled it up and is all grown up!` : `${displayName(c)} gobbled it up and shot up a little!` };
 }
 
 /** A Feast Basket feeds everyone on an island. */
@@ -177,6 +205,8 @@ export function sellPrice(state: GameState, c: Creature, toCollector: boolean): 
   p *= Math.min(15, mult);
   p *= SHADE_MULT[c.shade ?? 'classic'] ?? 1.1;
   if (toCollector) p *= sp.traits.includes(state.collector.wants) ? 3 : 2;
+  // a Haggler out on the same world talks the price up
+  if (state.creatures.some((x) => !x.stored && !x.trip && x.island === c.island && hasQuirk(x, 'haggler'))) p *= 1.1;
   return Math.max(5, Math.round(p / 5) * 5);
 }
 

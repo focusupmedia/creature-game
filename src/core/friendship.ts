@@ -5,6 +5,7 @@
 
 import { addMutation, displayName } from './creatures';
 import { recordMutation } from './journal';
+import { hasQuirk } from './quirks';
 import type { Creature, GameState } from './types';
 
 const MIN = 60_000;
@@ -21,8 +22,17 @@ export function hearts(c: Pick<Creature, 'bond'>): number {
 }
 
 export const isBestFriend = (c: Pick<Creature, 'bond'>) => hearts(c) >= 5;
-/** Close friends (4+ hearts) dig up a bit more. */
-export const findBonus = (c: Pick<Creature, 'bond'>) => (hearts(c) >= 4 ? 1.25 : 1);
+/** Close friends (4 hearts) dig up a bit more, best friends half again as much. */
+export const findBonus = (c: Pick<Creature, 'bond'>) => (hearts(c) >= 5 ? 1.5 : hearts(c) >= 4 ? 1.25 : 1);
+
+/** What being best friends (5 hearts) does, for the creature card. */
+export const BEST_FRIEND_PERKS = [
+  'Follows you around and cheers when you pick it up',
+  'Digs, fishes and forages up 50% more',
+  'Gets hungry 30% slower',
+  'Comes home from trips sooner',
+  'Gives you a little present once a day',
+];
 
 export type BondResult = { ok: true; gained: number; hearts: number; newHeart: boolean; message: string } | { ok: false; error: string };
 
@@ -34,6 +44,8 @@ export type BondResult = { ok: true; gained: number; hearts: number; newHeart: b
 export function addBond(c: Creature, points: number, state?: GameState): { gained: number; newHeart: boolean; golden: boolean } {
   const before = hearts(c);
   const was = c.bond ?? 0;
+  // Social pets make friends half again as fast
+  if (hasQuirk(c, 'social')) points *= 1.5;
   c.bond = Math.min(BOND_MAX, was + points);
   const newHeart = hearts(c) > before;
   let golden = false;

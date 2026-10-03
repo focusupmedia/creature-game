@@ -88,13 +88,14 @@ export interface CreatureOpts {
 export function rollSize(rng: StateRng): number {
   const [lo, hi] = TUNING.sizeRange;
   // Outliers are unmistakable: a teeny one at a third of normal, or a colossal one twice as big or more.
-  if (rng.chance(TUNING.sizeOutlierChance)) return rng.chance(0.5) ? rng.range(0.32, 0.5) : rng.range(1.9, 2.7);
+  // Colossal ones now range all the way up to three and a half times normal.
+  if (rng.chance(TUNING.sizeOutlierChance)) return rng.chance(0.5) ? rng.range(0.32, 0.5) : rng.chance(0.3) ? rng.range(2.7, 3.5) : rng.range(1.9, 2.7);
   return lo + (hi - lo) * ((rng.next() + rng.next()) / 2);
 }
 
 /** Grow Mist makes a big one (sometimes huge); Shrink Mist a small one (sometimes teeny). */
 export function spraySize(rng: StateRng, size: number, spray?: 'grow' | 'shrink'): number {
-  if (spray === 'grow') return rng.chance(0.25) ? rng.range(1.9, 2.5) : Math.max(size, rng.range(1.15, 1.5));
+  if (spray === 'grow') return rng.chance(0.25) ? rng.range(1.9, 3) : Math.max(size, rng.range(1.15, 1.5));
   if (spray === 'shrink') return rng.chance(0.25) ? rng.range(0.35, 0.5) : Math.min(size, rng.range(0.62, 0.85));
   return size;
 }
@@ -109,6 +110,8 @@ export function makeCreature(
 ): Creature {
   const rng = new StateRng(state);
   const personality = opts.parents?.length && rng.chance(0.6) ? rng.pick(opts.parents) : rng.pick(PERSONALITY_IDS);
+  const size = spraySize(rng, rollSize(rng), opts.sizeSpray);
+  const quirks = rollQuirks(rng, opts.parentQuirks, personality);
   return {
     id: newId(state, 'c'),
     species: sp,
@@ -117,10 +120,10 @@ export function makeCreature(
     seed: opts.seed ?? rng.seed(),
     history: [{ t, text: story }],
     island: opts.island ?? 'home',
-    size: spraySize(rng, rollSize(rng), opts.sizeSpray),
-    growMs: opts.hatchling ? TUNING.growMin * 60_000 : 0,
+    size,
+    growMs: opts.hatchling ? growTime(sp, quirks) : 0,
     personality,
-    quirks: rollQuirks(rng, opts.parentQuirks, personality),
+    quirks,
     fullness: 1,
     met: opts.met,
     shade: rollShade(rng, opts.parentShades),
@@ -128,9 +131,15 @@ export function makeCreature(
 }
 
 /** 0..1 how grown-up a creature is. */
-export function growth(c: Pick<Creature, 'bornAt' | 'growMs'>, t: number): number {
+export function growth(c: Pick<Creature, 'bornAt' | 'growMs'> & { growBoostMs?: number }, t: number): number {
   if (!c.growMs) return 1;
-  return Math.min(1, Math.max(0, (t - c.bornAt) / c.growMs));
+  return Math.min(1, Math.max(0, (t - c.bornAt + (c.growBoostMs ?? 0)) / c.growMs));
+}
+
+/** How long a hatchling takes to grow up: rarer kinds take longer; Sprouty ones half the time. */
+export function growTime(sp: SpeciesId, quirks: QuirkId[] = []): number {
+  const ms = TUNING.growMin * 60_000 * (TUNING.growRarity[species(sp).rarity] ?? 1);
+  return Math.round(quirks.includes('sprouty') ? ms / 2 : ms);
 }
 
 /** Current visual scale: hatchlings start small and grow into their rolled size. */

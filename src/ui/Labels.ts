@@ -231,10 +231,10 @@ export class WorldLabels {
       const r = species(c.species).rarity;
       const odd = isOutlier(c.size) ? sizeLabel(c.size) : '';
       const icons = c.quirks.map((q) => QUIRKS[q].icon).join('');
-      const key = `${name}|${r}|${odd}|${icons}`;
+      const key = `${name}|${r}|${odd}|${icons}|${hearts(c) >= 5}`;
       if (key !== this.lastName) {
         this.lastName = key;
-        this.bubbleName.replaceChildren(document.createTextNode(name + ' '), rarityTag(r), odd ? h('span', { class: 'rarity r-outlier' }, odd) : '', h('span', { class: 'quirk-icons' }, icons));
+        this.bubbleName.replaceChildren(document.createTextNode(`${hearts(c) >= 5 ? '👑 ' : ''}${name} `), rarityTag(r), odd ? h('span', { class: 'rarity r-outlier' }, odd) : '', h('span', { class: 'quirk-icons' }, icons));
       }
       if (line !== this.lastLine) setText(this.bubbleLine, (this.lastLine = line));
       const n = hearts(c);

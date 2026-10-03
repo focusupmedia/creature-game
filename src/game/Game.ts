@@ -11,7 +11,7 @@ import { planNotifications } from '../core/notify';
 import { voiceOf } from '../render/voices';
 import { EXPEDITIONS, type ExpeditionId } from '../content/expeditions';
 import { claimDaily, claimLasting, questEvent, refreshDailies } from '../core/quests';
-import { awayFinds, bulkRelease, bulkRetrieve, bulkSell, bulkStore, buyStorageSlot, findVisitor, keepVisitor, releaseCreature, sendAwayVisitor, feastIsland, feedCreature, hangFeedbag, harvestTree, retrieveCreature, sellCreature, storeCreature } from '../core/care';
+import { awayFinds, bulkRelease, bulkRetrieve, bulkSell, bulkStore, buyStorageSlot, findVisitor, keepVisitor, releaseCreature, sendAwayVisitor, feastIsland, feedCreature, hangFeedbag, feedSprout, harvestTree, retrieveCreature, sellCreature, storeCreature } from '../core/care';
 import { islandCapacity } from '../core/sim';
 import { xpFor, type PlayEvent } from '../core/progress';
 import { ISLANDS, islandGeo } from '../content/islands';
@@ -1086,6 +1086,14 @@ export class Game {
       this.world.emote(id, '😋');
       this.record({ kind: 'feed' });
       this.analytics.track('fed', { how: 'one' });
+    }
+  }
+
+  /** A Sprout Snack: helps a little one grow up faster. */
+  sprout(id: string): void {
+    if (this.careResult(feedSprout(this.state, id, this.now()))) {
+      this.world.emote(id, '🌿');
+      this.analytics.track('fed', { how: 'sprout' });
     }
   }
 

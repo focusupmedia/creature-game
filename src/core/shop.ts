@@ -30,7 +30,7 @@ export function generateShop(seed: number, rotation: number, t: number, owned: I
   if (owned.includes('cloud')) add({ kind: 'lure', ref: 'breeze', price: 65, currency: 'glimmer', qty: 1, stock: 99 });
 
   // food is always stocked
-  for (const f of ['snack', 'feast', 'feedbag']) add({ kind: 'food', ref: f, price: FOODS[f].price, currency: 'glimmer', qty: 1, stock: 99 });
+  for (const f of ['snack', 'sprout', 'feast', 'feedbag']) add({ kind: 'food', ref: f, price: FOODS[f].price, currency: 'glimmer', qty: 1, stock: 99 });
   add({ kind: 'decor', ref: 'fruittree', price: DECOR.fruittree.price, currency: 'glimmer', qty: 1, stock: 99 });
   // trait tools are always stocked, for Starshards
   for (const t of Object.values(TOOLS)) add({ kind: 'tool', ref: t.id, price: t.price, currency: 'shards', qty: 1, stock: 99 });

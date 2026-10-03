@@ -9,7 +9,8 @@ import type { Personality } from '../core/types';
 export type QuirkId =
   | Personality
   | 'lucky' | 'digger' | 'greedy' | 'sleepy' | 'glutton' | 'brave' | 'nightowl' | 'earlybird'
-  | 'social' | 'loner' | 'swimmer' | 'explorer' | 'showoff' | 'musical' | 'clumsy';
+  | 'social' | 'loner' | 'swimmer' | 'explorer' | 'showoff' | 'musical' | 'clumsy'
+  | 'haggler' | 'sprouty' | 'doting' | 'hearty' | 'lurelover';
 
 export interface QuirkDef {
   id: QuirkId;
@@ -37,13 +38,18 @@ export const QUIRKS: Record<QuirkId, QuirkDef> = {
   brave: { id: 'brave', name: 'Brave', icon: '🦁', blurb: 'Never hides from storms or snow. Sometimes the sky changes it for it.', clashes: ['shy'] },
   nightowl: { id: 'nightowl', name: 'Night Owl', icon: '🦉', blurb: 'Stays up all night, whatever its kind usually does.', clashes: ['earlybird', 'sleepy'] },
   earlybird: { id: 'earlybird', name: 'Early Bird', icon: '🌅', blurb: 'Up with the sun, even if its kind sleeps by day.', clashes: ['nightowl', 'sleepy'] },
-  social: { id: 'social', name: 'Social', icon: '🤝', blurb: 'Seeks out company and makes friends quickly.', clashes: ['loner', 'shy'] },
+  social: { id: 'social', name: 'Social', icon: '🤝', blurb: 'Seeks out company. Becomes your friend half again as fast.', clashes: ['loner', 'shy'] },
   loner: { id: 'loner', name: 'Loner', icon: '🌙', blurb: 'Prefers its own company and wanders off on its own.', clashes: ['social', 'friendly'] },
   swimmer: { id: 'swimmer', name: 'Swimmer', icon: '🏊', blurb: 'Loves the water. Wades and paddles even if its kind doesn\'t.' },
   explorer: { id: 'explorer', name: 'Explorer', icon: '🧭', blurb: 'Wanders all the way around the island.' },
   showoff: { id: 'showoff', name: 'Show-off', icon: '✨', blurb: 'Strikes a pose whenever someone is watching.', clashes: ['shy'] },
-  musical: { id: 'musical', name: 'Musical', icon: '🎵', blurb: 'Sings little songs. Nearby creatures cheer up.' },
+  musical: { id: 'musical', name: 'Musical', icon: '🎵', blurb: 'Sings little songs. Everyone on its world gets hungry a bit slower.' },
   clumsy: { id: 'clumsy', name: 'Clumsy', icon: '💫', blurb: 'Trips over its own feet now and then. Bounces right back.' },
+  haggler: { id: 'haggler', name: 'Haggler', icon: '🪙', blurb: 'While it\'s out on a world, every pet you sell from that world fetches 10% more.' },
+  sprouty: { id: 'sprouty', name: 'Sprouty', icon: '🌱', blurb: 'Grows up in half the usual time.' },
+  doting: { id: 'doting', name: 'Doting', icon: '🐣', blurb: 'Eggs it helps make hatch a quarter sooner.' },
+  hearty: { id: 'hearty', name: 'Hearty', icon: '🍖', blurb: 'Gets hungry half as fast.' },
+  lurelover: { id: 'lurelover', name: 'Lure Lover', icon: '🎣', blurb: 'Lures on its world bring visitors a little more often.' },
 };
 
 export const QUIRK_IDS = Object.keys(QUIRKS) as QuirkId[];

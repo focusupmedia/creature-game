@@ -21,9 +21,9 @@ import type { Game } from '../game/Game';
 import { fmtDuration, h, img, rich, setText } from './dom';
 import * as I from './icons';
 import { WorldLabels } from './Labels';
-import { QUIRKS } from '../content/quirks';
+import { QUIRKS, QUIRK_IDS } from '../content/quirks';
 import { SHADES, type ShadeId } from '../content/shades';
-import { PET_COOLDOWN_MIN, PLAY_COOLDOWN_MIN, hearts } from '../core/friendship';
+import { BEST_FRIEND_PERKS, PET_COOLDOWN_MIN, PLAY_COOLDOWN_MIN, hearts } from '../core/friendship';
 import { EXPEDITIONS, EXPEDITION_ORDER, expeditionSlots, type ExpeditionId } from '../content/expeditions';
 import type { ExpeditionHaul } from '../core/expeditions';
 import { voiceOf } from '../render/voices';
@@ -122,7 +122,7 @@ export class UI {
   private lastShards = -1;
   private refreshTimer = 0;
   private fontPick: [string | null, string | null] = [null, null];
-  private journalTab: 'creatures' | 'mutations' | 'notes' | 'pages' = 'creatures';
+  private journalTab: 'creatures' | 'mutations' | 'traits' | 'notes' | 'pages' = 'creatures';
   private journalWorld: IslandId | 'all' = 'all';
   private decorCat = 'all';
   private feedWorld: IslandId = 'home';
@@ -556,7 +556,9 @@ export class UI {
         h('div', { class: 'stat' }, h('span', { class: 'k' }, 'Size'), h('span', { class: 'v' }, `${sizeLabel(c.size)}${c.mutations.includes('giant') ? ' · Giant' : ''} · ${fmtWeight(weightKg(c, g.now()))}`),
           grown < 1
             ? h('div', { class: 'col' }, h('div', { class: 'progress small' }, h('i', { style: `width:${Math.round(grown * 100)}%` })),
-              h('span', { class: 'muted' }, `Growing up · ${fmtDuration((1 - grown) * c.growMs)} to go`))
+              h('span', { class: 'muted' }, `Growing up · ${fmtDuration((1 - grown) * c.growMs)} to go (keeps growing while you're away)`),
+              c.stored ? null : h('button', { class: 'btn small secondary', style: 'align-self:flex-start;margin-top:4px', onClick: () => ((g.state.food.sprout ?? 0) ? g.sprout(c.id) : this.openShopFor('food')) },
+                (g.state.food.sprout ?? 0) ? `🌿 Sprout Snack (${g.state.food.sprout})` : '🌿 Get Sprout Snacks'))
             : h('span', { class: 'muted' }, `Fully grown (${Math.round(c.size * 100)}% of a typical ${sp.name})`)),
         h('div', { class: 'stat' }, h('span', { class: 'k' }, 'Home'), h('span', { class: 'v' }, `${ISLANDS[c.island].icon} ${ISLANDS[c.island].name}`)),
       ));
@@ -813,10 +815,11 @@ export class UI {
     const petWait = c.pettedAt !== undefined ? Math.max(0, PET_COOLDOWN_MIN * 60_000 - (t - c.pettedAt)) : 0;
     const playWait = c.playedAt !== undefined ? Math.max(0, PLAY_COOLDOWN_MIN * 60_000 - (t - c.playedAt)) : 0;
     return h('div', { class: 'friend' },
-      h('div', { class: 'friend-top' }, h('span', { class: 'k' }, n >= 5 ? 'Best friends!' : 'Friendship'), this.heartsRow(c)),
-      h('div', { class: 'muted' }, n >= 5 ? 'Follows you around and brings back better finds.'
-        : n >= 4 ? 'Close friends bring back better finds. One more heart to best friends!'
-          : 'Pet, play with and feed it to fill the hearts. Best friends follow you around.'),
+      h('div', { class: 'friend-top' }, h('span', { class: 'k' }, n >= 5 ? '👑 Best friends!' : 'Friendship'), this.heartsRow(c)),
+      n >= 5
+        ? h('ul', { class: 'perks' }, ...BEST_FRIEND_PERKS.map((p) => h('li', null, p)))
+        : h('div', { class: 'muted' }, n >= 4 ? 'Close friends bring back better finds. One more heart to best friends!'
+          : 'Pet, play with and feed it to fill the hearts. Best friends (5 hearts) get a crown and special perks.'),
       h('div', { class: 'btns', style: 'margin-top:6px' },
         h('button', { class: 'btn small', disabled: petWait > 0, onClick: () => g.befriend(c.id, 'pet') }, petWait > 0 ? `✋ Pet (${fmtDuration(petWait)})` : '✋ Pet'),
         h('button', { class: 'btn small', disabled: playWait > 0, onClick: () => g.befriend(c.id, 'play') }, playWait > 0 ? `🎾 Play (${fmtDuration(playWait)})` : '🎾 Play')));
@@ -948,7 +951,7 @@ export class UI {
             for (const c of here) {
               const row = h('div', { class: `item tappable ${sel?.has(c.id) ? 'picked' : ''}` },
                 this.portrait(c, 'swatch-img'),
-                h('div', { class: 'grow' }, h('div', { class: 'name' }, displayName(c)),
+                h('div', { class: 'grow' }, h('div', { class: 'name' }, `${hearts(c) >= 5 ? '👑 ' : ''}${displayName(c)}`),
                   h('div', { class: 'desc row', style: 'gap:6px;flex-wrap:wrap' }, rarityTag(species(c.species).rarity), h('span', { class: 'muted' }, `${ISLANDS[c.island].icon} ${ISLANDS[c.island].name} · ${fmtWeight(weightKg(c, g.now()))}`)),
                   h('div', { class: `progress tiny ${isHungry(c) ? 'hungry' : ''}` }, h('i', { style: `width:${Math.round(c.fullness * 100)}%` }))),
                 heart(c),
@@ -1798,7 +1801,7 @@ export class UI {
       const tab = (id: typeof this.journalTab, label: string) =>
         h('button', { class: this.journalTab === id ? 'on' : '', onClick: () => { this.journalTab = id; this.rerender(); } }, label);
       const ready = claimableCollections(s).length;
-      b.append(h('div', { class: 'tabs' }, tab('creatures', '🐾 Creatures'), tab('pages', `🏅 Pages${ready ? ' ❗' : ''}`), tab('mutations', '✨ Mutations'), tab('notes', `📝 Notes (${s.journal.notes.length})`)));
+      b.append(h('div', { class: 'tabs' }, tab('creatures', '🐾 Creatures'), tab('pages', `🏅 Pages${ready ? ' ❗' : ''}`), tab('mutations', '✨ Mutations'), tab('traits', `📖 Traits ${Object.keys(s.journal.quirks ?? {}).length}/${QUIRK_IDS.length}`), tab('notes', `📝 Notes (${s.journal.notes.length})`)));
       if (this.journalTab === 'pages') {
         b.append(h('p', { class: 'muted' }, 'Finish a page of your journal for a big reward and a badge.'));
         const list = h('div', { class: 'list' });
@@ -1846,6 +1849,18 @@ export class UI {
           }
           b.append(grid);
         }
+      } else if (this.journalTab === 'traits') {
+        // behaviour traits: what each one does stays a mystery until one of your pets has it
+        b.append(h('p', { class: 'muted' }, 'Every pet has 2 to 5 traits that change how it behaves. Breed and lure new pets to discover them all.'));
+        const list = h('div', { class: 'list' });
+        const known = (q: string) => (s.journal.quirks?.[q as keyof typeof s.journal.quirks] !== undefined ? 0 : 1);
+        for (const q of [...QUIRK_IDS].sort((x, y) => known(x) - known(y))) {
+          const seen = known(q) === 0;
+          list.append(h('div', { class: 'item' }, h('div', { class: 'swatch' }, seen ? QUIRKS[q].icon : '❔'),
+            h('div', { class: 'grow' }, h('div', { class: 'name' }, seen ? QUIRKS[q].name : 'Undiscovered trait'),
+              h('div', { class: 'desc' }, seen ? QUIRKS[q].blurb : 'Find a pet with this trait to learn what it does.'))));
+        }
+        b.append(list);
       } else if (this.journalTab === 'mutations') {
         const list = h('div', { class: 'list' });
         for (const m of Object.values(MUTATIONS)) {
