@@ -6,7 +6,7 @@ import { globeCenter, globeNormal, globePoint, globeRadius } from '../content/gl
 import { SPOTS } from '../content/world';
 import { mulberry32 } from '../core/rng';
 import type { IslandId } from '../core/types';
-import { addOutlines, glowSprite, glowTexture, toon, vertexToon } from './materials';
+import { addOutlines, glowSprite, glowTexture, toon, uniqueToon, vertexToon } from './materials';
 import { buildShopkeeper } from './creatureModels';
 
 // Island dioramas. Everything static is merged into one vertex-colored mesh per
@@ -173,7 +173,27 @@ function flatDisc(M: Merger, r: number, color: string, x: number, z: number, alt
 /** The globe itself. Also the tap target for the ground. */
 function globeMesh(g: Geo, color: string): THREE.Mesh {
   const c = globeCenter(g);
-  const mesh = new THREE.Mesh(new THREE.SphereGeometry(globeRadius(g), 72, 48), toon(color));
+  const geo = new THREE.SphereGeometry(globeRadius(g), 72, 48);
+  // Gentle painted shading: a touch warmer and lighter on top, cooler and deeper
+  // round the sides and underneath, with soft blotches so the ground never looks flat.
+  const base = new THREE.Color(color);
+  const warm = base.clone().lerp(new THREE.Color('#fff2c0'), 0.12);
+  const cool = base.clone().lerp(new THREE.Color('#2a4a6a'), 0.18);
+  const pos = geo.getAttribute('position') as THREE.BufferAttribute;
+  const cols = new Float32Array(pos.count * 3);
+  const tmp = new THREE.Color();
+  const R = globeRadius(g);
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i) / R, y = pos.getY(i) / R, z = pos.getZ(i) / R;
+    const up = (y + 1) / 2;
+    tmp.copy(cool).lerp(warm, Math.pow(up, 0.8));
+    const blotch = Math.sin(x * 5.1 + z * 3.7) * Math.sin(z * 4.3 - y * 2.9) * 0.045;
+    tmp.offsetHSL(0, 0, blotch);
+    cols.set([tmp.r, tmp.g, tmp.b], i * 3);
+  }
+  geo.setAttribute('color', new THREE.BufferAttribute(cols, 3));
+  const mat = uniqueToon('#ffffff', { vertexColors: true });
+  const mesh = new THREE.Mesh(geo, mat);
   mesh.position.set(c.x, c.y, c.z);
   // Cast shadows stretch into long streaks across a curved world; creatures
   // carry a soft blob shadow instead.
