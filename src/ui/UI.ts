@@ -27,7 +27,7 @@ import { THEMES, contestReady, placeFor, rivals, scorePet, themeOf, weekEnds, we
 import { DECOR_CATS, DECOR_LIST } from '../content/decor';
 import { WANDERERS } from '../content/wanderers';
 import { deleteQuirk, wipeQuirks } from '../core/quirks';
-import { MAX_LEVEL, levelOf, levelProgress, levelReward, type LevelUp } from '../core/levels';
+import { MAX_LEVEL, STAR_LEVEL, levelOf, levelProgress, levelReward, starRank, type LevelUp } from '../core/levels';
 import { DAILY_POOL, LASTING, claimable, lastingReward, refreshDailies } from '../core/quests';
 import { type AwayFind, canSell, collectorHere, findVisitor, isHungry, visitorThanks, nextSlotPrice, ripeFruit, sellPrice, storedCount } from '../core/care';
 import { rarityTag } from './rarity';
@@ -191,6 +191,7 @@ export class UI {
       this.lastXp = s.xp;
       const lp = levelProgress(s.xp);
       this.levelNum.textContent = `Lv ${lp.level}`;
+      for (let r = 1; r <= 3; r++) this.levelBadge.classList.toggle(`star${r}`, starRank(lp.level) === r);
       this.levelFill.style.width = `${Math.round(lp.pct * 100)}%`;
     }
     this.collectorTile.classList.toggle('hidden', !collectorHere(s, t));
@@ -975,14 +976,14 @@ export class UI {
 
   // ---- keeper levels
 
-  /** Your level, how to earn XP, and every reward from 1 to 50. */
+  /** Your level, how to earn XP, and every reward from 1 to 100. */
   showLevels(): void {
     const s = this.game.state;
     const lp = levelProgress(s.xp);
     let scrolled = false;
-    this.openSheet(`Keeper level ${lp.level}`, lp.level >= MAX_LEVEL ? 'You reached the top. Legendary keeper!' : `${lp.into.toLocaleString()} / ${lp.need.toLocaleString()} XP to level ${lp.level + 1}`, (b) => {
+    this.openSheet(`Keeper level ${lp.level}`, lp.level >= MAX_LEVEL ? 'You reached the top. Grand Keeper!' : `${lp.into.toLocaleString()} / ${lp.need.toLocaleString()} XP to level ${lp.level + 1}`, (b) => {
       b.append(h('div', { class: 'progress', style: 'margin:4px 0 8px' }, h('i', { style: `width:${Math.round(lp.pct * 100)}%` })));
-      b.append(h('p', { class: 'muted' }, 'Earn XP by hatching, breeding, setting lures, digging, discovering and finishing quests. Every level gives coins and Starshards, and every 5th level brings a creature you can only get here.'));
+      b.append(h('p', { class: 'muted' }, `Earn XP by hatching, breeding, setting lures, digging, discovering and finishing quests. Every level gives coins and Starshards. Every 5th level up to ${STAR_LEVEL}, then every 10th, brings a creature you can only get here. Past level ${STAR_LEVEL} you become a Star Keeper.`));
       const list = h('div', { class: 'list' });
       let current: HTMLElement | null = null;
       for (let l = 2; l <= MAX_LEVEL; l++) {
@@ -997,6 +998,7 @@ export class UI {
             sp ? h('div', { class: 'desc', style: 'font-weight:700;color:#8a4ad0' }, done || s.journal.species[sp.id] ? `+ ${sp.name}!` : '+ a mystery creature!') : null),
           sp ? img(this.game.world.portraits.get(sp.id, [], !(done || s.journal.species[sp.id])), 'lv-pic') : null);
         if (l === lp.level + 1) current = row;
+        if (l === STAR_LEVEL + 1) list.append(h('div', { class: 'lv-divider' }, '★ Star Keeper levels ★'));
         list.append(row);
       }
       b.append(list);
@@ -1014,7 +1016,12 @@ export class UI {
     const c = up.creatureId ? this.game.state.creatures.find((x) => x.id === up.creatureId) : null;
     this.modal((m, close) => {
       m.classList.add('levelup');
-      m.append(h('div', { class: 'lv-burst' }, '★'), h('h2', null, `Level ${up.level}!`),
+      const rank = starRank(up.level);
+      const title = up.level === STAR_LEVEL + 1 ? 'You\'re a Star Keeper now! Your badge shines with starlight.'
+        : up.level === 75 ? 'Your Star Keeper badge turns to gold!'
+          : up.level === MAX_LEVEL ? 'Level 100! You are a Grand Keeper, the best there is.' : null;
+      m.append(h('div', { class: `lv-burst ${rank ? `star${rank}` : ''}` }, '★'), h('h2', null, `Level ${up.level}!`),
+        ...(title ? [h('p', { style: 'font-weight:800;color:#6a3ce0' }, title)] : []),
         h('p', { class: 'lv-rewards' }, rich(`{coin} +${up.coins.toLocaleString()}   {gem} +${up.shards}`)),
         ...(sp && c ? [h('div', { class: 'col', style: 'align-items:center' }, this.portrait(c, 'portrait big'), h('b', null, `A ${sp.name} joined you!`),
           h('span', { class: 'muted' }, 'Only keepers who reach this level ever meet one. It\'s on your Home world, or you can store it for later.'))] : []),

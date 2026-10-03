@@ -406,6 +406,37 @@ export const SPECIES: SpeciesDef[] = [
     blurb: 'The rarest friend of all. Flowers turn toward it as it passes.',
     hint: 'A gift for reaching keeper level 50.', eggColors: ['#ffffff', '#ff9ee8'],
   },
+  // ---- Star Keeper rewards: one every 10 levels from 60 to 100
+  {
+    id: 'moonrabbit', name: 'Moon Rabbit', traits: ['Mammal', 'Mystic', 'Spirit'], rarity: 'legendary',
+    activity: 'night', movement: 'hop', origin: 'reward',
+    blurb: 'Lives on the moon and visits on clear nights. Makes the softest rice cakes you ever tasted.',
+    hint: 'A gift for reaching keeper level 60.', eggColors: ['#e8e4ff', '#ffe680'],
+  },
+  {
+    id: 'tanuki', name: 'Tanuki', traits: ['Mammal', 'Grove', 'Mystic'], rarity: 'legendary',
+    activity: 'any', movement: 'walk', origin: 'reward',
+    blurb: 'Puts a leaf on its head to change shape. Usually it changes into a slightly different tanuki.',
+    hint: 'A gift for reaching keeper level 70.', eggColors: ['#8a6a4a', '#5fbf5a'],
+  },
+  {
+    id: 'shisa', name: 'Shisa', traits: ['Mammal', 'Ember', 'Spirit'], rarity: 'legendary',
+    activity: 'day', movement: 'walk', origin: 'reward',
+    blurb: 'A lion-dog guardian. One roar keeps bad luck away for a whole year.',
+    hint: 'A gift for reaching keeper level 80.', eggColors: ['#e8a03a', '#d8483e'],
+  },
+  {
+    id: 'leviathan', name: 'Leviathan', traits: ['Dragon', 'Reef', 'Tide'], rarity: 'legendary',
+    activity: 'any', movement: 'swim', origin: 'reward',
+    blurb: 'A sea dragon from the deepest blue. Gives rides to lost fish and sings them home.',
+    hint: 'A gift for reaching keeper level 90.', eggColors: ['#1a6a9a', '#7affe0'],
+  },
+  {
+    id: 'worldturtle', name: 'World Turtle', traits: ['Reptile', 'Grove', 'Spirit'], rarity: 'mythical',
+    activity: 'any', movement: 'walk', origin: 'reward',
+    blurb: 'Carries a whole tiny island on its back, trees and all. Very old, very wise, very slow.',
+    hint: 'A gift for reaching keeper level 100.', eggColors: ['#5fa35a', '#c8b88a'],
+  },
 ];
 
 export const SPECIES_BY_ID: Record<string, SpeciesDef> = Object.fromEntries(SPECIES.map((s) => [s.id, s]));

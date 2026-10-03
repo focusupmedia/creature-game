@@ -2214,3 +2214,119 @@ Object.assign(BUILDERS, {
     m.body.add(glow);
   },
 } satisfies Record<string, Builder>);
+
+// ---------------------------------------------------------------- star keeper rewards (levels 60-100)
+
+Object.assign(PALETTES, {
+  moonrabbit: { main: '#eeeaff', second: '#c9b8ff', accent: '#ffe680', belly: '#ffffff' },
+  tanuki: { main: '#9a7552', second: '#3a2e2a', accent: '#5fbf5a', belly: '#f2e0c4' },
+  shisa: { main: '#f0b04a', second: '#d8483e', accent: '#3aa86a', belly: '#fff0d0' },
+  leviathan: { main: '#1f7aa8', second: '#14507a', accent: '#7affe0', belly: '#bff4ff' },
+  worldturtle: { main: '#9ab87a', second: '#8a7a5a', accent: '#5fa35a', belly: '#e8dcb8' },
+});
+Object.assign(MYTHIC_GLOW, { worldturtle: '#b8ff8a' });
+
+Object.assign(BUILDERS, {
+  moonrabbit: (k, P, m) => {
+    BUILDERS.burrowbun(k, P, m);
+    // swap the flower for a little crescent moon that glows
+    const b = m.body;
+    const flower = b.children.at(-1)!;
+    b.remove(flower);
+    const moon = new THREE.Group();
+    // a little full moon that floats over its head
+    moon.add(k.ball(0.08, P.accent, [0, 0, 0], [1, 1, 1], P.accent));
+    moon.add(k.ball(0.02, '#e8d070', [0.03, 0.02, 0.07], [1, 1, 0.4]));
+    moon.add(k.ball(0.015, '#e8d070', [-0.03, -0.025, 0.07], [1, 1, 0.4]));
+    moon.position.set(0, 1.18, 0.12);
+    b.add(moon);
+    const glow = glowSprite('#fff3b0', 1.0, 0.45);
+    glow.position.set(0, 1.18, 0.12);
+    b.add(glow);
+    // and a rice cake to share
+    b.add(k.ball(0.06, '#ffffff', [0.12, 0.22, 0.36], [1.2, 0.7, 1.2]));
+  },
+  tanuki: (k, P, m) => {
+    const b = m.body;
+    b.add(k.ball(0.3, P.main, [0, 0.32, -0.02], [1, 0.95, 1.05]));
+    b.add(k.ball(0.24, P.belly, [0, 0.28, 0.1], [1, 1, 0.9]));
+    const head = new THREE.Group();
+    head.position.set(0, 0.66, 0.08);
+    head.add(k.ball(0.2, P.main, [0, 0, 0], [1.1, 0.95, 1]));
+    head.add(k.ball(0.09, P.belly, [0, -0.05, 0.16], [1.1, 0.8, 0.8]));
+    head.add(k.ball(0.03, '#1a1420', [0, -0.03, 0.24]));
+    for (const s of [1, -1]) {
+      // the bandit mask
+      head.add(k.ball(0.07, P.second, [s * 0.08, 0.02, 0.14], [1.3, 0.8, 0.5]));
+      k.eye(head, s * 0.08, 0.03, 0.17, 0.04);
+      head.add(k.ball(0.06, P.second, [s * 0.14, 0.16, -0.02], [1, 1, 0.5]));
+      const leg = pivot(s * 0.13, 0.1, 0.05, k.ball(0.07, P.second, [0, -0.03, 0.02], [0.9, 0.8, 1.2]));
+      b.add(leg);
+      m.legs.push(leg);
+    }
+    // the shape-changing leaf
+    const leaf = k.ball(0.09, P.accent, [0, 0.22, 0.02], [0.6, 0.12, 1.2]);
+    leaf.rotation.set(0.3, 0.6, 0.2);
+    head.add(leaf);
+    b.add(head);
+    m.wings.push(head);
+    const tail = new THREE.Group();
+    tail.position.set(0, 0.24, -0.3);
+    for (let i = 0; i < 4; i++) tail.add(k.ball(0.1 - i * 0.008, i % 2 ? P.second : P.main, [0, 0.02 + i * 0.03, -0.04 - i * 0.07]));
+    b.add(tail);
+    m.tail = tail;
+    m.height = 0.95;
+  },
+  shisa: (k, P, m) => {
+    beast(k, P, m, { long: 1.2, tall: 0.3, snout: 'cat', ears: 'round', mane: P.second });
+    const head = m.body.children.find((c) => c instanceof THREE.Group && c.position.y > 0.7) ?? m.body;
+    // a big curly mane all around the face
+    for (let i = 0; i < 10; i++) {
+      const a = (i / 10) * Math.PI * 2;
+      head.add(k.ball(0.07, i % 2 ? P.second : P.main, [Math.cos(a) * 0.17, Math.sin(a) * 0.16, -0.05], [1, 1, 0.8]));
+    }
+    // a little guardian grin and a bell
+    head.add(k.ball(0.05, '#ffffff', [0, -0.09, 0.15], [1.4, 0.4, 0.5]));
+    m.body.add(k.ball(0.05, '#ffd23d', [0, 0.52, 0.36], [1, 1, 1], '#ffd23d'));
+    m.body.add(k.mesh(G.torus, P.accent, [0.12, 0.12, 0.12], [0, 0.6, 0.3]).rotateX(Math.PI / 2));
+  },
+  leviathan: (k, P, m) => {
+    BUILDERS.cloudserpent(k, P, m);
+    // no clouds under a sea dragon: swap the puffs for fins
+    for (const c of [...m.body.children]) {
+      if (!m.segments.includes(c)) m.body.remove(c);
+    }
+    for (const i of [3, 6, 9]) {
+      for (const s of [1, -1]) {
+        const fin = k.ball(0.09, P.accent, [0.14 * s, 0, 0], [1.2, 0.12, 0.8], P.accent);
+        fin.rotation.z = 0.4 * s;
+        m.segments[i].add(fin);
+      }
+    }
+    const crest = k.mesh(G.cone, P.accent, [0.05, 0.16, 0.05], [0, 0.2, 0.08], P.accent);
+    crest.rotation.x = -0.5;
+    m.segments[0].add(crest);
+    const glow = glowSprite('#7affe0', 1.8, 0.3);
+    glow.position.z = -0.6;
+    m.body.add(glow);
+  },
+  worldturtle: (k, P, m) => {
+    turtle(k, P, m, false);
+    const b = m.body;
+    // drop the pebbles; a tiny island grows on its shell instead
+    for (const c of [...b.children]) if ((c as THREE.Mesh).geometry === G.rock) b.remove(c);
+    b.add(k.mesh(G.hemi, P.accent, [0.42, 0.18, 0.46], [0, 0.5, 0]));
+    const tree = (x: number, z: number, sc: number) => {
+      b.add(k.mesh(G.cyl, '#8a5a3a', [0.025 * sc, 0.2 * sc, 0.025 * sc], [x, 0.66 + 0.1 * sc, z]));
+      b.add(k.mesh(G.cone, '#3f8a3a', [0.1 * sc, 0.24 * sc, 0.1 * sc], [x, 0.66 + 0.3 * sc, z]));
+    };
+    tree(0.05, -0.05, 1.3);
+    tree(-0.18, 0.1, 0.9);
+    tree(0.2, 0.15, 0.8);
+    // a tiny hut and a pond
+    b.add(k.mesh(G.cyl, '#fff1e0', [0.06, 0.08, 0.06], [-0.12, 0.7, -0.2]));
+    b.add(k.mesh(G.cone, '#e2483e', [0.08, 0.08, 0.08], [-0.12, 0.78, -0.2]));
+    b.add(k.mesh(G.cyl, '#6ad8ff', [0.08, 0.01, 0.08], [0.16, 0.66, -0.16]));
+    m.height = 1.25;
+  },
+} satisfies Record<string, Builder>);

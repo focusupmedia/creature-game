@@ -1,7 +1,8 @@
-// Keeper levels 1-50. XP comes only from things the player does (hatching,
+// Keeper levels 1-100. XP comes only from things the player does (hatching,
 // breeding, lures, digging, quests), never from idle time. Levels 1-5 come
 // in the first hour, 20 in about a week of regular play, and 50 in about six
-// weeks: far, but always in sight for a returning player.
+// weeks: far, but always in sight for a returning player. Levels 51-100 are
+// the Star Keeper levels for the most devoted keepers, a few months more.
 
 import { TUNING } from '../content/tuning';
 import { makeCreature } from './creatures';
@@ -9,13 +10,21 @@ import { recordSpecies } from './journal';
 import { ISLANDS, ISLAND_ORDER, SIZE_CAPACITY } from '../content/islands';
 import type { GameState, IslandId, SpeciesId } from './types';
 
-export const MAX_LEVEL = 50;
+export const MAX_LEVEL = 100;
+/** Past this level you're a Star Keeper and your badge changes. */
+export const STAR_LEVEL = 50;
 
-/** Level-only creatures, one every 5 levels. */
+/** Level-only creatures: one every 5 levels up to 50, then one every 10. */
 export const LEVEL_CREATURES: Record<number, SpeciesId> = {
   5: 'jackalope', 10: 'kitsune', 15: 'flyingsnake', 20: 'pegasus', 25: 'griffin',
   30: 'hippocampus', 35: 'thunderbird', 40: 'baku', 45: 'sphinx', 50: 'unicorn',
+  60: 'moonrabbit', 70: 'tanuki', 80: 'shisa', 90: 'leviathan', 100: 'worldturtle',
 };
+
+/** Star rank for the badge: 0 up to 50, 1 from 51, 2 from 75, 3 at 100. */
+export function starRank(level: number): number {
+  return level >= MAX_LEVEL ? 3 : level >= 75 ? 2 : level > STAR_LEVEL ? 1 : 0;
+}
 
 /** XP needed to go from `level` to `level + 1`. */
 export function xpToNext(level: number): number {
@@ -51,7 +60,7 @@ export interface LevelReward {
   creature?: SpeciesId;
 }
 
-/** What reaching a level gives. Rewards grow all the way to 50; every 5th level is a big one. */
+/** What reaching a level gives. Rewards grow all the way to 100; every 5th level is a big one. */
 export function levelReward(level: number): LevelReward {
   const big = level % 5 === 0;
   const coins = Math.round((40 + level * 22 + Math.pow(level, 1.6)) * (big ? 2 : 1) / 5) * 5;
