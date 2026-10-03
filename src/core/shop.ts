@@ -2,12 +2,15 @@
 // curiosities come and go. Premium cosmetics rotate too: urgency without ever
 // selling discovery itself.
 
-import { DECOR, EGG_TIERS, EVENTS, FOODS, ITEMS, SKY_ITEMS, TOOLS } from '../content/world';
+import { DECOR, EGG_TIERS, EVENTS, FOODS, ITEMS, LURES, SKY_ITEMS, TOOLS } from '../content/world';
 import { TUNING } from '../content/tuning';
 import { mulberry32 } from './rng';
 import type { GameState, IslandId, ShopOffer, ShopState } from './types';
 
-export function generateShop(seed: number, rotation: number, t: number, owned: IslandId[] = ['home']): ShopState {
+/** Look at this many stocks without seeing one and the next stock is sure to have it. */
+export const PITY = { legendary: 2, mythical: 5 };
+
+export function generateShop(seed: number, rotation: number, t: number, owned: IslandId[] = ['home'], sure: { legendary?: boolean; mythical?: boolean } = {}): ShopState {
   const r = mulberry32((seed ^ (rotation * 2654435761)) >>> 0);
   const pick = <T,>(a: T[]) => a[Math.floor(r() * a.length)];
   const offers: ShopOffer[] = [];
@@ -61,10 +64,33 @@ export function generateShop(seed: number, rotation: number, t: number, owned: I
 
   // Decorations live in the always-open catalog (see buyDecor), not the rotating stock.
 
+  // Special stock: Epic most of the time, Legendary now and then, Mythical seldom. Keepers who
+  // keep checking are sure to see them (see refreshShop): in three days of play, at least one
+  // Mythical egg and about three Legendary ones.
+  if (r() < 0.55) egg('epic', 2);
+  if (r() < 0.5) add({ kind: 'lure', ref: 'shimmer', price: LURES.shimmer.price, currency: 'glimmer', qty: 1, stock: 2 });
+  const legendary = sure.legendary || r() < 0.2;
+  const mythical = sure.mythical || r() < 0.05;
+  if (legendary) {
+    egg('legendary', 1);
+    add({ kind: 'lure', ref: 'golden', price: LURES.golden.price, currency: 'glimmer', qty: 1, stock: 1 });
+  }
+  if (mythical) {
+    egg('mythical', 1);
+    add({ kind: 'lure', ref: 'mythic', price: LURES.mythic.price, currency: 'shards', qty: 1, stock: 1 });
+  }
+
   return { rotation, offers, nextRefreshAt: t + TUNING.shopRefreshMin * 60_000 };
 }
 
 export function refreshShop(state: GameState, t: number): void {
   const owned = (Object.keys(state.islands ?? {}) as IslandId[]).filter((k) => state.islands[k].owned);
-  state.shop = generateShop(state.seed, state.shop.rotation + 1, t, owned);
+  const pity = (state.shopPity ??= { legendary: 0, mythical: 0 });
+  // only stocks you actually looked at count
+  if (state.shop.viewed) {
+    const has = (ref: string) => state.shop.offers.some((o) => o.kind === 'egg' && o.ref === ref);
+    pity.legendary = has('legendary') ? 0 : pity.legendary + 1;
+    pity.mythical = has('mythical') ? 0 : pity.mythical + 1;
+  }
+  state.shop = generateShop(state.seed, state.shop.rotation + 1, t, owned, { legendary: pity.legendary >= PITY.legendary, mythical: pity.mythical >= PITY.mythical });
 }

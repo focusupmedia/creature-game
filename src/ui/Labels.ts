@@ -25,7 +25,7 @@ interface Pin {
   text: HTMLElement;
   pos: [number, number, number];
   /** 'always' ignores zoom; 'zoomed' fades in when the camera is close. */
-  mode: () => 'always' | 'zoomed' | 'hidden';
+  mode: () => 'always' | 'zoomed' | 'sign' | 'hidden';
   render: () => string;
   last: string;
   /** Only shown while this returns true (e.g. on the current island). */
@@ -42,6 +42,7 @@ export interface LabelActions {
   openNest(i: number): void;
   openFont(): void;
   openShop(): void;
+  openBooth(): void;
   openBasket(): void;
   openCreatureMenu(id: string): void;
   pet(id: string): void;
@@ -106,7 +107,13 @@ export class WorldLabels {
       }, () => this.act.openSpot(spot.id), () => on(spot.island)() && spotOpen(s().islands, spot.id), () => (s().spots[spot.id] ? null : '!'));
     }
 
-    this.pin('wl-sign', [SHOP_STALL.x, 2.9, SHOP_STALL.z], () => 'zoomed', () => '🛍️ Shop', () => this.act.openShop(), home);
+    // Shop and Sell signs show from further away (Settings → Sign distance); afar they shrink to an icon
+    const signFar = (icon: string) => () => icon;
+    this.pin('wl-sign shop', [SHOP_STALL.x, 2.9, SHOP_STALL.z], () => 'sign', () => '🛍️ Shop', () => this.act.openShop(), home, signFar('🛍️'));
+    for (const id of ISLAND_ORDER) {
+      const def = ISLANDS[id];
+      this.pin('wl-sign sell', [def.ox + def.booth.x, 3.5, def.oz + def.booth.z], () => 'sign', () => '💰 Sell', () => this.act.openBooth(), () => on(id)() && !!s().islands[id]?.owned, signFar('💰'));
+    }
     this.pin('wl-sign', [FONT.x, 2.4, FONT.z], () => 'zoomed', () => '⛲ Kindred Font', () => this.act.openFont(), home);
 
     // Other islands on the horizon: name pins you can tap to visit (or unlock).
@@ -160,13 +167,16 @@ export class WorldLabels {
     const w = this.game.world;
     const zoom = w.zoom;
     const near = Math.max(0, Math.min(1, (SIGN_FAR - zoom) / (SIGN_FAR - SIGN_NEAR)));
+    // how far the Shop and Sell signs reach: 0 = like other signs, 1 = always
+    const range = this.game.signRange;
+    const signNear = range >= 0.99 ? 1 : Math.max(0, Math.min(1, (SIGN_FAR + range * 50 - zoom) / (SIGN_FAR - SIGN_NEAR)));
 
     for (const p of this.pins) {
       const mode = p.when() ? p.mode() : 'hidden';
       const sp = w.pinScreen(p.pos[0], p.pos[2], p.pos[1]);
       const farText = p.far && near < 0.5 && mode !== 'hidden' ? p.far() : undefined;
       let opacity = mode === 'hidden' || !sp.visible ? 0 : mode === 'always' ? 1 : near;
-      if (p.far && near < 0.5) opacity = farText && sp.visible ? 1 : 0;
+      if (p.far && near < 0.5) opacity = farText && sp.visible ? (mode === 'sign' ? signNear : 1) : 0;
       p.el.style.opacity = String(opacity);
       p.el.style.pointerEvents = opacity > 0.4 ? 'auto' : 'none';
       if (opacity === 0) continue;

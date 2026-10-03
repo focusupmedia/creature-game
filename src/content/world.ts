@@ -169,6 +169,22 @@ export const LURES: Record<string, LureDef> = {
     id: 'moonpetal', name: 'Moonpetal Lure', attracts: 'Mystic', durationMin: 8, expectedVisitors: 1.8,
     price: 60, scent: 'Faintly silver, faintly cold. It smells like a secret.', color: '#b9a6ff',
   },
+  // Charmed lures: any creature that lives at the spot may answer, and rarer ones far more often.
+  shimmer: {
+    id: 'shimmer', name: 'Shimmer Lure', attracts: 'Any', durationMin: 8, expectedVisitors: 2,
+    price: 450, scent: 'It glitters in the air. Rare creatures can\'t resist a look.', color: '#a86aff',
+    grade: 'epic', boost: { rare: 3, legendary: 2, mythical: 1.5 },
+  },
+  golden: {
+    id: 'golden', name: 'Golden Lure', attracts: 'Any', durationMin: 8, expectedVisitors: 2,
+    price: 2400, scent: 'Warm honey and old gold. Legends have followed this smell for ages.', color: '#ffc21a',
+    grade: 'legendary', boost: { rare: 4, legendary: 10, mythical: 3 },
+  },
+  mythic: {
+    id: 'mythic', name: 'Mythic Lure', attracts: 'Any', durationMin: 10, expectedVisitors: 2,
+    price: 120, currency: 'shards', scent: 'Like starlight on water. Strongest under a special sky.', color: '#ff5fb5',
+    grade: 'mythical', boost: { rare: 4, legendary: 8, mythical: 25 },
+  },
 };
 
 // ---------------------------------------------------------------- lure spots
@@ -543,6 +559,10 @@ export interface EggTier {
   currency: 'glimmer' | 'shards';
   /** Habitat filter; empty = any wild species. */
   habitats: string[];
+  /** Premium tiers may also hold creatures that are normally only bred. */
+  includeBred?: boolean;
+  /** Shown with a sparkle and a rarity colour in the shop. */
+  grade?: 'epic' | 'legendary' | 'mythical';
   /** Rarity weights for this tier. */
   weights: Record<string, number>;
   colors: [string, string];
@@ -573,6 +593,21 @@ export const EGG_TIERS: Record<string, EggTier> = {
     id: 'starry', name: 'Starry Egg', price: 60, currency: 'shards', habitats: [],
     weights: { common: 0, uncommon: 6, rare: 4, legendary: 0.8 }, colors: ['#1e2468', '#fff1a8'],
     blurb: 'Always uncommon or rarer, with a small chance of something legendary.',
+  },
+  epic: {
+    id: 'epic', name: 'Epic Egg', price: 2000, currency: 'glimmer', habitats: [], grade: 'epic',
+    weights: { common: 0, uncommon: 0, rare: 10, legendary: 0.6 }, colors: ['#7a3cff', '#ffd23d'],
+    blurb: 'Always rare, with a glimmer of something legendary. Mango keeps a few in stock.',
+  },
+  legendary: {
+    id: 'legendary', name: 'Legendary Egg', price: 7500, currency: 'glimmer', habitats: [], grade: 'legendary', includeBred: true,
+    weights: { common: 0, uncommon: 0, rare: 0, legendary: 1 }, colors: ['#ff9a1a', '#fff3b0'],
+    blurb: 'Always legendary. Mango only gets these now and then, so look out for them!',
+  },
+  mythical: {
+    id: 'mythical', name: 'Mythical Egg', price: 350, currency: 'shards', habitats: [], grade: 'mythical', includeBred: true,
+    weights: { common: 0, uncommon: 0, rare: 0, legendary: 0, mythical: 1 }, colors: ['#ff5fb5', '#5affc0'],
+    blurb: 'Always mythical, the rarest creatures of all. Very seldom in stock.',
   },
 };
 

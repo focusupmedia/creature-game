@@ -31,6 +31,7 @@ export type Pick =
   | { kind: 'nest'; index: number }
   | { kind: 'font' }
   | { kind: 'shop' }
+  | { kind: 'booth'; island: IslandId }
   | { kind: 'basket' }
   | { kind: 'gift'; id: string }
   | { kind: 'decor'; id: string }

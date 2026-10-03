@@ -700,3 +700,17 @@ input.rename { font-family: var(--display); font-size: 22px; border: var(--outli
 /* Feed + Store stacked at the end of a pet row */
 .row-btns { display: flex; flex-direction: column; gap: 4px; flex-shrink: 0; }
 .row-btns .btn { min-width: 84px; }
+
+/* "Are you sure?" line when selling Legendary-and-up pets or level gifts */
+.sell-warn { background: #fff4d6; border: 2px solid #f0a020; border-radius: 12px; padding: 6px 10px; font-weight: 700; color: #7a4a00; }
+.sell-warn.small { padding: 2px 8px; font-size: 12px; margin-top: 3px; display: inline-block; }
+
+/* Special shop stock: Epic, Legendary and Mythical eggs and lures */
+.item.special { border-width: 3px; }
+.item.g-epic { border-color: #a86aff; background: linear-gradient(135deg, #f6efff, #fff); }
+.item.g-legendary { border-color: #ffb21a; background: linear-gradient(135deg, #fff6d6, #fff); box-shadow: 0 0 14px #ffd23d88; }
+.item.g-mythical { border-color: #ff5fb5; background: linear-gradient(135deg, #ffe8f6, #e8fff6); box-shadow: 0 0 16px #ff5fb588; }
+.grade { display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 999px; font-size: 11px; font-weight: 800; color: #fff; vertical-align: middle; }
+.grade.g-epic { background: #8a4dff; }
+.grade.g-legendary { background: #f09a00; }
+.grade.g-mythical { background: linear-gradient(90deg, #ff5fb5, #7a5cff, #2ad0c8); }

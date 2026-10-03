@@ -20,7 +20,8 @@ export function arrivalWeights(lureId: string, spotId: SpotId, dark: boolean, sk
   const byTier = new Map<string, number>();
   for (const [sp, w] of raw) byTier.set(sp.rarity, (byTier.get(sp.rarity) ?? 0) + w);
   // sky events make rare-and-up visitors a little more likely
-  const boost = (r: string) => (sky && (r === 'rare' || r === 'legendary') ? 1.5 : 1);
+  const charm = LURES[lureId]?.boost ?? {};
+  const boost = (r: string) => (sky && (r === 'rare' || r === 'legendary') ? 1.5 : 1) * (charm[r as keyof typeof charm] ?? 1);
   // A rarity nobody answers passes its share down to the next commoner rarity that does
   // (never up), so lures stay busy but legendaries stay rare.
   const share: Record<string, number> = {};
@@ -32,7 +33,10 @@ export function arrivalWeights(lureId: string, spotId: SpotId, dark: boolean, sk
       carry = 0;
     } else carry = mass;
   }
-  return raw.map(([sp, w]) => [sp, (share[sp.rarity] ?? 0) * (w / byTier.get(sp.rarity)!)]);
+  // charmed lures shift the odds toward rare visitors without bringing more of them
+  const total = Object.values(share).reduce((a, b) => a + b, 0);
+  const scale = Object.keys(charm).length && total > 1 ? 1 / total : 1;
+  return raw.map(([sp, w]) => [sp, (share[sp.rarity] ?? 0) * scale * (w / byTier.get(sp.rarity)!)]);
 }
 
 function rawWeights(lureId: string, spotId: SpotId, dark: boolean, sky: EventKind | null): [SpeciesDef, number][] {
@@ -40,7 +44,7 @@ function rawWeights(lureId: string, spotId: SpotId, dark: boolean, sky: EventKin
   const spot = SPOTS[spotId];
   const out: [SpeciesDef, number][] = [];
   for (const sp of WILD_SPECIES) {
-    if (!sp.traits.includes(lure.attracts)) continue;
+    if (lure.attracts !== 'Any' && !sp.traits.includes(lure.attracts)) continue;
     if (sp.movement === 'swim' && !spot.water) continue;
     if (sp.onlyDuring && sp.onlyDuring !== sky) continue;
     if (sp.onlyAt && !sp.onlyAt.includes(spotId)) continue;

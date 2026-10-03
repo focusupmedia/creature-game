@@ -70,7 +70,8 @@ export type MutationTier = 'common' | 'rare' | 'epic' | 'legendary';
 export interface LureDef {
   id: LureId;
   name: string;
-  attracts: Trait;
+  /** The type it draws in; 'Any' for charmed lures (anyone who lives at the spot). */
+  attracts: Trait | 'Any';
   durationMin: number;
   /** Expected visitors per lure (Poisson rate over the duration). */
   expectedVisitors: number;
@@ -78,6 +79,11 @@ export interface LureDef {
   /** Flavor text; deliberately sensory, never a stat sheet. */
   scent: string;
   color: string;
+  /** Charmed lures: paid in Starshards instead of coins. */
+  currency?: 'glimmer' | 'shards';
+  /** Charmed lures: how much more often each rarity answers. */
+  boost?: Partial<Record<Rarity, number>>;
+  grade?: 'epic' | 'legendary' | 'mythical';
 }
 
 export interface SpotDef {
@@ -320,6 +326,8 @@ export interface ShopState {
   rotation: number;
   offers: ShopOffer[];
   nextRefreshAt: number;
+  /** The keeper opened the shop during this stock. */
+  viewed?: boolean;
 }
 
 export interface Expedition {
@@ -443,6 +451,8 @@ export interface GameState {
   /** An event summoned by the player (rewarded ad). Takes precedence over the schedule. */
   summoned?: { kind: EventKind; start: number; end: number } | null;
   tutorial: number;
+  /** Stocks you looked at in a row without a Legendary / Mythical egg (they're then guaranteed). */
+  shopPity?: { legendary: number; mythical: number };
   /** Rewarded ads watched today: `count` for events, hatching and shop refreshes; `coins` for free coins. */
   /** Rewarded ads: event ads per day; free-coin ads come in batches that refill a while after your last watch. */
   ads: { day: string; count: number; coins?: number; coinsAt?: number };

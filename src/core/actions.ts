@@ -4,7 +4,7 @@
 import { species } from '../content/species';
 import { DECOR, DIG_KINDS, FOODS, TOOLS, EGG_TIERS, EVENTS, GLITTER_MUTATIONS, ITEMS, LURES, MUTATIONS, RESONANCES, SKY_ITEMS, SPOTS, SUMMON_WEIGHTS, spotOpen, wildSkies } from '../content/world';
 import { ISLANDS, SIZE_PRICE } from '../content/islands';
-import { WILD_SPECIES } from '../content/species';
+import { SPECIES, WILD_SPECIES } from '../content/species';
 import { islandCapacity, islandPopulation } from './sim';
 import { TUNING } from '../content/tuning';
 import { addMutation, displayName, makeCreature, newId } from './creatures';
@@ -218,7 +218,7 @@ export function workDigSpot(state: GameState, spotId: string, creatureId: string
 export function rollEggTier(state: GameState, tierId: string): SpeciesId {
   const tier = EGG_TIERS[tierId] ?? EGG_TIERS.meadow;
   const rng = new StateRng(state);
-  const pool = WILD_SPECIES
+  const pool = (tier.includeBred ? SPECIES.filter((s) => s.origin !== 'reward') : WILD_SPECIES)
     .filter((s) => !tier.habitats.length || s.traits.some((t) => tier.habitats.includes(t)))
     .map((s) => [s.id, tier.weights[s.rarity] ?? 0] as [SpeciesId, number]);
   return rng.weighted(pool) ?? 'mossfrog';

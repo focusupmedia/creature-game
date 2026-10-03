@@ -31,6 +31,8 @@ export interface IslandDef {
   shelters: { x: number; z: number; s: number }[];
   /** A pair you get when you unlock the island, to breed from. */
   starters?: SpeciesId[];
+  /** Where the sell booth stands (local coordinates). */
+  booth: { x: number; z: number };
 }
 
 export const SIZE_NAMES = ['Small', 'Medium', 'Large'];
@@ -56,6 +58,7 @@ export const ISLANDS: Record<IslandId, IslandDef> = {
       ...ROCKS.map((r) => ({ x: r.x, z: r.z, r: 0.7 * r.s })),
     ],
     shelters: TREES,
+    booth: { x: -4.9, z: 3.0 },
   },
   volcano: {
     id: 'volcano', name: 'Ember Peak', icon: '🌋', habitat: 'Ember', status: 'buyable',
@@ -72,6 +75,7 @@ export const ISLANDS: Record<IslandId, IslandDef> = {
       { x: 6.2, z: -1.8, r: 0.7 },
     ],
     shelters: [{ x: -5.6, z: -1.5, s: 1 }, { x: 6.2, z: -1.8, s: 1 }],
+    booth: { x: -1.4, z: 3.6 },
   },
   lagoon: {
     id: 'lagoon', name: 'Coral Lagoon', icon: '🪸', habitat: 'Reef', status: 'buyable',
@@ -81,6 +85,7 @@ export const ISLANDS: Record<IslandId, IslandDef> = {
     water: [{ x: 0, z: 0.4, r: 5.2 }],
     obstacles: [{ x: -6.6, z: -3, r: 0.6 }, { x: 6.8, z: -2.4, r: 0.6 }, { x: 0.5, z: -7.2, r: 0.6 }],
     shelters: [{ x: -6.6, z: -3, s: 0.9 }, { x: 6.8, z: -2.4, s: 0.9 }, { x: 0.5, z: -7.2, s: 0.9 }],
+    booth: { x: -4.1, z: 5.2 },
   },
   beach: {
     id: 'beach', name: 'Sunny Shore', icon: '🏖️', habitat: 'Shore', status: 'buyable',
@@ -90,6 +95,7 @@ export const ISLANDS: Record<IslandId, IslandDef> = {
     water: [{ x: -2.4, z: 1.8, r: 1.6 }, { x: 3.0, z: -2.2, r: 1.1 }],
     obstacles: [{ x: 4.6, z: 2.8, r: 0.7 }, { x: -4.8, z: -2.6, r: 0.6 }, { x: -1.5, z: -5.2, r: 0.5 }, { x: 5.2, z: -3.6, r: 0.5 }],
     shelters: [{ x: -1.5, z: -5.2, s: 1 }, { x: 5.2, z: -3.6, s: 0.9 }],
+    booth: { x: -2.6, z: 4.6 },
     starters: ['flamingle', 'pouchbill'],
   },
   desert: {
@@ -100,6 +106,7 @@ export const ISLANDS: Record<IslandId, IslandDef> = {
     water: [{ x: -1.6, z: -1.8, r: 1.7 }],
     obstacles: [{ x: 3.6, z: -3.2, r: 0.5 }, { x: 4.8, z: 1.6, r: 0.5 }, { x: -4.6, z: 2.4, r: 0.5 }, { x: 1.6, z: 4.4, r: 0.9 }, { x: -3.8, z: -3.4, r: 0.5 }],
     shelters: [{ x: 1.6, z: 4.4, s: 1 }, { x: -3.8, z: -3.4, s: 1 }],
+    booth: { x: -3.2, z: 3.6 },
     starters: ['sandpincer', 'dunecoil'],
   },
   cloud: {
@@ -110,6 +117,7 @@ export const ISLANDS: Record<IslandId, IslandDef> = {
     water: [{ x: 2.2, z: 2.0, r: 1.5 }],
     obstacles: [{ x: -3.4, z: -3.0, r: 0.7 }, { x: 4.2, z: -2.6, r: 0.7 }, { x: -4.4, z: 2.6, r: 0.6 }, { x: 0.4, z: -5.4, r: 0.9 }],
     shelters: [{ x: -3.4, z: -3.0, s: 1 }, { x: 4.2, z: -2.6, s: 1 }, { x: -4.4, z: 2.6, s: 0.9 }],
+    booth: { x: -2.6, z: 3.6 },
     starters: ['kitewing', 'cloudlamb'],
   },
 };
@@ -138,7 +146,7 @@ export function islandGeo(id: IslandId, size = 0): Geo {
   const w = (c: Circle) => ({ x: c.x + d.ox, z: c.z + d.oz, r: c.r });
   const g: Geo = {
     id, ox: d.ox, oz: d.oz, r: d.baseRadius * (SIZE_SCALE[size] ?? 1),
-    water: d.water.map(w), lava: (d.lava ?? []).map(w), obstacles: d.obstacles.map(w),
+    water: d.water.map(w), lava: (d.lava ?? []).map(w), obstacles: [...d.obstacles, { ...d.booth, r: 1.1 }].map(w),
     shelters: d.shelters.map((s) => ({ x: s.x + d.ox, z: s.z + d.oz, s: s.s })),
   };
   geoCache.set(key, g);

@@ -157,7 +157,6 @@ const SHADE_MULT: Record<string, number> = { classic: 1, shiny: 3, pastel: 1.5 }
 export function canSell(state: GameState, c: Creature): string | null {
   if (c.trip) return 'It\'s away exploring.';
   if (c.favorite) return 'Favorites can\'t be sold. Unmark it first.';
-  if (species(c.species).origin === 'reward') return 'Level gifts can\'t be sold.';
   if (state.creatures.filter((x) => !x.stored && x.id !== c.id).length < 2) return 'Keep at least two creatures.';
   return null;
 }
@@ -179,6 +178,15 @@ export function sellPrice(state: GameState, c: Creature, toCollector: boolean): 
   p *= SHADE_MULT[c.shade ?? 'classic'] ?? 1.1;
   if (toCollector) p *= sp.traits.includes(state.collector.wants) ? 3 : 2;
   return Math.max(5, Math.round(p / 5) * 5);
+}
+
+/** Pets worth a second thought before selling: Legendary and up, and one-of-a-kind level gifts. */
+export function sellWarning(c: Creature): string | null {
+  const sp = species(c.species);
+  if (sp.origin === 'reward') return `${sp.name} was a level gift. You can't get another one.`;
+  if (sp.rarity === 'mythical') return `A Mythical ${sp.name}! These are the rarest creatures of all. Are you sure?`;
+  if (sp.rarity === 'legendary') return `A Legendary ${sp.name}! You may not find another for a long time. Are you sure?`;
+  return null;
 }
 
 export function sellCreature(state: GameState, id: string, t: number): Result {

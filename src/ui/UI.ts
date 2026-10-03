@@ -35,7 +35,7 @@ import { WANDERERS } from '../content/wanderers';
 import { deleteQuirk, wipeQuirks } from '../core/quirks';
 import { MAX_LEVEL, STAR_LEVEL, levelOf, levelProgress, levelReward, starRank, type LevelUp } from '../core/levels';
 import { DAILY_POOL, LASTING, claimable, lastingReward, refreshDailies } from '../core/quests';
-import { type AwayFind, canSell, collectorHere, findVisitor, isHungry, visitorThanks, nextSlotPrice, ripeFruit, sellPrice, storedCount } from '../core/care';
+import { type AwayFind, canSell, collectorHere, findVisitor, isHungry, visitorThanks, nextSlotPrice, ripeFruit, sellPrice, sellWarning, storedCount } from '../core/care';
 import { rarityTag } from './rarity';
 
 type PetsSort = 'newest' | 'rarity' | 'name' | 'size' | 'hunger';
@@ -59,7 +59,7 @@ const fmtClock = (ms: number) => `${Math.floor(Math.max(0, ms) / 60000)}:${Strin
 
 const MUT_ICON: Record<MutationId, string> = { lunar: '🌙', storm: '⚡', giant: '⛰️', prismatic: '🌈', starlit: '🌟', frost: '❄️', angelic: '😇', infernal: '😈', abyssal: '🫧', aurora: '🌌', misty: '🌫️', sunkissed: '☀️', blossom: '🌸', glowing: '✨', breezy: '🌬️', bubbly: '🫧', cosmic: '💫', crystal: '💎', golden: '👑' };
 const ITEM_ICON: Record<string, string> = { warmth: '🔥', giantChance: '🧪', grow: '🌱', shrink: '💧', glitter: '✨', speedy: '⚡' };
-const HABITAT_ICON: Partial<Record<Trait, string>> = { Grove: '🌳', Tide: '💧', Bloom: '🌸', Mystic: '🔮' };
+const HABITAT_ICON: Partial<Record<Trait | 'Any', string>> = { Grove: '🌳', Tide: '💧', Bloom: '🌸', Mystic: '🔮', Any: '✨' };
 const MUTATION_TRAITS: Trait[] = ['Lunar', 'Storm', 'Giant', 'Prismatic', 'Starlit', 'Frost', 'Angelic', 'Infernal', 'Abyssal', 'Aurora', 'Misty'];
 
 /** What Mango says on each shop tab; the line changes with every new stock. */
@@ -184,6 +184,7 @@ export class UI {
       openNest: (i) => this.showNest(i),
       openFont: () => this.showFont(),
       openShop: () => this.showShop(),
+      openBooth: () => this.showSellBooth(),
       openBasket: () => this.showBasket(),
       openCreatureMenu: (id) => this.showCreature(id),
       pet: (id) => game.befriend(id, 'pet'),
@@ -642,13 +643,44 @@ export class UI {
       h('div', { class: 'met-row' }, h('b', null, '🌤️ '), skyName ? `It was during ${/^[aeiou]/i.test(skyName) ? 'an' : 'a'} ${skyName.replace(/^The /, '')}.` : m ? 'Under a calm sky.' : 'A long time ago.'));
   }
 
+  /** The sell booth on every world: sell this world's pets one by one, or several at once. */
+  showSellBooth(): void {
+    const g = this.game;
+    const s = g.state;
+    const here = g.world.current;
+    this.openSheet('Sell booth', `${ISLANDS[here].name} · bigger, rarer and mutated pets sell for more`, (b) => {
+      const collector = collectorHere(s, g.now());
+      if (collector) b.append(h('p', { class: 'market-hint', style: 'cursor:default' }, '🎩 The Collector is visiting: he pays double (triple for his favourite type). Prices below include it.'));
+      const pets = s.creatures.filter((c) => c.island === here && !c.stored && !c.trip)
+        .sort((a, b2) => sellPrice(s, b2, collector) - sellPrice(s, a, collector));
+      if (!pets.length) b.append(h('p', { class: 'muted' }, 'No pets on this world to sell.'));
+      const list = h('div', { class: 'list' });
+      for (const c of pets) {
+        const why = canSell(s, c);
+        const warn = sellWarning(c);
+        list.append(h('div', { class: 'item' }, this.portrait(c, 'swatch-img'),
+          h('div', { class: 'grow' }, h('div', { class: 'name' }, `${displayName(c)}${c.favorite ? ' ♥' : ''}`),
+            h('div', { class: 'desc row', style: 'gap:6px;flex-wrap:wrap' }, rarityTag(species(c.species).rarity), h('span', { class: 'muted' }, `${sizeLabel(c.size)} · ${fmtWeight(weightKg(c, g.now()))}${c.mutations.length ? ` · ${c.mutations.length} mutation${c.mutations.length === 1 ? '' : 's'}` : ''}`)),
+            why ? h('div', { class: 'muted' }, why) : warn ? h('div', { class: 'sell-warn small' }, '❗ Rare! You\'ll be asked to confirm.') : null),
+          h('button', { class: 'btn small', disabled: !!why, onClick: () => this.confirmSell(c) }, rich(`{coin} ${sellPrice(s, c, collector).toLocaleString()}`))));
+      }
+      b.append(list);
+      b.append(h('div', { class: 'btns', style: 'margin-top:10px' },
+        h('button', { class: 'btn secondary', onClick: () => { this.petsTab = 'wandering'; this.petWorld = here; this.petSel = new Set(); this.showPets('wandering'); } }, 'Sell several at once'),
+        h('button', { class: 'btn secondary', onClick: () => this.showPets('market') }, `${marketReady(s, g.now()) ? '❗ ' : ''}Market board`)));
+      b.append(h('p', { class: 'muted' }, 'Tip: buyers on the Market board pay much more for the pets they want.'));
+    }, '💰');
+  }
+
   private confirmSell(c: Creature): void {
     const g = this.game;
     const here = collectorHere(g.state, g.now());
     const price = sellPrice(g.state, c, here);
     this.modal((m, close) => {
+      const warn = sellWarning(c);
       m.append(h('h2', null, `Sell ${displayName(c)}?`),
         h('p', { class: 'muted' }, `${sizeLabel(c.size)} · ${fmtWeight(weightKg(c, g.now()))}`),
+        warn ? h('p', { class: 'sell-warn' }, `❗ ${warn}`) : '',
         h('p', null, rich(`${here ? 'The Collector offers' : 'You\'ll get'} {coin} ${price}.`)),
         h('p', { class: 'muted' }, here ? 'He\'ll give it a lovely home in his travelling menagerie.' : 'Tip: the travelling Collector pays at least double.'),
         h('p', { class: 'muted' }, 'You can\'t undo this.'),
@@ -1097,7 +1129,8 @@ export class UI {
       m.append(h('h2', null, kind === 'sell' ? `Sell ${ok.length} pet${ok.length === 1 ? '' : 's'}?` : `Release ${ok.length} pet${ok.length === 1 ? '' : 's'}?`),
         h('div', { class: 'bulk-faces' }, ...ok.slice(0, 8).map((c) => this.portrait(c, 'swatch-img')), ok.length > 8 ? h('span', { class: 'muted' }, `+${ok.length - 8}`) : null),
         kind === 'sell' ? h('p', { class: 'lv-rewards', style: 'text-align:center' }, rich(`{coin} +${total.toLocaleString()}`)) : h('p', { class: 'muted' }, 'They\'ll wander back into the wild. You can\'t undo this.'),
-        ...(skipped ? [h('p', { class: 'muted' }, `${skipped} can't be ${kind === 'sell' ? 'sold' : 'released'} (favorites, level gifts, or your last two) and will stay.`)] : []),
+        ...(skipped ? [h('p', { class: 'muted' }, `${skipped} can't be ${kind === 'sell' ? 'sold' : 'released'} (favorites, pets on a trip, or your last two) and will stay.`)] : []),
+        ...(ok.some((c) => sellWarning(c)) ? [h('p', { class: 'sell-warn' }, `❗ This includes ${ok.filter((c) => sellWarning(c)).map((c) => displayName(c)).slice(0, 3).join(', ')}${ok.filter((c) => sellWarning(c)).length > 3 ? '…' : ''}: Legendary or rarer, or a level gift. Are you sure?`)] : []),
         h('div', { class: 'btns' }, h('button', { class: 'btn secondary', onClick: close }, 'Keep them'),
           h('button', { class: `btn ${kind === 'release' ? 'danger' : ''}`, disabled: !ok.length, onClick: () => { close(); this.game.bulk(kind, ok.map((c) => c.id)); } },
             kind === 'sell' ? 'Sell' : 'Release')));
@@ -1592,6 +1625,7 @@ export class UI {
     // the shop is on Home; food bought here is for the world you came from (you can switch)
     if (this.game.world.current !== 'home' || !this.sheetOpen) this.feedWorld = this.game.world.current;
     this.seenShopRotation = s.shop.rotation;
+    s.shop.viewed = true;
     if (toShards) this.shopTab = 'shards';
     this.ensureHome();
     this.game.world.focus(SHOP_STALL, 15);
@@ -1662,7 +1696,12 @@ export class UI {
       const offers = s.shop.offers.filter((x) => x.kind === this.shopTab || (this.shopTab === 'item' && (x.kind === 'tool' || x.kind === 'sky'))
         || (this.shopTab === 'food' && x.kind === 'decor' && x.ref === 'fruittree')).filter((x) => !(this.shopTab === 'decor' && x.ref === 'fruittree'));
       if (!offers.length) list.append(h('p', { class: 'muted' }, 'Nothing of this kind today. Check back when new stock arrives!'));
+      // special stock (Epic, Legendary, Mythical) goes first, with a sparkle
+      const gradeOf = (o: (typeof offers)[number]) => (o.kind === 'egg' ? EGG_TIERS[o.ref]?.grade : o.kind === 'lure' ? LURES[o.ref]?.grade : undefined);
+      const rank = (o: (typeof offers)[number]) => { const gr = gradeOf(o); return gr ? { mythical: 0, legendary: 1, epic: 2 }[gr] : 9; };
+      offers.sort((a, b2) => rank(a) - rank(b2));
       for (const o of offers) {
+        const grade = gradeOf(o);
         let name = '';
         let desc = '';
         let icon = '🫙';
@@ -1689,9 +1728,9 @@ export class UI {
         }
         if (o.kind === 'decor') { const d = DECOR[o.ref]; name = d.name + (d.rotating ? ' ✦' : ''); desc = d.blurb + (d.rotating ? ' Only here for a short while.' : ''); icon = '🪴'; }
         const can = (o.currency === 'glimmer' ? s.glimmer : s.shards) >= o.price && o.stock > 0;
-        list.append(h('div', { class: 'item' },
+        list.append(h('div', { class: `item ${grade ? `special g-${grade}` : ''}` },
           h('div', { class: 'swatch', style }, icon.startsWith('<svg') ? I.icon(icon) : icon),
-          h('div', { class: 'grow' }, h('div', { class: 'name' }, name), h('div', { class: 'desc' }, desc),
+          h('div', { class: 'grow' }, h('div', { class: 'name' }, name, grade ? h('span', { class: `grade g-${grade}` }, `✦ ${grade[0].toUpperCase()}${grade.slice(1)}`) : ''), h('div', { class: 'desc' }, desc),
             o.stock < 10 ? h('div', { class: 'muted' }, o.stock > 0 ? `${o.stock} left` : 'Sold out') : null),
           h('button', { class: `btn small ${o.currency === 'shards' ? 'shard' : ''}`, disabled: !can, onClick: () => this.game.buy(o.id) },
             rich(`${o.currency === 'shards' ? '{gem}' : '{coin}'} ${o.price}`)),
@@ -1949,6 +1988,11 @@ export class UI {
       };
       b.append(volumeRow('Sound', 'sound', g.audio.enabled, g.audio.soundVolume, () => g.setSound(!g.audio.enabled)));
       b.append(volumeRow('Music', 'music', g.audio.musicEnabled, g.audio.musicVolume, () => g.setMusic(!g.audio.musicEnabled)));
+      const signSlider = h('input', { type: 'range', min: '0', max: '100', step: '10', value: String(Math.round(g.signRange * 100)), class: 'vol-slider', 'aria-label': 'Sign distance' }) as HTMLInputElement;
+      const signPct = h('span', { class: 'vol-pct' }, g.signRange >= 0.99 ? 'Always' : `${Math.round(g.signRange * 100)}%`);
+      signSlider.addEventListener('input', () => { g.setSignRange(Number(signSlider.value) / 100); signPct.textContent = g.signRange >= 0.99 ? 'Always' : `${signSlider.value}%`; });
+      b.append(h('div', { class: 'item vol-item' }, h('div', { class: 'grow' }, h('div', { class: 'name' }, 'Shop & Sell signs'),
+        h('div', { class: 'desc' }, 'How far away you can see them. All the way right shows them always.'), h('div', { class: 'vol-row' }, signSlider, signPct))));
       b.append(this.cloudSettings());
       b.append(h('div', { class: 'item' }, h('div', { class: 'grow' }, h('div', { class: 'name' }, 'Reminders'),
         h('div', { class: 'desc' }, 'At most two gentle notifications while you\'re away (egg ready, rare visitor, pet home, the Collector). Never at night.')),

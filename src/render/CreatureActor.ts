@@ -17,7 +17,7 @@ import { emoteTexture } from './materials';
 export interface ActorContext {
   darkness: number;
   sky: EventKind | null;
-  lures: { id: string; x: number; z: number; attracts: Trait }[];
+  lures: { id: string; x: number; z: number; attracts: Trait | 'Any' }[];
   actors: CreatureActor[];
   now: number;
   fx: (kind: FxKind, at: THREE.Vector3) => void;
@@ -766,7 +766,7 @@ export class CreatureActor {
       return;
     }
     // visit a lure that smells right
-    const lure = ctx.lures.find((l) => this.traits.includes(l.attracts));
+    const lure = ctx.lures.find((l) => l.attracts === 'Any' || this.traits.includes(l.attracts));
     if (lure && Math.random() < T.lure && !this.isSwimmer) {
       this.target.set(lure.x + (Math.random() - 0.5) * 1.2, 0, lure.z + (Math.random() - 0.5) * 1.2);
       this.state = 'arrive';

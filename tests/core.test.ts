@@ -665,13 +665,53 @@ function makeCreatureForTest(s: GameState): Creature {
 }
 
 describe('rarity odds', () => {
+  it('charmed lures bring rarer visitors, without bringing more of them', () => {
+    const share = (lure: string, r: string) => arrivalWeights(lure, 'pond', false, null).filter(([sp]) => sp.rarity === r).reduce((a, [, x]) => a + x, 0);
+    expect(share('golden', 'legendary')).toBeGreaterThan(share('riverweed', 'legendary') * 4);
+    expect(share('shimmer', 'rare')).toBeGreaterThan(share('mossberry', 'rare') * 2);
+    for (const l of ['shimmer', 'golden', 'mythic']) expect(arrivalWeights(l, 'pond', false, null).reduce((a, [, x]) => a + x, 0)).toBeLessThanOrEqual(1.0001);
+    // the Prism Koi answers a Mythic Lure at the pond under a rainbow far more often
+    const koi = (lure: string) => arrivalWeights(lure, 'pond', false, 'rainbow').find(([sp]) => sp.id === 'prismkoi')?.[1] ?? 0;
+    expect(koi('mythic')).toBeGreaterThan(koi('riverweed') * 5);
+  });
+
   it('a legendary is never more than a small share of lure visitors, wherever and whenever', () => {
-    for (const spot of Object.keys(SPOTS)) for (const lure of Object.keys(LURES)) for (const dark of [false, true]) {
+    for (const spot of Object.keys(SPOTS)) for (const lure of Object.keys(LURES).filter((l) => !LURES[l].boost)) for (const dark of [false, true]) {
       for (const sky of [null, 'storm', 'eclipse', 'starry', 'fullmoon', 'blizzard'] as const) {
         const w = arrivalWeights(lure, spot, dark, sky);
         for (const [sp, x] of w) if (sp.rarity === 'legendary') expect(x).toBeLessThan(0.03);
         expect(w.reduce((a, [, x]) => a + x, 0)).toBeLessThanOrEqual(1.0001 + 0.05);
       }
+    }
+  });
+});
+
+describe('special shop stock', () => {
+  it('keepers who check the shop see a Legendary egg every few stocks and a Mythical one within six', async () => {
+    const { refreshShop } = await import('../src/core/shop');
+    for (let seed = 1; seed <= 30; seed++) {
+      const s = createGame(seed, T0);
+      let legendary = 0;
+      let mythical = 0;
+      for (let i = 0; i < 9; i++) {
+        refreshShop(s, T0 + i * 60_000);
+        s.shop.viewed = true;
+        if (s.shop.offers.some((o) => o.ref === 'legendary' && o.kind === 'egg')) legendary++;
+        if (s.shop.offers.some((o) => o.ref === 'mythical' && o.kind === 'egg')) mythical++;
+      }
+      // nine looks is about three days of a keeper checking the shop a few times a day
+      expect(legendary).toBeGreaterThanOrEqual(3);
+      expect(mythical).toBeGreaterThanOrEqual(1);
+    }
+  });
+
+  it('a Legendary egg always holds a legendary, a Mythical egg a mythical', async () => {
+    const { rollEggTier } = await import('../src/core/actions');
+    const s = createGame(4, T0);
+    for (let i = 0; i < 40; i++) {
+      expect(SPECIES_BY_ID[rollEggTier(s, 'legendary')].rarity).toBe('legendary');
+      expect(SPECIES_BY_ID[rollEggTier(s, 'mythical')].rarity).toBe('mythical');
+      expect(SPECIES_BY_ID[rollEggTier(s, 'epic')].rarity).not.toMatch(/common|uncommon/);
     }
   });
 });

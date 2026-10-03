@@ -149,7 +149,8 @@ export class Game {
   /** Device settings (sound, music) live outside the save so "Start over" keeps them. */
   private loadSettings(): void {
     try {
-      const s = JSON.parse(this.storage.load(SETTINGS_KEY) ?? '{}') as { sound?: boolean; music?: boolean; soundVol?: number; musicVol?: number };
+      const s = JSON.parse(this.storage.load(SETTINGS_KEY) ?? '{}') as { sound?: boolean; music?: boolean; soundVol?: number; musicVol?: number; signs?: number };
+      if (typeof s.signs === 'number') this.signRange = s.signs;
       if (s.sound === false) this.audio.enabled = false;
       if (s.music === false) this.audio.musicEnabled = false;
       if (typeof s.soundVol === 'number') this.audio.soundVolume = s.soundVol;
@@ -177,7 +178,15 @@ export class Game {
   }
 
   private saveSettings(): void {
-    this.storage.save(SETTINGS_KEY, JSON.stringify({ sound: this.audio.enabled, music: this.audio.musicEnabled, soundVol: this.audio.soundVolume, musicVol: this.audio.musicVolume }));
+    this.storage.save(SETTINGS_KEY, JSON.stringify({ sound: this.audio.enabled, music: this.audio.musicEnabled, soundVol: this.audio.soundVolume, musicVol: this.audio.musicVolume, signs: this.signRange }));
+  }
+
+  /** How far away the Shop and Sell signs show (0-1; 1 = always). */
+  signRange = 0.5;
+
+  setSignRange(v: number): void {
+    this.signRange = Math.max(0, Math.min(1, v));
+    this.saveSettings();
   }
 
   private load(): GameState {
@@ -605,6 +614,7 @@ export class Game {
       case 'nest': return this.ui.showNest(p.index);
       case 'font': return this.ui.showFont();
       case 'shop': return this.ui.showShop();
+      case 'booth': return this.ui.showSellBooth();
       case 'basket': return this.ui.showBasket();
       case 'decor': return this.ui.showPlacedDecor(p.id);
       case 'island':

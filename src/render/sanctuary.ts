@@ -137,6 +137,8 @@ export interface IslandView {
   canopies: THREE.Object3D[];
   spotDishes: Record<string, SpotDish>;
   home?: HomeParts;
+  /** The sell booth. */
+  booth?: THREE.Group;
   fireflies?: THREE.Points;
   pickables: THREE.Object3D[];
   ground: THREE.Mesh;
@@ -390,6 +392,7 @@ export function buildIsland(id: IslandId, size: number, owned: boolean, chopped:
   if (id === 'cloud') buildCloud(view, M, g, rand, sizes);
 
   view.spotDishes = lureSpots(M, id, size, view.pickables, group, id === 'volcano' ? '#4a3a3a' : '#8d8f86');
+  view.booth = sellBooth(view, g, def.booth);
 
   scatterGrass(G, g, def.palette, rand, clear, id === 'home' ? 46 : id === 'lagoon' ? 22 : 18, id !== 'volcano');
   // Stand every separately-built piece (water, nests, font, shop, lure dishes...) on the dome.
@@ -399,6 +402,7 @@ export function buildIsland(id: IslandId, size: number, owned: boolean, chopped:
   addOutlines(scenery, 2.6);
   if (!G.empty) group.add(G.build());
   for (const c of view.canopies) addOutlines(c, 3);
+  addOutlines(view.booth, 2.6);
   if (view.home) {
     addOutlines(view.home.stall, 3);
     addOutlines(view.home.font, 2.6);
@@ -610,6 +614,49 @@ function buildHome(view: IslandView, M: Merger, g: Geo, rand: () => number, clea
   M.anchor = null;
 
   view.home = { font, fontWater, nests, nestLocks, stall, basket };
+}
+
+/**
+ * The sell booth every world has: a little wooden counter under a green and gold
+ * awning, with a big coin on a post so you can spot it from across the island.
+ */
+function sellBooth(view: IslandView, g: Geo, at: { x: number; z: number }): THREE.Group {
+  const b = new THREE.Group();
+  b.position.set(g.ox + at.x, 0, g.oz + at.z);
+  // face the middle of the island
+  b.rotation.y = Math.atan2(-at.x, -at.z);
+  const add = (geo: THREE.BufferGeometry, color: string, x: number, y: number, z: number, rx = 0) => {
+    const m = new THREE.Mesh(geo, toon(color));
+    m.position.set(x, y, z);
+    m.rotation.x = rx;
+    m.castShadow = true;
+    b.add(m);
+    return m;
+  };
+  add(new THREE.BoxGeometry(1.5, 0.75, 0.7), '#c8945a', 0, 0.38, 0.1);
+  add(new THREE.BoxGeometry(1.6, 0.08, 0.8), '#e8c08a', 0, 0.78, 0.1);
+  for (const dx of [-0.7, 0.7]) add(new THREE.BoxGeometry(0.1, 1.5, 0.1), '#8a5a36', dx, 1.2, 0.4);
+  for (let i = 0; i < 5; i++) {
+    add(new THREE.BoxGeometry(0.34, 0.06, 0.9), i % 2 ? '#fff3c4' : '#3fbf5a', -0.68 + i * 0.34, 1.95, 0.25, 0.32);
+  }
+  // little coin stacks on the counter
+  for (const [x, n] of [[-0.45, 3], [-0.2, 2], [0.45, 4]] as [number, number][]) {
+    for (let k = 0; k < n; k++) add(new THREE.CylinderGeometry(0.09, 0.09, 0.04, 10), '#ffd36a', x, 0.84 + k * 0.045, 0.2);
+  }
+  // the sign: a coin on a post, high enough to read from afar
+  add(new THREE.CylinderGeometry(0.05, 0.05, 1.2, 6), '#8a5a36', 0.85, 2.3, -0.1);
+  const coin = add(new THREE.CylinderGeometry(0.34, 0.34, 0.08, 18), '#ffc21a', 0.85, 3.0, -0.1, Math.PI / 2);
+  (coin.material as THREE.MeshToonMaterial).emissive = new THREE.Color('#c99a1a');
+  (coin.material as THREE.MeshToonMaterial).emissiveIntensity = 0.35;
+  add(new THREE.CylinderGeometry(0.2, 0.2, 0.09, 5), '#e8930a', 0.85, 3.0, -0.1, Math.PI / 2);
+  b.userData.coin = coin;
+  const hit = new THREE.Mesh(new THREE.BoxGeometry(1.9, 3.2, 1.4), new THREE.MeshBasicMaterial({ visible: false }));
+  hit.position.y = 1.5;
+  hit.userData.pick = { kind: 'booth', island: view.id };
+  b.add(hit);
+  view.pickables.push(hit);
+  view.group.add(b);
+  return b;
 }
 
 // ---------------------------------------------------------------- Ember Peak
