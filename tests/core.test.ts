@@ -451,7 +451,7 @@ describe('save', () => {
     for (const c of v1.creatures) { delete c.island; delete c.size; delete c.growMs; delete c.personality; }
     for (const k of ['vent', 'ash', 'reef', 'shallows']) delete v1.spots[k];
     const s = deserialize(JSON.stringify(v1));
-    expect(s.version).toBe(8);
+    expect(s.version).toBe(9);
     expect(s.digSpots).toEqual([]);
     expect(s.islands.home.owned).toBe(true);
     expect(s.creatures.every((c) => c.island === 'home' && c.size > 0.9 && c.growMs === 0 && !!c.personality)).toBe(true);

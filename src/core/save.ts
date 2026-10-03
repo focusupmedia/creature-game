@@ -39,6 +39,10 @@ const MIGRATIONS: Record<number, Migration> = {
   2: (raw) => {
     raw.digSpots = [];
   },
+  // v8 → v9: lure visitors wait for you.
+  8: (raw) => {
+    raw.visitors = [];
+  },
   // v7 → v8: hunger, food, storage and the Collector. Everyone starts full.
   7: (raw) => {
     for (const c of (raw.creatures as Record<string, unknown>[]) ?? []) c.fullness = 1;

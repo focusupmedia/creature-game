@@ -5,7 +5,7 @@ import { recordSpecies } from './journal';
 import { generateShop } from './shop';
 import type { GameState } from './types';
 
-export const SAVE_VERSION = 8;
+export const SAVE_VERSION = 9;
 
 export function createGame(now: number, seed = Math.floor(Math.random() * 2 ** 31)): GameState {
   const state: GameState = {
@@ -26,6 +26,7 @@ export function createGame(now: number, seed = Math.floor(Math.random() * 2 ** 3
     food: { snack: 3 },
     feedbags: {},
     storageSlots: TUNING.storageBase,
+    visitors: [],
     collector: { nextAt: now + 60 * 60_000, until: 0, wants: 'Grove' },
     decorOwned: {},
     placedDecor: [],
@@ -49,7 +50,7 @@ export function createGame(now: number, seed = Math.floor(Math.random() * 2 ** 3
     savedAt: now,
   };
   for (const sp of TUNING.start.creatures) {
-    state.creatures.push(makeCreature(state, sp, [], now, 'Was already living here when you arrived.'));
+    state.creatures.push(makeCreature(state, sp, [], now, 'Was already living here when you arrived.', { met: { how: 'starter' } }));
     recordSpecies(state, sp, now);
   }
   // Starters don't pay discovery rewards.

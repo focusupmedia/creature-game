@@ -66,3 +66,32 @@ describe('care', () => {
     expect(s.glimmer).toBeGreaterThan(coins);
   });
 });
+
+describe('lure visitors', () => {
+  it('wait by the lure until you keep them or send them away', async () => {
+    const { keepVisitor, sendAwayVisitor } = await import('../src/core/care');
+    const { placeLure } = await import('../src/core/actions');
+    const s = createGame(8, 0);
+    const before = s.creatures.length;
+    placeLure(s, 'glade', 'mossberry', 0);
+    for (let m = 1; m <= 60 && s.visitors.length < 2; m++) tick(s, m * 60_000, { maxStepMs: 1000 });
+    expect(s.visitors.length).toBeGreaterThanOrEqual(2);
+    expect(s.creatures.length).toBe(before);
+    const [a, b] = s.visitors;
+    expect(keepVisitor(s, a.creature.id, 20).ok).toBe(true);
+    expect(s.creatures.length).toBe(before + 1);
+    const coins = s.glimmer;
+    expect(sendAwayVisitor(s, b.creature.id).ok).toBe(true);
+    expect(s.glimmer).toBeGreaterThan(coins);
+    expect(keepVisitor(s, b.creature.id, 20).ok).toBe(false);
+  });
+
+  it('a full world asks you to make space first', async () => {
+    const { keepVisitor } = await import('../src/core/care');
+    const s = createGame(9, 0);
+    s.visitors.push({ creature: { ...s.creatures[0], id: 'vv' }, spot: 'glade', island: 'home', until: 1e12 });
+    const r = keepVisitor(s, 'vv', s.creatures.length);
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.error).toBe('full');
+  });
+});

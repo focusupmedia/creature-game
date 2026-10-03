@@ -3,7 +3,7 @@ import { DIG_KINDS, EVENTS, ITEMS, LEGENDARY, LURES, MUTATIONS, SPOTS } from '..
 import { claimBlessing, startLegendary } from '../core/legendary';
 import { addXp } from '../core/levels';
 import { claimDaily, claimLasting, questEvent, refreshDailies } from '../core/quests';
-import { buyStorageSlot, feastIsland, feedCreature, hangFeedbag, harvestTree, nextHungryAt, retrieveCreature, sellCreature, storeCreature } from '../core/care';
+import { awayFinds, buyStorageSlot, findVisitor, keepVisitor, releaseCreature, sendAwayVisitor, feastIsland, feedCreature, hangFeedbag, harvestTree, nextHungryAt, retrieveCreature, sellCreature, storeCreature } from '../core/care';
 import { islandCapacity } from '../core/sim';
 import { xpFor, type PlayEvent } from '../core/progress';
 import { ISLANDS } from '../content/islands';
@@ -79,7 +79,7 @@ export class Game {
     const away = this.now() - this.state.lastTick;
     const events = tick(this.state, this.now(), { maxStepMs: TUNING.offlineStepSec * 1000 });
     this.world.sync(this.state, this.now(), activeEvent(this.state, this.now())?.kind ?? null);
-    if (away > AWAY_REPORT_MS) this.ui.showAwayReport(events, away);
+    if (away > AWAY_REPORT_MS) this.ui.showAwayReport(events, away, awayFinds(this.state, away));
     this.analytics.track('session_start', { creatures: this.state.creatures.length, away_min: Math.round(away / 60000) });
     this.world.start();
     if (!this.storage.load(SPIN_HINT_KEY)) {
@@ -160,7 +160,7 @@ export class Game {
       this.hiddenAt = 0;
       const events = tick(this.state, this.now(), { maxStepMs: TUNING.offlineStepSec * 1000 });
       this.dispatch(events, false);
-      if (away > AWAY_REPORT_MS) this.ui.showAwayReport(events, away);
+      if (away > AWAY_REPORT_MS) this.ui.showAwayReport(events, away, awayFinds(this.state, away));
     }
   }
 
@@ -217,14 +217,14 @@ export class Game {
           if (live) this.record({ kind: 'arrival', species: ev.creature.species, isNew: ev.discovered });
           this.analytics.track('creature_arrived', { species: ev.creature.species, spot: ev.spot, mutations: ev.creature.mutations.length, new: ev.discovered });
           if (!live) break;
-          const stayed = this.state.creatures.some((c) => c.id === ev.creature.id);
           const pic = this.world.portraits.get(ev.creature.species, ev.creature.mutations);
+          const where = SPOTS[ev.spot].island === this.world.current ? `the ${SPOTS[ev.spot].name}` : ISLANDS[SPOTS[ev.spot].island].name;
           if (ev.discovered) {
             this.audio.play('discover');
-            this.ui.toast(`New discovery: ${speciesTitle(ev.creature)}!`, 'discovery', pic, 4500);
+            this.ui.toast(`New discovery: ${speciesTitle(ev.creature)}! It's waiting at ${where}. Tap it to say hello.`, 'discovery', pic, 5000);
           } else {
             this.audio.play('arrive');
-            this.ui.toast(`A ${speciesTitle(ev.creature)} ${stayed ? 'arrived' : 'visited, but your sanctuary is full'} at the ${SPOTS[ev.spot].name}.`, 'info', pic);
+            this.ui.toast(`A ${speciesTitle(ev.creature)} is waiting at ${where}!`, 'info', pic);
           }
           if (this.state.tutorial <= 1) {
             this.setTutorial(2);
@@ -232,6 +232,9 @@ export class Game {
           }
           break;
         }
+        case 'visitorLeft':
+          if (live) this.ui.toast(`${speciesTitle(ev.creature)} got tired of waiting and wandered off.`, 'info', this.world.portraits.get(ev.creature.species, ev.creature.mutations));
+          break;
         case 'mutation': {
           this.analytics.track('mutation_gained', { mutation: ev.mutation, cause: ev.cause, new: ev.discovered });
           if (!live) break;
@@ -326,7 +329,9 @@ export class Game {
     }
     this.audio.play('tap');
     switch (p.kind) {
-      case 'creature': return this.ui.selectCreature(p.id);
+      case 'creature':
+        if (findVisitor(this.state, p.id)) return this.ui.showVisitor(p.id);
+        return this.ui.selectCreature(p.id);
       case 'spot': return this.ui.showSpot(p.id);
       case 'nest': return this.ui.showNest(p.index);
       case 'font': return this.ui.showFont();
@@ -502,6 +507,8 @@ export class Game {
     const r = A.hatch(this.state, eggId, this.now());
     if (!r.ok) {
       this.audio.play('error');
+      // a full home: offer to make space, then hatch straight away
+      if (r.error.includes('is full')) return this.ui.showMakeSpace('home', () => this.hatch(eggId));
       return this.ui.toast(r.error);
     }
     this.ui.closeSheet();
@@ -605,6 +612,35 @@ export class Game {
     if (ups.length) this.saveSoon();
   }
 
+  // ------------------------------------------------------------------ lure visitors
+
+  /** Keep a lure visitor. If its world is full, offer to make space or send it elsewhere. */
+  keepVisitor(id: string, island?: IslandId): void {
+    const v = findVisitor(this.state, id);
+    if (!v) return this.ui.toast('They have wandered off.');
+    const to = island ?? v.island;
+    const r = keepVisitor(this.state, id, islandCapacity(this.state, to), to);
+    if (!r.ok && r.error === 'full') {
+      this.audio.play('error');
+      return this.ui.showMakeSpace(to, () => this.keepVisitor(id, to), (other) => this.keepVisitor(id, other));
+    }
+    if (this.careResult(r, 'chime')) {
+      this.world.emote(id, '💕');
+      this.analytics.track('visitor_kept', { species: v.creature.species });
+      if (to !== this.world.current) this.ui.toast(`${displayName(v.creature)} is off to ${ISLANDS[to].name}.`);
+    }
+  }
+
+  sendAwayVisitor(id: string): void {
+    const v = findVisitor(this.state, id);
+    if (this.careResult(sendAwayVisitor(this.state, id), 'coin')) this.analytics.track('visitor_sent', { species: v?.creature.species ?? '' });
+  }
+
+  /** Say goodbye to a creature for good (favourites are protected). */
+  release(id: string): boolean {
+    return this.careResult(releaseCreature(this.state, id));
+  }
+
   // ------------------------------------------------------------------ care
 
   private careResult(r: { ok: true; message: string } | { ok: false; error: string }, sfx: 'coin' | 'place' | 'chime' = 'place'): boolean {
@@ -639,8 +675,10 @@ export class Game {
     if (this.careResult(harvestTree(this.state, decorId, this.now()), 'coin')) this.ui.closeSheet();
   }
 
-  store(id: string): void {
-    if (this.careResult(storeCreature(this.state, id, this.now()))) this.ui.closeSheet();
+  store(id: string, keepSheet = false): boolean {
+    const ok = this.careResult(storeCreature(this.state, id, this.now()));
+    if (ok && !keepSheet) this.ui.closeSheet();
+    return ok;
   }
 
   retrieve(id: string): void {
@@ -691,7 +729,7 @@ export class Game {
     this.state.clockOffset += ms;
     const events = tick(this.state, this.now(), { maxStepMs: TUNING.offlineStepSec * 1000 });
     this.dispatch(events, false);
-    if (ms >= 30 * 60_000) this.ui.showAwayReport(events, ms);
+    if (ms >= 30 * 60_000) this.ui.showAwayReport(events, ms, awayFinds(this.state, ms));
     else this.ui.toast(`⏩ ${Math.round(ms / 60000)} minute${Math.round(ms / 60000) === 1 ? '' : 's'} passed.`);
   }
 

@@ -61,6 +61,7 @@ export function startCombine(state: GameState, aId: string, bId: string, t: numb
     seed: rng.seed(),
     source: 'combine',
     parentNames: [displayName(a), displayName(b)],
+    parentSpecies: [a.species, b.species],
     laidAt: t,
     incubationMs: incubationMs(o.species, o.mutations),
     progressMs: 0,
@@ -105,6 +106,13 @@ export function hatch(state: GameState, eggId: string, t: number): Result<HatchR
       : egg.source === 'dug' ? 'Hatched from an egg a creature dug up.' : 'Hatched from a mysterious egg.';
   const c = makeCreature(state, egg.species, egg.mutations, t, story, {
     seed: egg.seed, island: 'home', hatchling: true, parents: egg.parentPersonalities, parentQuirks: egg.parentQuirks,
+    met: {
+      how: egg.source === 'combine' ? 'bred' : egg.source === 'shop' ? 'shop' : egg.source === 'dug' ? 'dug' : 'other',
+      sky: state.legendary?.kind ?? activeEvent(state, t)?.kind ?? null,
+      parents: egg.parentNames && egg.parentSpecies
+        ? [{ name: egg.parentNames[0], species: egg.parentSpecies[0] }, { name: egg.parentNames[1], species: egg.parentSpecies[1] }] : undefined,
+      tier: egg.tier,
+    },
   });
   if (egg.relative) c.history.push({ t, text: 'A distant relative! It looks nothing like its parents.' });
   for (const ev of new Set(egg.witnessed)) {
@@ -227,7 +235,7 @@ export function buyIsland(state: GameState, id: IslandId): Result {
   // A starter pair to breed from; the rest of the island's creatures come from lures and breeding.
   const t = state.lastTick;
   for (const sp of def.starters ?? []) {
-    state.creatures.push(makeCreature(state, sp, [], t, `Was waiting on ${def.name} when you arrived.`, { island: id }));
+    state.creatures.push(makeCreature(state, sp, [], t, `Was waiting on ${def.name} when you arrived.`, { island: id, met: { how: 'island' } }));
     recordSpecies(state, sp, t);
   }
   return { ok: true };

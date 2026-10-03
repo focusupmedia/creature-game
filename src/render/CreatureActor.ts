@@ -181,6 +181,18 @@ export class CreatureActor {
   }
 
   private held = false;
+  /** A lure visitor waits near its lure with a ! until you say hello. */
+  waitAt: { x: number; z: number } | null = null;
+
+  /** Put a visitor next to its lure straight away (after a reload). */
+  standNear(spot: { x: number; z: number }): void {
+    const a = Math.random() * Math.PI * 2;
+    this.p.set(spot.x + Math.cos(a) * 0.9, 0, spot.z + Math.sin(a) * 0.9);
+    if (this.isSwimmer) this.clampToWater(this.p);
+    this.state = 'idle';
+    this.timer = 1;
+    this.place();
+  }
 
   /** Something notable just happened; it shows in the name bubble for a while. */
   note(text: string): void {
@@ -190,6 +202,7 @@ export class CreatureActor {
 
   /** A short, human line about what the creature is doing right now. */
   activity(): string {
+    if (this.waitAt && this.state !== 'arrive') return 'Waiting by the lure to meet you ❗';
     if (this.noteText && this.phase - this.noteAt < 25) return this.noteText;
     switch (this.state) {
       case 'arrive': return this.onArrived ? 'Following a scent…' : 'Heading over to the lure';
@@ -581,6 +594,21 @@ export class CreatureActor {
     if (this.held && !asleepTime) {
       this.state = 'idle';
       this.timer = 1;
+      return;
+    }
+    if (this.waitAt) {
+      // visitors hang about by the lure, hoping you'll come say hello
+      const w = this.waitAt;
+      if (Math.hypot(this.p.x - w.x, this.p.z - w.z) > 1.8 && !this.isSwimmer) {
+        const a = Math.random() * Math.PI * 2;
+        this.target.set(w.x + Math.cos(a) * 0.9, 0, w.z + Math.sin(a) * 0.9);
+        this.state = 'wander';
+        this.timer = 0;
+        return;
+      }
+      this.state = 'idle';
+      this.timer = 1.5 + Math.random() * 2;
+      this.emote('❗', this.timer + 0.6);
       return;
     }
     if (asleepTime) {

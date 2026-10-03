@@ -490,3 +490,18 @@ input.rename { font-family: var(--display); font-size: 22px; border: var(--outli
 .hud-tile.collector { background: linear-gradient(180deg, #c9a6ff, #6a3ce0); }
 .hud-tile.collector .emoji { font-size: 28px; line-height: 1; }
 .hud-tile.hidden { display: none; }
+
+/* ---- how you met */
+.met { background: #fffaf0; border: 3px solid #f2d49a; border-radius: 16px; padding: 10px 12px; margin: 10px 0; }
+.met .k { font-family: var(--display); font-size: 13px; color: #b07a2a; letter-spacing: .04em; text-transform: uppercase; margin-bottom: 4px; }
+.met-row { font-size: 14px; line-height: 1.35; margin: 3px 0; }
+
+/* lure visitors and making space */
+.visitor-pic { display: flex; justify-content: center; margin: 8px 0; }
+.visitor-pic img { width: 120px; height: 120px; border-radius: 20px; background: radial-gradient(circle at 50% 40%, var(--white), var(--sky-2)); border: 3px solid var(--sky-3); }
+.list.make-space { max-height: 42vh; overflow-y: auto; margin-top: 10px; }
+.list.make-space .item .btn { flex: none; }
+.list.make-space .item { gap: 6px; }
+.list.make-space .item .grow { min-width: 0; }
+.list.make-space .item .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.list.make-space .item .btn.small { padding-left: 10px; padding-right: 10px; }

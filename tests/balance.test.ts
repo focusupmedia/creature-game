@@ -5,7 +5,8 @@
 
 import { describe, expect, it } from 'vitest';
 import { createGame } from '../src/core/state';
-import { tick } from '../src/core/sim';
+import { islandCapacity, tick } from '../src/core/sim';
+import { keepVisitor, sendAwayVisitor } from '../src/core/care';
 import { buyOffer, collectGift, hatch, placeLure, release, startCombine } from '../src/core/actions';
 import { compatibility } from '../src/core/genetics';
 import { isDark } from '../src/core/world';
@@ -19,6 +20,11 @@ interface Snapshot { min: number; species: number; hybrids: number; mutations: n
 
 function playMinute(s: GameState, t: number, rng: StateRng): void {
   for (const g of [...s.gifts]) collectGift(s, g.id);
+  // Greet lure visitors: keep the interesting ones, thank the rest.
+  for (const v of [...s.visitors]) {
+    const keep = v.creature.mutations.length > 0 || s.journal.species[v.creature.species].count <= 2;
+    if (!keep || !keepVisitor(s, v.creature.id, islandCapacity(s, v.island)).ok) sendAwayVisitor(s, v.creature.id);
+  }
   for (const e of s.eggs.filter((e) => e.progressMs >= e.incubationMs)) hatch(s, e.id, t);
   const dark = isDark(s, t);
   for (const spot of ['glade', 'pond']) {
@@ -39,7 +45,7 @@ function playMinute(s: GameState, t: number, rng: StateRng): void {
     if (startCombine(s, a.id, b.id, t).ok) break;
   }
   // Like a real keeper, make room by saying goodbye to plain duplicates.
-  while (s.creatures.length >= 17) {
+  while (s.creatures.length >= islandCapacity(s, 'home') - 1) {
     const plain = s.creatures.find((c) => c.mutations.length === 0 && s.journal.species[c.species].count > 1)
       ?? s.creatures.find((c) => c.mutations.length === 0);
     if (!plain || !release(s, plain.id).ok) break;

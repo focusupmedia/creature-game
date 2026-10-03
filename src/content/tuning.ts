@@ -69,6 +69,9 @@ export const TUNING = {
   /** XP for things the player does. Idle time earns none. */
   xp: { lure: 6, breed: 15, hatch: 25, newSpecies: 50, newMutation: 30, gift: 2, digSpot: 8, shopEgg: 5, blessing: 40, arrivalNew: 30 } as Record<string, number>,
   /** Hunger: hours from full to empty; below `hungry` a creature is grumpy and won't dig or breed. */
+  /** Lure visitors wait this long for you, at most this many per lure spot. */
+  visitorWaitHours: 6,
+  visitorsPerSpot: 3,
   hungerHours: 10,
   hungry: 0.3,
   wellFed: 0.7,

@@ -191,9 +191,31 @@ export interface Creature {
   fullness: number;
   /** Favourites can't be sold. */
   favorite?: boolean;
+  /** How you met (shown on its card). Missing on creatures from older saves. */
+  met?: CreatureOrigin;
   /** In storage: paused (no hunger, no growing), not on any island. */
   stored?: boolean;
   storedAt?: number;
+}
+
+export interface Visitor {
+  creature: Creature;
+  spot: SpotId;
+  island: IslandId;
+  /** They wander off if nobody says hello in time. */
+  until: number;
+}
+
+export interface CreatureOrigin {
+  how: 'starter' | 'lure' | 'bred' | 'shop' | 'dug' | 'level' | 'island' | 'other';
+  /** What was happening in the sky when you met. */
+  sky?: EventKind | LegendaryKind | null;
+  lure?: string;
+  spot?: SpotId;
+  parents?: { name: string; species: SpeciesId }[];
+  /** Shop egg tier. */
+  tier?: string;
+  level?: number;
 }
 
 export interface Egg {
@@ -203,6 +225,7 @@ export interface Egg {
   seed: number;
   source: 'combine' | 'shop' | 'gift' | 'dug';
   parentNames?: [string, string];
+  parentSpecies?: [SpeciesId, SpeciesId];
   laidAt: number;
   incubationMs: number;
   progressMs: number;
@@ -314,6 +337,8 @@ export interface GameState {
   /** Feedbag portions hanging on each island; they feed hungry creatures while you're away. */
   feedbags: Partial<Record<IslandId, number>>;
   storageSlots: number;
+  /** Lure visitors waiting for you to Keep them or Send them away. */
+  visitors: Visitor[];
   /** The travelling Collector: pays more than a quick sale, most for one type of creature. */
   collector: { nextAt: number; until: number; wants: Trait };
   hungerNotifiedDay?: string;
@@ -363,5 +388,6 @@ export type GameEvent =
   | { type: 'legendary'; kind: LegendaryKind; creature: Creature | null; discovered: boolean; t: number }
   | { type: 'legendaryEnd'; kind: LegendaryKind; t: number }
   | { type: 'collector'; wants: Trait; until: number; t: number }
+  | { type: 'visitorLeft'; creature: Creature; t: number }
   | { type: 'shopRefresh'; t: number }
   | { type: 'note'; text: string; t: number };

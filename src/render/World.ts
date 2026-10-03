@@ -251,6 +251,20 @@ export class World {
         actor.creature = c;
       }
     }
+    // lure visitors wait by their lure with a ! until you meet them
+    const waiting = new Set<string>();
+    for (const v of state.visitors) {
+      if (!this.owned[v.island]) continue;
+      alive.add(v.creature.id);
+      waiting.add(v.creature.id);
+      let a = this.actors.get(v.creature.id);
+      if (!a) {
+        a = this.addActor({ ...v.creature, island: v.island });
+        a.standNear(SPOTS[v.spot]);
+      }
+      a.waitAt = SPOTS[v.spot];
+    }
+    for (const [id, a] of this.actors) if (a.waitAt && !waiting.has(id)) a.waitAt = null;
     for (const [id, a] of this.actors) {
       if (!alive.has(id)) {
         if (a.root.visible) this.burst(this.above(a.position, 0.5, a.geo.id), '#ffffff', 14);
@@ -668,6 +682,11 @@ export class World {
     const hit = this.raycaster.intersectObjects(actors.map((a) => a.hit), false)[0];
     const actor = hit && actors.find((a) => a.hit === hit.object);
     if (!actor) return false;
+    // visitors aren't yours yet: holding one says hello instead
+    if (actor.waitAt) {
+      this.onTap({ kind: 'creature', id: actor.id });
+      return false;
+    }
     actor.pickUp();
     this.carry = { actor, hover: null };
     this.select(null);

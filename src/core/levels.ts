@@ -74,7 +74,7 @@ export function addXp(state: GameState, amount: number, t: number): LevelUp[] {
     state.glimmer += r.coins;
     state.shards += r.shards;
     if (r.creature) {
-      const c = makeCreature(state, r.creature, [], t, `A gift for reaching keeper level ${l}.`, { island: 'home' });
+      const c = makeCreature(state, r.creature, [], t, `A gift for reaching keeper level ${l}.`, { island: 'home', met: { how: 'level', level: l } });
       state.creatures.push(c);
       recordSpecies(state, r.creature, t);
       r.creatureId = c.id;

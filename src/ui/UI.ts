@@ -9,6 +9,7 @@ import { compatibility, eggClues } from '../core/genetics';
 import { arrivalWeights } from '../core/lures';
 import { nestOccupant } from '../core/state';
 import type { Creature, Egg, GameEvent, IslandId, LegendaryKind, MutationId, SpotId, Trait } from '../core/types';
+import { islandCapacity } from '../core/sim';
 import { activeEvent, dayPhase, daylight, isDark, nextEvent } from '../core/world';
 import type { Game } from '../game/Game';
 import { fmtDuration, h, img, rich } from './dom';
@@ -18,7 +19,7 @@ import { QUIRKS } from '../content/quirks';
 import { deleteQuirk, wipeQuirks } from '../core/quirks';
 import { MAX_LEVEL, levelOf, levelProgress, levelReward, type LevelUp } from '../core/levels';
 import { DAILY_POOL, LASTING, claimable, lastingReward, refreshDailies } from '../core/quests';
-import { canSell, collectorHere, isHungry, nextSlotPrice, ripeFruit, sellPrice, storedCount } from '../core/care';
+import { type AwayFind, canSell, collectorHere, findVisitor, isHungry, visitorThanks, nextSlotPrice, ripeFruit, sellPrice, storedCount } from '../core/care';
 import { rarityTag } from './rarity';
 
 const fmtClock = (ms: number) => `${Math.floor(Math.max(0, ms) / 60000)}:${String(Math.floor(Math.max(0, ms) / 1000) % 60).padStart(2, '0')}`;
@@ -367,6 +368,7 @@ export class UI {
       b.append(head);
       const t = this.game.now();
       const grown = growth(c, t);
+      b.append(this.metBlock(c));
       const tools = this.game.state.tools;
       const g = this.game;
       const full = Math.round(c.fullness * 100);
@@ -456,6 +458,31 @@ export class UI {
     });
   }
 
+  /** "How you met": when, how, and what the sky was doing. */
+  private metBlock(c: Creature): HTMLElement {
+    const m = c.met;
+    const sp = species(c.species);
+    let how = 'Joined your sanctuary.';
+    if (m) {
+      switch (m.how) {
+        case 'starter': how = 'Was already living here when you arrived.'; break;
+        case 'island': how = 'Was waiting for you when you unlocked its world.'; break;
+        case 'lure': how = `Answered your ${m.lure ? LURES[m.lure]?.name ?? 'lure' : 'lure'}${m.spot ? ` at the ${SPOTS[m.spot]?.name ?? 'lure spot'}` : ''}.`; break;
+        case 'bred': how = m.parents ? `Hatched from an egg you bred from ${m.parents.map((p) => `${p.name}${p.name !== species(p.species).name ? ` (${species(p.species).name})` : ''}`).join(' × ')}.` : 'Hatched from an egg you bred.'; break;
+        case 'shop': how = `Hatched from a ${m.tier ? EGG_TIERS[m.tier]?.name ?? 'shop egg' : 'shop egg'} from Mango's shop.`; break;
+        case 'dug': how = 'Hatched from an egg one of your creatures dug up.'; break;
+        case 'level': how = `A gift for reaching keeper level ${m.level ?? '?'}.`; break;
+        default: break;
+      }
+    } else if (sp.origin === 'reward') how = 'A gift for levelling up.';
+    const skyName = m?.sky ? (m.sky in EVENTS ? EVENTS[m.sky as keyof typeof EVENTS].name : LEGENDARY[m.sky as keyof typeof LEGENDARY]?.name) : null;
+    return h('div', { class: 'met' },
+      h('div', { class: 'k' }, 'How you met'),
+      h('div', { class: 'met-row' }, h('b', null, '📅 '), this.when(c.bornAt)),
+      h('div', { class: 'met-row' }, h('b', null, '🧭 '), how),
+      h('div', { class: 'met-row' }, h('b', null, '🌤️ '), skyName ? `It was during ${/^[aeiou]/i.test(skyName) ? 'an' : 'a'} ${skyName.replace(/^The /, '')}.` : m ? 'Under a calm sky.' : 'A long time ago.'));
+  }
+
   private confirmSell(c: Creature): void {
     const g = this.game;
     const here = collectorHere(g.state, g.now());
@@ -516,10 +543,63 @@ export class UI {
           h('button', { class: 'btn secondary', onClick: close }, 'Keep'),
           h('button', { class: 'btn danger', onClick: () => {
             close();
-            const r = A.release(this.game.state, c.id);
-            if (!r.ok) this.toast(r.error);
-            else { this.closeSheet(); this.toast(`${displayName(c)} wandered off into the wild.`); this.game.saveSoon(); }
+            if (this.game.release(c.id)) this.closeSheet();
           } }, 'Goodbye')));
+    });
+  }
+
+  // ---- lure visitors
+
+  /** A visitor waiting at a lure: keep it, or send it on its way. */
+  showVisitor(id: string): void {
+    const g = this.game;
+    const v = findVisitor(g.state, id);
+    if (!v) return;
+    const c = v.creature;
+    const sp = species(c.species);
+    const known = (g.state.journal.species[c.species]?.count ?? 0) > 1;
+    this.modal((m, close) => {
+      m.append(h('h2', null, `A visitor: ${speciesTitle(c)}`),
+        h('div', { class: 'visitor-pic' }, this.portrait(c, '')),
+        h('div', { class: 'met-row', style: 'text-align:center' }, rarityTag(sp.rarity)),
+        this.traitChips(creatureTraits(c)),
+        h('p', { class: 'muted' }, `${known ? '' : 'Your first one! '}It followed the scent to the ${SPOTS[v.spot].name} and is waiting to meet you. It will wander off in ${fmtDuration(v.until - g.now())}.`),
+        h('div', { class: 'btns' },
+          h('button', { class: 'btn secondary', onClick: () => { close(); g.sendAwayVisitor(id); } }, rich(`Send away · +{coin} ${visitorThanks(c)}`)),
+          h('button', { class: 'btn', onClick: () => { close(); g.keepVisitor(id); } }, 'Keep it!')));
+    });
+  }
+
+  /**
+   * A world is full: store or release someone to make room, then carry on.
+   * `elsewhere` (optional) offers to send the newcomer to another world with room instead.
+   */
+  showMakeSpace(island: IslandId, onDone: () => void, elsewhere?: (to: IslandId) => void): void {
+    const g = this.game;
+    const s = g.state;
+    const cap = islandCapacity(s, island);
+    this.modal((m, close) => {
+      const here = s.creatures.filter((c) => c.island === island && !c.stored);
+      m.append(h('h2', null, `${ISLANDS[island].name} is full`),
+        h('p', { class: 'muted' }, `${here.length} of ${cap} creatures live here. Make space by storing or releasing someone${elsewhere ? ', or send the newcomer to another world' : ''}.`));
+      if (elsewhere) {
+        const others = ISLAND_ORDER.filter((id) => id !== island && s.islands[id]?.owned
+          && s.creatures.filter((c) => c.island === id && !c.stored).length < islandCapacity(s, id));
+        if (others.length) {
+          m.append(h('div', { class: 'btns wrap' }, ...others.map((id) => h('button', { class: 'btn small', onClick: () => { close(); elsewhere(id); } }, `Send to ${ISLANDS[id].icon} ${ISLANDS[id].name}`))));
+        }
+      }
+      const list = h('div', { class: 'list make-space' });
+      const storageFull = storedCount(s) >= s.storageSlots;
+      for (const c of here) {
+        list.append(h('div', { class: 'item' }, this.portrait(c, 'swatch-img'),
+          h('div', { class: 'grow' }, h('div', { class: 'name' }, `${c.favorite ? '♥ ' : ''}${displayName(c)}`), h('div', { class: 'desc' }, rarityTag(species(c.species).rarity))),
+          h('button', { class: 'btn small', disabled: storageFull, onClick: () => { if (g.store(c.id, true)) { close(); onDone(); } } }, 'Store'),
+          h('button', { class: 'btn small danger', disabled: !!c.favorite, onClick: () => { if (g.release(c.id)) { close(); onDone(); } } }, 'Release')));
+      }
+      m.append(list);
+      if (storageFull) m.append(h('p', { class: 'muted' }, `Storage is full (${s.storageSlots} slots). You can add slots from the Storage list.`));
+      m.append(h('div', { class: 'btns' }, h('button', { class: 'btn secondary', onClick: close }, 'Not now')));
     });
   }
 
@@ -649,8 +729,10 @@ export class UI {
       m.classList.add('levelup');
       m.append(h('div', { class: 'lv-burst' }, '★'), h('h2', null, `Level ${up.level}!`),
         h('p', { class: 'lv-rewards' }, rich(`{coin} +${up.coins.toLocaleString()}   {gem} +${up.shards}`)),
-        ...(sp && c ? [h('div', { class: 'col', style: 'align-items:center' }, this.portrait(c, 'portrait big'), h('b', null, `A ${sp.name} joined you!`), h('span', { class: 'muted' }, 'Only keepers who reach this level ever meet one.'))] : []),
+        ...(sp && c ? [h('div', { class: 'col', style: 'align-items:center' }, this.portrait(c, 'portrait big'), h('b', null, `A ${sp.name} joined you!`),
+          h('span', { class: 'muted' }, 'Only keepers who reach this level ever meet one. It\'s on your Home world, or you can store it for later.'))] : []),
         h('div', { class: 'btns' },
+          sp && c ? h('button', { class: 'btn secondary', onClick: () => { if (this.game.store(c.id, true)) close(); } }, 'Store it') : null,
           sp && c ? h('button', { class: 'btn secondary', onClick: () => { close(); this.focusCreature(c.id); } }, 'Go see it') : null,
           h('button', { class: 'btn', onClick: close }, 'Hooray!')));
     });
@@ -1142,9 +1224,13 @@ export class UI {
   }
 
   /** "While you were away" — the answer to "what happened here?". */
-  showAwayReport(events: GameEvent[], awayMs: number): void {
+  showAwayReport(events: GameEvent[], awayMs: number, finds: AwayFind[] = []): void {
     const s = this.game.state;
     const lines: HTMLElement[] = [];
+    for (const f of finds) {
+      const c = s.creatures.find((x) => x.id === f.creatureId);
+      lines.push(h('div', { class: 'happen' }, c ? this.portrait(c, '') : h('span', { class: 'e' }, I.icon(I.COIN)), h('span', null, f.text)));
+    }
     const arrivals = events.filter((e) => e.type === 'arrival') as Extract<GameEvent, { type: 'arrival' }>[];
     const muts = events.filter((e) => e.type === 'mutation') as Extract<GameEvent, { type: 'mutation' }>[];
     const skies = events.filter((e) => e.type === 'eventStart') as Extract<GameEvent, { type: 'eventStart' }>[];
@@ -1267,7 +1353,7 @@ export class UI {
     switch (step) {
       case 0: text = 'Welcome, keeper. This sanctuary is yours now. Tap the glowing ring in the Mossy Glade to set out a lure.'; break;
       case 1: text = 'Lures draw visitors. Watch for a while, or come back later. The sanctuary keeps living without you.'; break;
-      case 2: text = 'Someone new arrived! Tap a creature to see what it\'s up to. Tap ⚙️ for more.'; break;
+      case 2: text = 'Someone arrived at your lure! Tap the visitor with the ! to say hello, then Keep it or Send it on its way.'; break;
       case 3: text = 'Creatures who share a trait can make an egg together. Tap the stone Font, or the ⛲ Create button.'; break;
       case 3.5: text = 'Choose two creatures. Look for the 💚. Kindred creatures share at least one trait.'; break;
       case 4: {

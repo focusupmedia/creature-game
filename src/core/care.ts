@@ -188,3 +188,87 @@ export function nextHungryAt(state: GameState, t: number): number | null {
   }
   return soonest;
 }
+
+// ---------------------------------------------------------------- finds while you're away
+
+export interface AwayFind { creatureId: string; text: string; coins: number; shards: number; item?: string }
+
+/**
+ * While you're away, creatures bring things back: a few coins here, a
+ * Starshard or a curiosity there; Explorers go on journeys and find more.
+ * Applied straight to your purse, and listed in the "while you were away" report.
+ */
+export function awayFinds(state: GameState, awayMs: number): AwayFind[] {
+  const hours = Math.min(awayMs / HOUR, 12);
+  if (hours < 0.25) return [];
+  const rng = new StateRng(state);
+  const out: AwayFind[] = [];
+  for (const c of state.creatures) {
+    if (c.stored || isHungry(c)) continue;
+    const explorer = c.quirks?.includes('explorer');
+    const lucky = c.quirks?.includes('lucky');
+    // about one find every three hours, more for Explorers
+    if (!rng.chance(Math.min(0.95, hours * (explorer ? 0.5 : 0.3)))) continue;
+    let coins = Math.round(rng.range(6, 18) * Math.max(1, hours / 3) * (lucky ? 1.5 : 1) * (explorer ? 1.6 : 1));
+    const shards = rng.chance(lucky ? 0.2 : 0.08) ? 1 : 0;
+    const item = rng.chance(explorer ? 0.15 : 0.05) ? rng.pick(['warmstone', 'rootswell']) : undefined;
+    if (item) coins = Math.round(coins * 0.5);
+    const name = displayName(c);
+    const what = [coins ? `${coins} coins` : '', shards ? 'a Starshard' : '', item === 'warmstone' ? 'a Warm Stone' : item === 'rootswell' ? 'a Rootswell Tonic' : '']
+      .filter(Boolean).join(' and ');
+    const text = explorer ? `${name} went on a journey around the world and came back with ${what}.`
+      : rng.chance(0.5) ? `${name} found ${what}.` : `${name} dug around and turned up ${what}.`;
+    state.glimmer += coins;
+    state.shards += shards;
+    if (item) state.items[item] = (state.items[item] ?? 0) + 1;
+    out.push({ creatureId: c.id, text, coins, shards, item });
+  }
+  return out;
+}
+
+// ---------------------------------------------------------------- lure visitors
+
+const THANKS: Record<Rarity, number> = { common: 5, uncommon: 10, rare: 25, legendary: 60, mythical: 120 };
+
+/** Coins a visitor leaves when you send it on its way. */
+export function visitorThanks(c: Creature): number {
+  return THANKS[species(c.species).rarity];
+}
+
+export function findVisitor(state: GameState, id: string) {
+  return state.visitors.find((v) => v.creature.id === id);
+}
+
+/** Keep a visitor: it moves in (to its own world, or another one you choose). */
+export function keepVisitor(state: GameState, id: string, capacity: number, island?: IslandId): Result {
+  const v = findVisitor(state, id);
+  if (!v) return fail('They have wandered off.');
+  const to = island ?? v.island;
+  if (!state.islands[to]?.owned) return fail('You don\'t own that world.');
+  const pop = state.creatures.filter((c) => c.island === to && !c.stored).length;
+  if (pop >= capacity) return fail('full');
+  state.visitors = state.visitors.filter((x) => x !== v);
+  v.creature.island = to;
+  v.creature.arrivingAt = undefined;
+  state.creatures.push(v.creature);
+  return { ok: true, message: `${displayName(v.creature)} moved in!` };
+}
+
+/** Send a visitor on its way; it leaves a few coins as thanks. */
+export function sendAwayVisitor(state: GameState, id: string): Result {
+  const v = findVisitor(state, id);
+  if (!v) return fail('They have wandered off.');
+  state.visitors = state.visitors.filter((x) => x !== v);
+  const coins = visitorThanks(v.creature);
+  state.glimmer += coins;
+  return { ok: true, message: `${displayName(v.creature)} waved goodbye and left ${coins} coins as thanks.` };
+}
+
+export function releaseCreature(state: GameState, id: string): Result {
+  const c = state.creatures.find((x) => x.id === id);
+  if (!c) return fail('Who?');
+  if (c.favorite) return fail('Favourites can\'t be released. Unmark it first.');
+  if (state.creatures.filter((x) => !x.stored && x.id !== id).length < 2) return fail('Keep at least two creatures.');
+  state.creatures = state.creatures.filter((x) => x !== c);
+  return { ok: true, message: `${displayName(c)} wandered off into the wild.` };
+}

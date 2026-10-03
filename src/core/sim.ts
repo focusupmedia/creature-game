@@ -104,7 +104,7 @@ function step(state: GameState, t: number, dt: number, out: GameEvent[]): void {
     const when = sky ? ` during ${/^[aeiou]/i.test(EVENTS[sky].name) ? 'an' : 'a'} ${EVENTS[sky].name.toLowerCase()}` : dark ? ' in the dark of night' : '';
     const story = `Followed the scent of a ${lure.name} to the ${where}${when}.`;
     const island = SPOTS[spotId].island;
-    const c = makeCreature(state, sp, muts, t, story, { island });
+    const c = makeCreature(state, sp, muts, t, story, { island, met: { how: 'lure', lure: active.lure, spot: spotId, sky: state.legendary?.kind ?? sky } });
     c.arrivingAt = spotId;
     active.visitors += 1;
     state.stats.arrivals += 1;
@@ -119,15 +119,20 @@ function step(state: GameState, t: number, dt: number, out: GameEvent[]): void {
     if (dark && species(sp).activity === 'night') {
       note(state, out, t, `night-${active.lure}`, `${lure.name} attracts different visitors after dark.`);
     }
-    if (islandPopulation(state, island) >= islandCapacity(state, island)) {
-      // Full sanctuary: the visitor is seen (journal) but moves on.
-      out.push({ type: 'arrival', creature: c, spot: spotId, discovered, t });
-      note(state, out, t, 'full', 'Your sanctuary is full. Visitors look around, then wander off.');
-      continue;
+    // Visitors wait by the lure with a ! until you Keep them or Send them away.
+    const here = state.visitors.filter((v) => v.spot === spotId);
+    if (here.length >= TUNING.visitorsPerSpot) {
+      const oldest = here[0];
+      state.visitors = state.visitors.filter((v) => v !== oldest);
+      out.push({ type: 'visitorLeft', creature: oldest.creature, t });
     }
-    state.creatures.push(c);
+    state.visitors.push({ creature: c, spot: spotId, island, until: t + TUNING.visitorWaitHours * 60 * MIN });
     out.push({ type: 'arrival', creature: c, spot: spotId, discovered, t });
   }
+  for (const v of state.visitors) {
+    if (t >= v.until) out.push({ type: 'visitorLeft', creature: v.creature, t });
+  }
+  state.visitors = state.visitors.filter((v) => t < v.until);
 
   // ---- eggs
   for (const egg of state.eggs) {
