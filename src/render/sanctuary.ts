@@ -142,6 +142,10 @@ export interface IslandView {
   ground: THREE.Mesh;
   /** World geometry the island's dome follows. */
   groundGeo: Geo;
+  /** Every tree and palm, in build order (the index is how a chopped one is remembered). */
+  trees: { x: number; z: number; s: number; chopped: boolean }[];
+  /** Indices of trees the keeper has chopped down. */
+  chopped: Set<number>;
 }
 
 const mix = (a: string, b: string, t: number) => `#${new THREE.Color(a).lerp(new THREE.Color(b), t).getHexString()}`;
@@ -272,25 +276,49 @@ function waterDisc(g: Geo, c: { x: number; z: number; r: number }, color: string
   return m;
 }
 
+/** Remember a tree; chopped ones leave a stump, standing ones can be tapped. Returns true if it still stands. */
+function registerTree(view: IslandView, M: Merger, x: number, z: number, s: number): boolean {
+  const index = view.trees.length;
+  const chopped = view.chopped.has(index);
+  view.trees.push({ x, z, s, chopped });
+  if (chopped) {
+    M.add(new THREE.CylinderGeometry(0.26 * s, 0.32 * s, 0.28 * s, 8), '#9a5a32', { x, y: 0.14 * s, z });
+    M.add(new THREE.CylinderGeometry(0.2 * s, 0.2 * s, 0.02, 8), '#e8c08a', { x, y: 0.29 * s, z });
+    return false;
+  }
+  const hit = new THREE.Mesh(new THREE.CylinderGeometry(0.7 * s, 0.7 * s, 3 * s, 6), new THREE.MeshBasicMaterial({ visible: false }));
+  hit.position.set(x, 1.5 * s, z);
+  standOn(hit, view.groundGeo);
+  hit.userData.placed = true;
+  hit.userData.pick = { kind: 'tree', island: view.id, index };
+  view.group.add(hit);
+  view.pickables.push(hit);
+  return true;
+}
+
 function tree(view: IslandView, M: Merger, t: { x: number; z: number; s: number }, rand: () => number, greens = ['#4fc23a', '#6fdc45', '#3fae35'], trunk = '#9a5a32'): void {
+  // roll everything first, so a chopped tree doesn't change how the rest of the island looks
+  const blobs = Array.from({ length: 3 }, () => [rand(), rand(), rand(), rand(), rand()]);
+  if (!registerTree(view, M, t.x, t.z, t.s)) return;
   M.add(new THREE.CylinderGeometry(0.2 * t.s, 0.32 * t.s, 2.2 * t.s, 7), trunk, { x: t.x, y: 1.1 * t.s, z: t.z });
   const canopy = new THREE.Group();
   canopy.position.set(t.x, 2.2 * t.s, t.z);
   standOn(canopy, view.groundGeo);
   canopy.userData.placed = true;
-  for (let i = 0; i < 3; i++) {
+  blobs.forEach(([px, pz, rx, ry, rz], i) => {
     const blob = new THREE.Mesh(new THREE.IcosahedronGeometry((1.2 - i * 0.18) * t.s, 0), toon(greens[i]));
-    blob.position.set((rand() - 0.5) * 0.6 * t.s, i * 0.65 * t.s, (rand() - 0.5) * 0.6 * t.s);
-    blob.rotation.set(rand(), rand(), rand());
+    blob.position.set((px - 0.5) * 0.6 * t.s, i * 0.65 * t.s, (pz - 0.5) * 0.6 * t.s);
+    blob.rotation.set(rx, ry, rz);
     blob.castShadow = true;
     canopy.add(blob);
-  }
+  });
   view.group.add(canopy);
   view.canopies.push(canopy);
 }
 
 function palm(view: IslandView, M: Merger, x: number, z: number, s: number, rand: () => number): void {
   const lean = (rand() - 0.5) * 0.4;
+  if (!registerTree(view, M, x, z, s)) return;
   M.piece(x, z, () => {
     for (let i = 0; i < 5; i++) {
       M.add(new THREE.CylinderGeometry(0.13 * s, 0.16 * s, 0.5 * s, 7), i % 2 ? '#b07a44' : '#9a6638', { x: x + lean * i * 0.25, y: 0.25 * s + i * 0.48 * s, z });
@@ -315,7 +343,7 @@ function palm(view: IslandView, M: Merger, x: number, z: number, s: number, rand
 }
 
 /** Build an island. Locked or upcoming islands are drawn as simple misty silhouettes. */
-export function buildIsland(id: IslandId, size: number, owned: boolean): IslandView {
+export function buildIsland(id: IslandId, size: number, owned: boolean, chopped: number[] = []): IslandView {
   const def = ISLANDS[id];
   const g = islandGeo(id, size);
   const group = new THREE.Group();
@@ -323,7 +351,8 @@ export function buildIsland(id: IslandId, size: number, owned: boolean): IslandV
   const M = new Merger();
   const G = new Merger();
   const view: IslandView = {
-    id, key: `${owned}:${size}`, group, water: [], lava: [], canopies: [], spotDishes: {}, pickables: [], groundGeo: g,
+    id, key: `${owned}:${size}:${chopped.join(',')}`, group, water: [], lava: [], canopies: [], spotDishes: {}, pickables: [], groundGeo: g,
+    trees: [], chopped: new Set(chopped),
     ground: globeMesh(g, owned ? def.palette.top : mix(def.palette.top, '#c8dcf0', def.status === 'soon' ? 0.6 : 0.4)),
   };
   view.ground.userData.pick = { kind: 'ground', island: id };

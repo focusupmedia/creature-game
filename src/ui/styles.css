@@ -316,9 +316,11 @@ button:focus-visible { outline: 3px solid var(--white); outline-offset: 2px; }
 
 .place-bar {
   position: absolute; left: 12px; right: 12px; bottom: calc(var(--safe-bottom) + 14px); margin: 0 auto; max-width: 440px;
-  background: var(--white); border: var(--outline); border-radius: 18px; padding: 10px; box-shadow: 0 5px 0 var(--ink); display: flex; gap: 8px; align-items: center;
+  background: var(--white); border: var(--outline); border-radius: 18px; padding: 10px 12px; box-shadow: 0 5px 0 var(--ink); display: flex; flex-direction: column; gap: 8px; align-items: stretch;
 }
-.place-bar .grow { flex: 1; font-size: 14px; }
+.place-bar .grow { font-size: 14px; font-weight: 700; }
+.place-bar .grow.bad { color: #d0343a; }
+.place-bar .btns { margin-top: 0; justify-content: flex-end; }
 
 .hidden { display: none !important; }
 input.rename { font-family: var(--display); font-size: 22px; border: var(--outline); border-radius: 10px; padding: 2px 8px; width: 100%; background: var(--white); color: var(--ink); }

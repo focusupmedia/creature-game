@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { BASKET, NESTS } from '../content/layout';
-import { ISLAND_ORDER, inWater, isBlocked, islandAt, islandGeo, onLand } from '../content/islands';
-import { EVENTS, LURES, SPOTS } from '../content/world';
+import { ISLAND_ORDER, inWater, isBlocked, islandAt, islandGeo, onLand, type Geo } from '../content/islands';
+import { DECOR, EVENTS, LURES, SPOTS } from '../content/world';
 import type { Creature, Egg, EventKind, GameEvent, GameState, IslandId, LegendaryKind } from '../core/types';
 import { globeCenter, globeNormal, globePoint, globeRadius, globeToMap } from '../content/globe';
 import { CameraRig } from './CameraRig';
@@ -37,7 +37,8 @@ export type Pick =
   | { kind: 'island'; id: IslandId }
   | { kind: 'ground'; x: number; z: number }
   | { kind: 'dig'; id: string }
-  | { kind: 'wanderer' };
+  | { kind: 'wanderer' }
+  | { kind: 'tree'; island: IslandId; index: number };
 
 /** What a carried creature is hovering over when you let go. */
 export type CarryTarget = { kind: 'creature'; id: string } | { kind: 'dig'; id: string };
@@ -73,6 +74,11 @@ export class World {
   private ghost: THREE.Group | null = null;
   private lureCtx: ActorContext['lures'] = [];
   private skyKind: EventKind | null = null;
+  private state: GameState | null = null;
+  /** Decoration being placed: where, which way it faces, and how much room it needs. */
+  private placing: { decorId: string; x: number; z: number; rot: number; footprint: number } | null = null;
+  /** Called while placing whenever the ghost moves: is this a good spot? */
+  onPlacementMove: (valid: boolean) => void = () => {};
   /** The visiting wanderer, strolling about near where it arrived. */
   private wanderer: { key: string; group: THREE.Group; island: IslandId; home: { x: number; z: number }; x: number; z: number; tx: number; tz: number; sneaky: boolean; wait: number } | null = null;
   private quality = 1;
@@ -111,6 +117,11 @@ export class World {
     this.rig.onHold = (x, y) => this.holdAt(x, y);
     this.rig.onCarry = (x, y) => this.carryMove(x, y);
     this.rig.onCarryEnd = () => this.carryEnd();
+    this.rig.onDragStart = (x, y) => this.placementGrab(x, y);
+    this.rig.onDrag = (x, y) => {
+      const p = this.pointerGround(x, y);
+      if (p) this.moveGhost(p.x, p.z);
+    };
     this.hoverRing = new THREE.Mesh(new THREE.RingGeometry(0.7, 0.92, 32), new THREE.MeshBasicMaterial({ color: '#ffe27a', transparent: true, opacity: 0.9, depthWrite: false }));
     this.hoverRing.geometry.rotateX(-Math.PI / 2);
     this.hoverRing.visible = false;
@@ -204,6 +215,7 @@ export class World {
 
   /** Reconcile visuals with the game state. Cheap enough to call every frame. */
   sync(state: GameState, now: number, sky: EventKind | null): void {
+    this.state = state;
     this.skyKind = sky;
     this.nowMs = now;
 
@@ -212,11 +224,26 @@ export class World {
       const isl = state.islands[id] ?? { owned: false, size: 0 };
       this.sizes[id] = isl.size;
       this.owned[id] = isl.owned;
-      const key = `${isl.owned}:${isl.size}`;
+      const chopped = state.chopped?.[id] ?? [];
+      const key = `${isl.owned}:${isl.size}:${chopped.join(',')}`;
       const view = this.islands.get(id);
       if (view && view.key === key) continue;
       if (view) this.scene.remove(view.group);
-      const fresh = buildIsland(id, isl.size, isl.owned);
+      const fresh = buildIsland(id, isl.size, isl.owned, chopped);
+      // chopped trees no longer block the way or shelter anyone from the rain
+      const geo = islandGeo(id, isl.size) as ReturnType<typeof islandGeo> & { base?: { shelters: Geo['shelters']; obstacles: Geo['obstacles'] } };
+      geo.base ??= { shelters: geo.shelters, obstacles: geo.obstacles };
+      const gone = fresh.trees.filter((t) => t.chopped);
+      const stump = (p: { x: number; z: number }) => gone.some((t) => Math.hypot(t.x - p.x, t.z - p.z) < 0.3);
+      geo.shelters = geo.base.shelters.filter((sh) => !stump(sh));
+      geo.obstacles = geo.base.obstacles.filter((o) => !stump(o));
+      // a tree just came down: a puff of leaves where it stood
+      if (view && view.key.split(':').slice(0, 2).join(':') === `${isl.owned}:${isl.size}`) {
+        for (const i of chopped) {
+          const t = fresh.trees[i];
+          if (t && !view.chopped.has(i)) this.burst(this.at(t.x, t.z, 1.6 * t.s, id), '#7fd94f', 30, 2.2, 0.45);
+        }
+      }
       this.islands.set(id, fresh);
       this.scene.add(fresh.group);
       if (view && isl.owned) {
@@ -381,14 +408,15 @@ export class World {
       const g = buildDecor(d.decor);
       g.userData.x = d.x;
       g.userData.z = d.z;
-      this.place(g, d.x, d.z, 0, d.rot, 'home');
+      g.userData.island = d.island ?? 'home';
+      this.place(g, d.x, d.z, 0, d.rot, g.userData.island);
       const hit = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 0.8, 1.5, 6), new THREE.MeshBasicMaterial({ visible: false }));
       hit.position.y = 0.75;
       hit.userData.pick = { kind: 'decor', id: d.id };
       g.add(hit);
       this.scene.add(g);
       this.decor.set(d.id, g);
-      this.burst(this.at(g.userData.x, g.userData.z, 0.5, 'home'), '#ffffff', 16);
+      this.burst(this.at(g.userData.x, g.userData.z, 0.5, g.userData.island), '#ffffff', 16);
     }
     for (const [id, g] of this.decor) {
       if (!decorAlive.has(id)) {
@@ -854,44 +882,144 @@ export class World {
 
   // ------------------------------------------------------------------ decor placement
 
+  /**
+   * Start placing a decoration: a see-through copy sits on the ground with arrows
+   * around it. Drag it (or tap the ground) to move it; the ring turns green on
+   * open ground and red where it would bump into something.
+   */
   startPlacement(decorId: string): void {
     this.cancelPlacement();
-    this.ghost = buildDecor(decorId);
-    this.ghost.traverse((o) => {
+    const ghost = buildDecor(decorId);
+    ghost.traverse((o) => {
       if (o instanceof THREE.Mesh) {
         o.material = (o.material as THREE.Material).clone();
         (o.material as THREE.Material).transparent = true;
-        (o.material as THREE.Material).opacity = 0.55;
+        (o.material as THREE.Material).opacity = 0.6;
+        o.castShadow = false;
       }
+      if (o instanceof THREE.Sprite) o.visible = false;
     });
+    const footprint = DECOR[decorId]?.r ?? 0.8;
+    // the ring and the four little arrows
+    const ring = new THREE.Mesh(new THREE.RingGeometry(footprint + 0.05, footprint + 0.28, 40).rotateX(-Math.PI / 2),
+      new THREE.MeshBasicMaterial({ color: '#5fe05a', transparent: true, opacity: 0.9, depthWrite: false }));
+    ring.position.y = 0.06;
+    ring.name = 'ring';
+    ghost.add(ring);
+    const tri = new THREE.Shape([new THREE.Vector2(-0.32, 0), new THREE.Vector2(0.32, 0), new THREE.Vector2(0, 0.42)]);
+    const arrows = new THREE.Group();
+    arrows.name = 'arrows';
+    for (let i = 0; i < 4; i++) {
+      const a = (i * Math.PI) / 2;
+      const outline = new THREE.Mesh(new THREE.ShapeGeometry(tri).scale(1.35, 1.35, 1), new THREE.MeshBasicMaterial({ color: '#1b2a4a', depthWrite: false }));
+      const arrow = new THREE.Mesh(new THREE.ShapeGeometry(tri), new THREE.MeshBasicMaterial({ color: '#ffffff', depthWrite: false }));
+      arrow.position.set(0, 0.04, 0.0);
+      outline.add(arrow);
+      outline.rotation.x = -Math.PI / 2;
+      const holder = new THREE.Group();
+      holder.rotation.y = -a;
+      outline.position.set(0, 0.08, -(footprint + 0.6));
+      outline.rotation.z = Math.PI;
+      holder.add(outline);
+      arrows.add(holder);
+    }
+    ghost.add(arrows);
+    this.ghost = ghost;
+    this.scene.add(ghost);
     const r = this.renderer.domElement.getBoundingClientRect();
     const mid = this.pointerGround(r.left + r.width / 2, r.top + r.height / 2) ?? new THREE.Vector3(this.geoOf().ox, 0, this.geoOf().oz);
-    this.ghost.userData.x = mid.x;
-    this.ghost.userData.z = mid.z;
-    this.place(this.ghost, mid.x, mid.z);
-    this.scene.add(this.ghost);
+    this.placing = { decorId, x: mid.x, z: mid.z, rot: 0, footprint };
+    // start somewhere it fits, as close to the middle of the screen as possible
+    const spot = this.nearestFree(mid.x, mid.z, footprint) ?? mid;
+    this.moveGhost(spot.x, spot.z);
+  }
+
+  /** Did this press land on the decoration being placed? Then it's a drag, not a globe roll. */
+  private placementGrab(x: number, y: number): boolean {
+    if (!this.placing) return false;
+    const p = this.pointerGround(x, y);
+    return !!p && Math.hypot(p.x - this.placing.x, p.z - this.placing.z) < this.placing.footprint + 1.2;
   }
 
   moveGhost(x: number, z: number): boolean {
-    if (!this.ghost) return false;
-    this.ghost.userData.x = x;
-    this.ghost.userData.z = z;
-    this.place(this.ghost, x, z);
-    return this.validPlacement(x, z);
+    if (!this.ghost || !this.placing) return false;
+    this.placing.x = x;
+    this.placing.z = z;
+    this.place(this.ghost, x, z, 0, this.placing.rot, this.current);
+    const valid = this.validPlacement(x, z, this.placing.footprint);
+    const ring = this.ghost.getObjectByName('ring') as THREE.Mesh | undefined;
+    (ring?.material as THREE.MeshBasicMaterial | undefined)?.color.set(valid ? '#5fe05a' : '#ff5a5a');
+    this.onPlacementMove(valid);
+    return valid;
   }
 
-  validPlacement(x: number, z: number): boolean {
-    const g = islandGeo(this.current, this.sizes[this.current] ?? 0);
-    return onLand(g, x, z, 0.9) && !inWater(g, x, z, 0.4) && !isBlocked(g, x, z, 0.5);
+  rotateGhost(): void {
+    if (!this.placing) return;
+    this.placing.rot += Math.PI / 4;
+    this.moveGhost(this.placing.x, this.placing.z);
   }
 
-  ghostPosition(): { x: number; z: number } | null {
-    return this.ghost ? { x: this.ghost.userData.x as number, z: this.ghost.userData.z as number } : null;
+  /** Things a decoration may not overlap on a world: buildings, standing trees, rocks, lure and dig spots, other decorations. */
+  private blockers(island: IslandId): { x: number; z: number; r: number }[] {
+    const g = this.geoOf(island);
+    const view = this.islands.get(island);
+    const trees = view?.trees ?? [];
+    const out: { x: number; z: number; r: number }[] = [];
+    // fixed obstacles, minus any chopped trees
+    for (const o of g.obstacles) if (!trees.some((t) => t.chopped && Math.hypot(t.x - o.x, t.z - o.z) < 0.3)) out.push(o);
+    for (const t of trees) if (!t.chopped) out.push({ x: t.x, z: t.z, r: 0.85 * t.s });
+    for (const sh of g.shelters) if (!trees.some((t) => Math.hypot(t.x - sh.x, t.z - sh.z) < 0.3)) out.push({ x: sh.x, z: sh.z, r: 1.1 });
+    for (const l of g.lava) out.push(l);
+    for (const sp of Object.values(SPOTS)) if (sp.island === island) out.push({ x: sp.x, z: sp.z, r: 1.5 });
+    for (const v of this.digViews.values()) if (v.island === island) out.push({ x: v.x, z: v.z, r: 0.9 });
+    for (const d of this.state?.placedDecor ?? []) {
+      if ((d.island ?? 'home') === island) out.push({ x: d.x, z: d.z, r: DECOR[d.decor]?.r ?? 0.8 });
+    }
+    return out;
+  }
+
+  /** Open, dry, empty ground with room for the decoration. */
+  validPlacement(x: number, z: number, footprint = this.placing?.footprint ?? 0.8): boolean {
+    const g = this.geoOf(this.current);
+    if (!onLand(g, x, z, 0.9) || inWater(g, x, z, footprint * 0.7)) return false;
+    return this.blockers(this.current).every((b) => Math.hypot(x - b.x, z - b.z) >= b.r + footprint * 0.85);
+  }
+
+  /** The closest spot (searching outward) where a decoration of this size fits. */
+  private nearestFree(x: number, z: number, footprint: number): { x: number; z: number } | null {
+    for (let r = 0; r < 12; r += 0.6) {
+      const steps = Math.max(1, Math.round(r * 5));
+      for (let i = 0; i < steps; i++) {
+        const a = (i / steps) * Math.PI * 2;
+        const px = x + Math.cos(a) * r;
+        const pz = z + Math.sin(a) * r;
+        if (this.validPlacement(px, pz, footprint)) return { x: px, z: pz };
+      }
+    }
+    return null;
+  }
+
+  ghostPosition(): { x: number; z: number; rot: number } | null {
+    return this.placing ? { x: this.placing.x, z: this.placing.z, rot: this.placing.rot } : null;
   }
 
   cancelPlacement(): void {
     if (this.ghost) this.scene.remove(this.ghost);
     this.ghost = null;
+    this.placing = null;
+  }
+
+  /** Arrows bob outward so the ghost reads as "drag me". */
+  private animateGhost(): void {
+    const arrows = this.ghost?.getObjectByName('arrows');
+    if (!arrows) return;
+    const k = Math.sin(this.time * 5) * 0.12;
+    arrows.children.forEach((h) => { (h.children[0] as THREE.Object3D).position.z = -((this.placing?.footprint ?? 0.8) + 0.6 + k); });
+  }
+
+  /** Where a scenery tree stands (for effects and the chop prompt). */
+  treeAt(island: IslandId, index: number): { x: number; z: number; s: number } | null {
+    return this.islands.get(island)?.trees[index] ?? null;
   }
 
   // ------------------------------------------------------------------ reveal
@@ -934,7 +1062,7 @@ export class World {
     }
     for (const a of this.actors.values()) if (a.root.visible) targets.push(a.hit);
     for (const g of this.gifts.values()) if (g.visible) targets.push(...g.children);
-    for (const d of this.decor.values()) targets.push(d.children[d.children.length - 1]);
+    for (const d of this.decor.values()) if (d.userData.island === this.current) targets.push(d.children[d.children.length - 1]);
     if (this.current === 'home') for (const e of this.eggs.values()) targets.push(e.model.shell);
     for (const v of this.digViews.values()) if (v.root.visible) targets.push(v.root.children[v.root.children.length - 1]);
     if (this.wanderer?.group.visible) targets.push(...this.wanderer.group.children.filter((c) => c.userData.pick));
@@ -980,6 +1108,7 @@ export class World {
     for (const a of visible) a.update(dt, this.time, ctx);
     this.updateCarry();
     this.updateWanderer(dt);
+    this.animateGhost();
     this.legendaryFx.update(dt, (x, z, alt) => this.at(x, z, alt, this.legendaryIsland));
     for (const v of this.digViews.values()) if (v.root.visible) animateDigSpot(v, this.time);
 

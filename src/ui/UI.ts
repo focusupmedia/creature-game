@@ -675,6 +675,17 @@ export class UI {
     });
   }
 
+  /** Tapped a scenery tree: chop it down to make room? */
+  confirmChop(island: IslandId, index: number): void {
+    this.modal((m, close) => {
+      m.append(h('h2', null, 'Chop down this tree?'),
+        h('p', { class: 'muted' }, 'It makes room for decorations. A little stump stays behind, and you can sell the wood for a few coins. This can\'t be undone.'),
+        h('div', { class: 'btns' },
+          h('button', { class: 'btn secondary', onClick: close }, 'Keep it'),
+          h('button', { class: 'btn', onClick: () => { close(); this.game.chop(island, index); } }, '🪓 Chop')));
+    });
+  }
+
   /** You dropped one creature on another: offer to breed them. Both parents stay. */
   confirmBreed(a: Creature, b: Creature): void {
     const s = this.game.state;
@@ -1236,25 +1247,29 @@ export class UI {
 
   beginPlacement(decorId: string): void {
     this.closeSheet();
-    this.game.world.startPlacement(decorId);
+    const w = this.game.world;
     this.dock.classList.add('hidden');
-    const label = h('div', { class: 'grow' }, `Tap the ground to position your ${DECOR[decorId].name}.`);
+    const label = h('div', { class: 'grow' });
     const ok = h('button', { class: 'btn small', onClick: () => {
-      const p = this.game.world.ghostPosition();
-      if (!p || !this.game.world.validPlacement(p.x, p.z)) return this.toast('It won\'t fit there.');
-      const r = A.placeDecor(this.game.state, decorId, p.x, p.z, Math.random() * Math.PI * 2);
+      const p = w.ghostPosition();
+      if (!p || !w.validPlacement(p.x, p.z)) return this.toast('It needs open ground. Drag it somewhere clear.');
+      const r = A.placeDecor(this.game.state, decorId, p.x, p.z, p.rot, w.current);
       if (!r.ok) return this.toast(r.error);
       this.game.audio.play('place');
-      this.game.analytics.track('decor_placed', { decor: decorId });
+      this.game.analytics.track('decor_placed', { decor: decorId, island: w.current });
       this.endPlacement();
       this.game.saveSoon();
-    } }, 'Place here');
+    } }, 'Place');
+    const rotate = h('button', { class: 'btn secondary small', 'aria-label': 'Turn it', onClick: () => w.rotateGhost() }, '🔄 Turn');
     const cancel = h('button', { class: 'btn secondary small', onClick: () => this.endPlacement() }, 'Cancel');
-    this.placeHost.replaceChildren(h('div', { class: 'place-bar' }, label, cancel, ok));
-    this.game.placing = (x, z) => {
-      const valid = this.game.world.moveGhost(x, z);
-      label.textContent = valid ? 'Looks good here.' : 'It won\'t fit there. Try open ground.';
+    w.onPlacementMove = (valid) => {
+      setText(label, valid ? `Drag your ${DECOR[decorId].name} to move it. Looks good here!` : 'Not here: it needs open ground, away from trees, buildings and lure spots.');
+      label.classList.toggle('bad', !valid);
+      ok.disabled = !valid;
     };
+    w.startPlacement(decorId);
+    this.placeHost.replaceChildren(h('div', { class: 'place-bar' }, label, h('div', { class: 'btns' }, cancel, rotate, ok)));
+    this.game.placing = (x, z) => { w.moveGhost(x, z); };
   }
 
   private endPlacement(): void {

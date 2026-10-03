@@ -456,11 +456,23 @@ function useSpray(state: GameState, item: (typeof ITEMS)[string], egg: Egg): Res
   }
 }
 
-export function placeDecor(state: GameState, decor: string, x: number, z: number, rot: number): Result {
+export function placeDecor(state: GameState, decor: string, x: number, z: number, rot: number, island: IslandId = 'home'): Result {
   if (!state.decorOwned[decor]) return fail('You have none to place.');
+  if (!state.islands[island]?.owned) return fail('You don\'t own that world.');
   state.decorOwned[decor] -= 1;
-  state.placedDecor.push({ id: newId(state, 'd'), decor, x, z, rot, harvestedAt: decor === 'fruittree' ? state.lastTick : undefined });
+  state.placedDecor.push({ id: newId(state, 'd'), decor, x, z, rot, island, harvestedAt: decor === 'fruittree' ? state.lastTick : undefined });
   return { ok: true };
+}
+
+/** Chop down a scenery tree to make room. It leaves a stump and a little wood worth a few coins. */
+export function chopTree(state: GameState, island: IslandId, index: number): Result<{ coins: number }> {
+  if (!state.islands[island]?.owned) return fail('You don\'t own that world.');
+  const list = ((state.chopped ??= {})[island] ??= []);
+  if (list.includes(index)) return fail('Already chopped.');
+  list.push(index);
+  const coins = new StateRng(state).int(5, 12);
+  state.glimmer += coins;
+  return { ok: true, coins };
 }
 
 export function storeDecor(state: GameState, placedId: string): Result {

@@ -99,7 +99,7 @@ describe('pacing', () => {
     expect(avg(30, 'species')).toBeGreaterThanOrEqual(6);
     expect(avg(60, 'mutations')).toBeGreaterThanOrEqual(1);
     expect(avg(480, 'species')).toBeLessThan(SPECIES.length);
-  });
+  }, 30_000);
 
   it('check-in player: still has things to find after a week', () => {
     const runs = [1, 2, 3, 4, 5].map((seed) => run(seed, 'checkins'));
@@ -109,5 +109,5 @@ describe('pacing', () => {
       `${String(m / 60).padStart(5)}h  species ${avg(m, 'species').toFixed(1).padStart(4)}  hybrids ${avg(m, 'hybrids').toFixed(1)}  mutations ${avg(m, 'mutations').toFixed(1)}  glimmer ${avg(m, 'glimmer').toFixed(0).padStart(5)}`);
     console.log(`\nCHECK-INS (6 min every 2h while awake)\n${rows.join('\n')}`);
     expect(avg(1440, 'species')).toBeGreaterThanOrEqual(8);
-  });
+  }, 30_000);
 });

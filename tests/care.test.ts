@@ -175,3 +175,20 @@ describe('island growth', () => {
     expect(s.nests).toBe(nests);
   });
 });
+
+describe('decor and trees', () => {
+  it('decorations go on the world you are on, and chopping a tree pays a little and is remembered', async () => {
+    const { chopTree, placeDecor } = await import('../src/core/actions');
+    const s = createGame(9, 0);
+    s.decorOwned.lantern = 1;
+    expect(placeDecor(s, 'lantern', 1, 1, 0, 'volcano').ok).toBe(false);
+    s.islands.volcano = { owned: true, size: 0 };
+    expect(placeDecor(s, 'lantern', 1, 1, 0, 'volcano').ok).toBe(true);
+    expect(s.placedDecor[0].island).toBe('volcano');
+    const coins = s.glimmer;
+    expect(chopTree(s, 'home', 3).ok).toBe(true);
+    expect(chopTree(s, 'home', 3).ok).toBe(false);
+    expect(s.glimmer).toBeGreaterThan(coins);
+    expect(s.chopped?.home).toEqual([3]);
+  });
+});

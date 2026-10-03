@@ -371,6 +371,7 @@ export class Game {
       }
       case 'gift': return this.collectGift(p.id);
       case 'wanderer': return this.meetWanderer();
+      case 'tree': return this.ui.confirmChop(p.island, p.index);
     }
   }
 
@@ -668,6 +669,16 @@ export class Game {
       this.analytics.track('visitor_kept', { species: v.creature.species });
       if (to !== this.world.current) this.ui.toast(`${displayName(v.creature)} is off to ${ISLANDS[to].name}.`);
     }
+  }
+
+  /** Chop down a scenery tree to make room for decorations. */
+  chop(island: IslandId, index: number): void {
+    const r = A.chopTree(this.state, island, index);
+    if (!r.ok) return this.ui.toast(r.error);
+    this.audio.play('place');
+    this.ui.toast(`Timber! The tree came down and you sold the wood for {coin} ${r.coins}.`);
+    this.analytics.track('tree_chopped', { island });
+    this.saveSoon();
   }
 
   /** You tapped the wanderer: a friendly one helps out; the Goblin runs for it. */

@@ -22,6 +22,10 @@ export class CameraRig {
   onHold: (x: number, y: number) => boolean = () => false;
   onCarry: (x: number, y: number) => void = () => {};
   onCarryEnd: (x: number, y: number) => void = () => {};
+  /** Press on something draggable (a decoration being placed); return true to drag it instead of rolling. */
+  onDragStart: (x: number, y: number) => boolean = () => false;
+  onDrag: (x: number, y: number) => void = () => {};
+  onDragEnd: () => void = () => {};
   /** Called once the first time the player rolls the globe themselves. */
   onFirstRoll: () => void = () => {};
 
@@ -36,6 +40,7 @@ export class CameraRig {
   private angleStart = 0;
   private yawStart = 0;
   private carrying = false;
+  private dragging = false;
   private holdTried = true;
   private rolled = false;
   private portrait = true;
@@ -107,7 +112,7 @@ export class CameraRig {
   }
 
   private down = (e: PointerEvent) => {
-    if (this.carrying) return;
+    if (this.carrying || this.dragging) return;
     this.el.setPointerCapture(e.pointerId);
     this.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
     this.vel.set(0, 0);
@@ -118,6 +123,10 @@ export class CameraRig {
       this.lastPos = { x: e.clientX, y: e.clientY };
       this.moved = 0;
       this.holdTried = e.pointerType === 'mouse' && e.button !== 0;
+      if (this.onDragStart(e.clientX, e.clientY)) {
+        this.dragging = true;
+        this.holdTried = true;
+      }
     } else if (this.pointers.size === 2) {
       this.holdTried = true;
       const [a, b] = [...this.pointers.values()];
@@ -143,6 +152,10 @@ export class CameraRig {
     this.lastPos = cur;
     if (this.carrying) {
       this.onCarry(cur.x, cur.y);
+      return;
+    }
+    if (this.dragging) {
+      this.onDrag(cur.x, cur.y);
       return;
     }
     if (this.pointers.size === 1) {
@@ -179,6 +192,14 @@ export class CameraRig {
         this.carrying = false;
         this.holdTried = true;
         this.onCarryEnd(e.clientX, e.clientY);
+      }
+      return;
+    }
+    if (this.dragging) {
+      if (this.pointers.size === 0) {
+        this.dragging = false;
+        this.holdTried = true;
+        this.onDragEnd();
       }
       return;
     }

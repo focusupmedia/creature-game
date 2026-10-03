@@ -163,6 +163,8 @@ export interface DecorDef {
   currency: 'glimmer' | 'shards';
   /** Premium cosmetics rotate in and out of the shop. */
   rotating: boolean;
+  /** How much ground it covers (radius, map units). */
+  r?: number;
 }
 
 // ---------------------------------------------------------------- state
@@ -317,6 +319,8 @@ export interface PlacedDecor {
   x: number;
   z: number;
   rot: number;
+  /** Which world it's on (older saves: home). */
+  island?: IslandId;
   /** Fruit trees: when fruit was last picked (or the tree was planted). */
   harvestedAt?: number;
 }
@@ -364,6 +368,8 @@ export interface GameState {
   collector: { nextAt: number; until: number; wants: Trait };
   hungerNotifiedDay?: string;
   decorOwned: Record<DecorId, number>;
+  /** Scenery trees the keeper has chopped down, by world (indices in build order). */
+  chopped?: Partial<Record<IslandId, number[]>>;
   placedDecor: PlacedDecor[];
   creatures: Creature[];
   islands: Record<IslandId, { owned: boolean; size: number }>;
