@@ -343,9 +343,12 @@ function palm(view: IslandView, M: Merger, x: number, z: number, s: number, rand
 }
 
 /** Build an island. Locked or upcoming islands are drawn as simple misty silhouettes. */
-export function buildIsland(id: IslandId, size: number, owned: boolean, chopped: number[] = []): IslandView {
+export function buildIsland(id: IslandId, size: number, owned: boolean, chopped: number[] = [], sizes: Partial<Record<IslandId, number>> = {}): IslandView {
   const def = ISLANDS[id];
-  const g = islandGeo(id, size);
+  // build from the full layout: chopped trees are filtered out of the live geo, but
+  // the scenery (and every tree's index) must stay where it always was
+  const live = islandGeo(id, size) as Geo & { base?: { shelters: Geo['shelters']; obstacles: Geo['obstacles'] } };
+  const g: Geo = live.base ? { ...live, shelters: live.base.shelters, obstacles: live.base.obstacles } : live;
   const group = new THREE.Group();
   const rand = mulberry32(1234 + id.length * 97);
   const M = new Merger();
@@ -384,7 +387,7 @@ export function buildIsland(id: IslandId, size: number, owned: boolean, chopped:
   if (id === 'lagoon') buildLagoon(view, M, g, rand);
   if (id === 'beach') buildBeach(view, M, g, rand);
   if (id === 'desert') buildDesert(view, M, g, rand);
-  if (id === 'cloud') buildCloud(view, M, g, rand);
+  if (id === 'cloud') buildCloud(view, M, g, rand, sizes);
 
   view.spotDishes = lureSpots(M, id, size, view.pickables, group, id === 'volcano' ? '#4a3a3a' : '#8d8f86');
 
@@ -819,7 +822,7 @@ function buildDesert(view: IslandView, M: Merger, g: Geo, rand: () => number): v
 
 const RAINBOW_BANDS = ['#ff5a5a', '#ffa83a', '#ffe14d', '#5fd06a', '#4ab8ff', '#9a6aff'];
 
-function buildCloud(view: IslandView, M: Merger, g: Geo, rand: () => number): void {
+function buildCloud(view: IslandView, M: Merger, g: Geo, rand: () => number, sizes: Partial<Record<IslandId, number>>): void {
   // the mist pool, ringed with little clouds
   const pool = g.water[0];
   flatDisc(M, pool.r + 0.35, '#e0ecff', pool.x, pool.z, 0.03);
@@ -884,7 +887,7 @@ function buildCloud(view: IslandView, M: Merger, g: Geo, rand: () => number): vo
     view.group.add(puff);
   }
   // rainbow bridges to the nearest worlds
-  for (const to of ['home', 'volcano', 'lagoon'] as IslandId[]) rainbowBridge(M, g, islandGeo(to, 0));
+  for (const to of ['home', 'volcano', 'lagoon'] as IslandId[]) rainbowBridge(M, g, islandGeo(to, sizes[to] ?? 0));
 }
 
 /** A rainbow arcing from this globe's side to another's. */

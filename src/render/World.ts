@@ -236,7 +236,9 @@ export class World {
       this.sizes[id] = isl.size;
       this.owned[id] = isl.owned;
       const chopped = state.chopped?.[id] ?? [];
-      const key = `${isl.owned}:${isl.size}:${chopped.join(',')}`;
+      // Cloud Isle's rainbow bridges reach the worlds next door, so it rebuilds when they grow
+      const reach = id === 'cloud' ? `:${['home', 'volcano', 'lagoon'].map((n) => state.islands[n as IslandId]?.size ?? 0).join('')}` : '';
+      const key = `${isl.owned}:${isl.size}:${chopped.join(',')}${reach}`;
       const view = this.islands.get(id);
       if (view && view.key === key) continue;
       if (view) {
@@ -245,7 +247,8 @@ export class World {
       }
       // only a tree came down: keep the camera where it is
       const choppedOnly = !!view && view.key.split(':').slice(0, 2).join(':') === `${isl.owned}:${isl.size}`;
-      const fresh = buildIsland(id, isl.size, isl.owned, chopped);
+      const fresh = buildIsland(id, isl.size, isl.owned, chopped, Object.fromEntries(ISLAND_ORDER.map((n) => [n, state.islands[n]?.size ?? 0])));
+      fresh.key = key;
       // chopped trees no longer block the way or shelter anyone from the rain
       const geo = islandGeo(id, isl.size) as ReturnType<typeof islandGeo> & { base?: { shelters: Geo['shelters']; obstacles: Geo['obstacles'] } };
       geo.base ??= { shelters: geo.shelters, obstacles: geo.obstacles };

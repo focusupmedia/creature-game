@@ -726,7 +726,7 @@ export class Game {
     }
     this.audio.play('coin');
     this.analytics.track('decor_bought', { decor: id });
-    this.ui.toast(r.message);
+    this.ui.toast(r.message, 'info', undefined, 3200, { priority: 3 });
     this.ui.rerender();
     this.saveSoon();
   }
@@ -741,7 +741,7 @@ export class Game {
     this.audio.play('coin');
     if (offer?.kind === 'egg') this.record({ kind: 'shopEgg' });
     this.analytics.track('shop_purchase', { kind: offer?.kind ?? '', ref: offer?.ref ?? '', currency: offer?.currency ?? '', price: offer?.price ?? 0 });
-    this.ui.toast(r.message);
+    this.ui.toast(r.message, 'info', undefined, 3200, { priority: 3 });
     this.ui.rerender();
     this.saveSoon();
   }
@@ -857,7 +857,7 @@ export class Game {
       return false;
     }
     this.audio.play(sfx);
-    this.ui.toast(r.message);
+    this.ui.toast(r.message, 'info', undefined, 3200, { priority: 3 });
     this.ui.rerender();
     this.saveSoon();
     return true;
@@ -991,7 +991,7 @@ export class Game {
     if (!r.ok) return this.ui.fail(r.error);
     this.audio.play('chime');
     this.analytics.track('quest_claimed', { kind, id });
-    this.ui.toast(`✅ ${r.text}: {coin} +${r.reward.coins}  {gem} +${r.reward.shards}  ★ +${r.reward.xp} XP`, 'discovery');
+    this.ui.toast(`✅ ${r.text}: {coin} +${r.reward.coins}  {gem} +${r.reward.shards}  ★ +${r.reward.xp} XP`, 'discovery', undefined, 3600, { priority: 3 });
     this.gainXp(r.reward.xp);
     this.ui.rerender();
     this.saveSoon();
@@ -1006,7 +1006,7 @@ export class Game {
     if (p.currency === 'shards') this.state.shards += p.amount;
     else this.state.glimmer += p.amount;
     this.audio.play('coin');
-    this.ui.toast(`${p.currency === 'shards' ? '{gem}' : '{coin}'} +${p.amount}${r.test ? ' (test purchase, nothing was charged)' : ''}`, 'discovery');
+    this.ui.toast(`${p.currency === 'shards' ? '{gem}' : '{coin}'} +${p.amount}${r.test ? ' (test purchase, nothing was charged)' : ''}`, 'discovery', undefined, 3600, { priority: 3 });
     this.saveSoon();
   }
 
@@ -1048,20 +1048,21 @@ export class Game {
   }
 
   /** Open the away chest (an ad doubles it). */
-  async openChest(double: boolean): Promise<void> {
-    if (!this.state.awayChest) return;
+  async openChest(double: boolean): Promise<boolean> {
+    if (!this.state.awayChest) return false;
     if (double) {
       const ok = await this.ads.showRewarded('away_chest');
-      if (!ok) return;
+      if (!ok) return false;
       this.analytics.track('ad_rewarded', { placement: 'away_chest' });
     }
     const c = openAwayChest(this.state, double);
-    if (!c) return;
+    if (!c) return false;
     this.audio.play('fanfare');
     const items = Object.entries(c.items).map(([id, n]) => `${n > 1 ? `${n} ` : ''}${id === 'snack' ? 'snacks' : ITEMS[id]?.name ?? id}`);
     this.ui.toast(`🎁 Away chest: {coin} +${c.coins.toLocaleString()}${c.shards ? `  {gem} +${c.shards}` : ''}${items.length ? ` and ${items.join(', ')}` : ''}!`, 'discovery', undefined, 5000, { priority: 3 });
     this.ui.rerender();
     this.saveSoon();
+    return true;
   }
 
   /** Break a sky charm from the EVENT sheet. */

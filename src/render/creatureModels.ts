@@ -83,6 +83,12 @@ const G = {
   cyl: new THREE.CylinderGeometry(1, 1, 1, 10),
   rock: new THREE.DodecahedronGeometry(1, 0),
   torus: new THREE.TorusGeometry(1, 0.28, 6, 16, Math.PI * 1.25),
+  // shared by every creature that needs them (never disposed)
+  halo: new THREE.TorusGeometry(1, 0.13, 6, 24),
+  ribbon: new THREE.TorusGeometry(1, 0.06, 4, 20, Math.PI),
+  swirl: new THREE.TorusGeometry(1, 0.05, 4, 24, Math.PI * 1.3),
+  octa: new THREE.OctahedronGeometry(1, 0),
+  smile: new THREE.TorusGeometry(0.11, 0.022, 6, 16, Math.PI),
   tetra: new THREE.TetrahedronGeometry(1, 0),
 };
 
@@ -184,6 +190,7 @@ const BUILDERS: Record<string, Builder> = {
   driftjelly: (k, P, m) => {
     const b = m.body;
     const domeMat = new THREE.MeshToonMaterial({ color: P.main, transparent: true, opacity: 0.85, emissive: P.second, emissiveIntensity: 0.35 });
+    k.mats.push(domeMat);
     const dome = new THREE.Mesh(G.hemi, domeMat);
     dome.scale.set(0.34, 0.3, 0.34);
     dome.position.y = 0.1;
@@ -215,7 +222,7 @@ const BUILDERS: Record<string, Builder> = {
     k.eye(head, 0.15, 0.1, 0.19, 0.065, new THREE.Vector3(0.2, 0.1, 1));
     k.eye(head, -0.15, 0.1, 0.19, 0.065, new THREE.Vector3(-0.2, 0.1, 1));
     // the smile
-    const smile = new THREE.Mesh(new THREE.TorusGeometry(0.11, 0.022, 6, 16, Math.PI), k.mat('#7a2a4a'));
+    const smile = new THREE.Mesh(G.smile, k.mat('#7a2a4a'));
     smile.position.set(0, -0.05, 0.25);
     smile.rotation.set(0, 0, Math.PI);
     smile.userData.noOutline = true;
@@ -324,7 +331,9 @@ const BUILDERS: Record<string, Builder> = {
   burrowbun: (k, P, m) => {
     const b = m.body;
     b.add(k.ball(0.3, P.main, [0, 0.3, -0.05], [1, 0.92, 1.1]));
-    b.add(k.ball(0.24, P.main, [0, 0.56, 0.2]));
+    const bunHead = k.ball(0.24, P.main, [0, 0.56, 0.2]);
+    bunHead.userData.head = true;
+    b.add(bunHead);
     k.eye(b, 0.1, 0.6, 0.38, 0.055);
     k.eye(b, -0.1, 0.6, 0.38, 0.055);
     b.add(k.ball(0.035, P.second, [0, 0.53, 0.44]));
@@ -410,7 +419,9 @@ const BUILDERS: Record<string, Builder> = {
   lumewisp: (k, P, m) => {
     const b = m.body;
     b.add(k.ball(0.2, P.accent, [0, 0, 0], [1, 1, 1], P.second));
-    const shell = new THREE.Mesh(G.sphere, new THREE.MeshToonMaterial({ color: P.main, transparent: true, opacity: 0.45, emissive: P.second, emissiveIntensity: 0.5 }));
+    const shellMat = new THREE.MeshToonMaterial({ color: P.main, transparent: true, opacity: 0.45, emissive: P.second, emissiveIntensity: 0.5 });
+    k.mats.push(shellMat);
+    const shell = new THREE.Mesh(G.sphere, shellMat);
     shell.scale.set(0.32, 0.36, 0.32);
     b.add(shell);
     const tail = k.mesh(G.cone, P.main, [0.2, 0.5, 0.2], [0, -0.32, -0.12], P.second);
@@ -862,6 +873,10 @@ interface Anchors {
   tailZ: number;
   /** Middle of everything, for glows. */
   center: THREE.Vector3;
+  /** Height of the body's surface straight down at (x, z), so things sit on it, not inside it. */
+  top: (x: number, z: number) => number;
+  /** The part that is the head, when it moves on its own (a serpent's front, a turtle's head). */
+  headObj: THREE.Object3D | null;
 }
 
 /**
@@ -872,14 +887,19 @@ interface Anchors {
 function anchors(m: Omit<CreatureModel, 'root' | 'materials' | 'movement' | 'baseScale'>): Anchors {
   const skip = new Set<THREE.Object3D>([...m.wings, ...(m.tail ? [m.tail] : [])]);
   const boxes: { box: THREE.Box3; seg0: boolean }[] = [];
+  const meshes: THREE.Mesh[] = [];
+  let headObj: THREE.Object3D | null = m.segments[0] ?? null;
   m.body.updateMatrixWorld(true);
   const inv = new THREE.Matrix4().copy(m.body.matrixWorld).invert();
   // a part the builder marked as the head counts even if it also turns to look around
   const walk = (o: THREE.Object3D, seg0: boolean) => {
     if (o instanceof THREE.Sprite) return;
-    if (skip.has(o) && !o.userData.head) return;
+    if (skip.has(o) && !o.userData.head && !o.userData.measure) return;
+    // only a group can carry worn things (a scaled mesh would shrink them)
+    if (o.userData.head && !(o instanceof THREE.Mesh)) headObj ??= o;
     const isSeg0 = seg0 || o === m.segments[0] || !!o.userData.head;
     if (o instanceof THREE.Mesh && o.geometry) {
+      meshes.push(o);
       if (!o.geometry.boundingBox) o.geometry.computeBoundingBox();
       const box = o.geometry.boundingBox!.clone().applyMatrix4(new THREE.Matrix4().multiplyMatrices(inv, o.matrixWorld));
       boxes.push({ box, seg0: isSeg0 });
@@ -887,7 +907,7 @@ function anchors(m: Omit<CreatureModel, 'root' | 'materials' | 'movement' | 'bas
     for (const c of o.children) walk(c, isSeg0);
   };
   for (const c of m.body.children) walk(c, false);
-  if (!boxes.length) return { head: new THREE.Vector3(0, m.height, 0), headW: 0.3, back: new THREE.Vector3(0, m.height * 0.7, -0.1), halfW: 0.25, scale: 1, tailZ: -0.3, center: new THREE.Vector3(0, m.height * 0.5, 0) };
+  if (!boxes.length) return { head: new THREE.Vector3(0, m.height, 0), headW: 0.3, back: new THREE.Vector3(0, m.height * 0.7, -0.1), halfW: 0.25, scale: 1, tailZ: -0.3, center: new THREE.Vector3(0, m.height * 0.5, 0), top: () => m.height * 0.7, headObj: null };
   const all = new THREE.Box3();
   for (const b of boxes) all.union(b.box);
   const H = all.max.y - all.min.y;
@@ -903,10 +923,24 @@ function anchors(m: Omit<CreatureModel, 'root' | 'materials' | 'movement' | 'bas
   for (const b of boxes) if (vol(b.box) > vol(torso)) torso = b.box;
   const ts = torso.getSize(new THREE.Vector3());
   const tc = torso.getCenter(new THREE.Vector3());
+  // drop a ray straight down onto the body (head parts left out, so the back is the back)
+  const explicitHead = boxes.some((b) => b.seg0);
+  const bodyMeshes = explicitHead ? meshes.filter((_, i) => !boxes[i].seg0) : meshes;
+  const ray = new THREE.Raycaster();
+  const down = new THREE.Vector3(0, -1, 0);
+  const fallback = torso.max.y - ts.y * 0.12;
+  const top = (x: number, z: number): number => {
+    ray.set(new THREE.Vector3(x, all.max.y + 1, z).applyMatrix4(m.body.matrixWorld), down);
+    const hit = ray.intersectObjects(bodyMeshes, false)[0];
+    return hit ? m.body.worldToLocal(hit.point.clone()).y : fallback;
+  };
+  const backZ = tc.z - ts.z * 0.18;
   return {
     head: new THREE.Vector3(0, hb.max.y, hc.z),
     headW: Math.min(hb.max.x - hb.min.x, 0.5),
-    back: new THREE.Vector3(0, torso.max.y - ts.y * 0.12, tc.z - ts.z * 0.18),
+    back: new THREE.Vector3(0, top(0, backZ), backZ),
+    top,
+    headObj,
     halfW: ts.x / 2,
     scale: THREE.MathUtils.clamp(Math.max(ts.x, ts.z) / 0.55, 0.7, 1.7),
     tailZ: torso.min.z + ts.z * 0.1,
@@ -931,11 +965,18 @@ export function buildCreature(speciesId: SpeciesId, mutations: MutationId[], see
   const plainMats = k.mats.filter((mat) => mat.emissive.getHex() === 0);
   // Where this particular body's head and back are, so halos, horns and wings sit right on every shape.
   const A = anchors(m);
+  /** Things worn on the head ride along with it when the head moves. */
+  const onHead = (o: THREE.Object3D) => {
+    if (!A.headObj) return void body.add(o);
+    body.updateMatrixWorld(true);
+    o.position.copy(A.headObj.worldToLocal(body.localToWorld(o.position.clone())));
+    A.headObj.add(o);
+  };
 
   if (muts.includes('lunar') || speciesId === 'moonmoth') {
     const crescent = k.mesh(G.torus, '#eef2ff', [0.1, 0.1, 0.1], [A.head.x, A.head.y + 0.12, A.head.z], '#b9c6ff');
     crescent.rotation.z = 0.6;
-    body.add(crescent);
+    onHead(crescent);
     const halo = glowSprite('#b9c6ff', 1.8, 0);
     halo.position.y = m.height * 0.5;
     body.add(halo);
@@ -980,7 +1021,9 @@ export function buildCreature(speciesId: SpeciesId, mutations: MutationId[], see
   if (muts.includes('frost')) {
     for (let i = 0; i < 5; i++) {
       const a = (i / 5) * Math.PI * 2;
-      const spike = k.mesh(G.cone, '#f4fbff', [0.035, 0.14, 0.035], [A.back.x + Math.cos(a) * 0.14 * A.scale, A.back.y + 0.03, A.back.z + Math.sin(a) * 0.14 * A.scale], '#bfe8ff');
+      const sx = A.back.x + Math.cos(a) * 0.14 * A.scale;
+      const sz = A.back.z + Math.sin(a) * 0.14 * A.scale;
+      const spike = k.mesh(G.cone, '#f4fbff', [0.035, 0.14, 0.035], [sx, A.top(sx, sz) + 0.03, sz], '#bfe8ff');
       spike.rotation.set(Math.sin(a) * 0.4, 0, -Math.cos(a) * 0.4);
       body.add(spike);
     }
@@ -992,10 +1035,10 @@ export function buildCreature(speciesId: SpeciesId, mutations: MutationId[], see
   if (muts.includes('angelic')) {
     // the halo floats just above the head, sized to it; the wings grow from the back, sized to the body
     const r = THREE.MathUtils.clamp(A.headW * 0.42, 0.09, 0.2);
-    const halo = k.mesh(new THREE.TorusGeometry(1, 0.13, 6, 24), '#ffe27a', [r, r, r], [A.head.x, A.head.y + 0.1 + r * 0.3, A.head.z], '#ffd23d');
+    const halo = k.mesh(G.halo, '#ffe27a', [r, r, r], [A.head.x, A.head.y + 0.1 + r * 0.3, A.head.z], '#ffd23d');
     halo.rotation.x = Math.PI / 2;
     halo.userData.noOutline = true;
-    body.add(halo);
+    onHead(halo);
     const wings: THREE.Object3D[] = [];
     for (const s of [1, -1]) {
       const wing = new THREE.Group();
@@ -1016,7 +1059,7 @@ export function buildCreature(speciesId: SpeciesId, mutations: MutationId[], see
       const hs = THREE.MathUtils.clamp(A.headW / 0.3, 0.6, 1.2);
       const horn = k.mesh(G.cone, '#5a1a1a', [0.045 * hs, 0.16 * hs, 0.045 * hs], [A.head.x + Math.max(0.05, A.headW * 0.3) * s, A.head.y + 0.03, A.head.z]);
       horn.rotation.z = -0.4 * s;
-      body.add(horn);
+      onHead(horn);
     }
     const embers = new THREE.Group();
     embers.position.set(A.back.x, A.back.y - 0.02, A.tailZ);
@@ -1045,7 +1088,7 @@ export function buildCreature(speciesId: SpeciesId, mutations: MutationId[], see
     // two thin glowing ribbons drape over its back
     for (const [i, col] of (['#4affc8', '#b07aff'] as const).entries()) {
       const rr = (0.26 - i * 0.05) * A.scale;
-      const band = k.mesh(new THREE.TorusGeometry(1, 0.06, 4, 20, Math.PI), col, [rr, rr, 0.26], [A.back.x, A.back.y - rr * 0.8, A.back.z + 0.04 - i * 0.06], col);
+      const band = k.mesh(G.ribbon, col, [rr, rr, 0.26], [A.back.x, A.back.y - rr * 0.8, A.back.z + 0.04 - i * 0.06], col);
       band.rotation.y = Math.PI / 2;
       band.castShadow = false;
       band.userData.noOutline = true;
@@ -1072,7 +1115,9 @@ export function buildCreature(speciesId: SpeciesId, mutations: MutationId[], see
     for (let i = 0; i < 6; i++) {
       const a = i * 2.39996;
       const r = 0.08 + (i % 3) * 0.05;
-      const dot = k.ball(0.025, '#ff8a2a', [A.back.x + Math.cos(a) * r * A.scale, A.back.y + 0.01, A.back.z + Math.sin(a) * r * A.scale], [1, 0.5, 1]);
+      const fx = A.back.x + Math.cos(a) * r * A.scale;
+      const fz = A.back.z + Math.sin(a) * r * A.scale;
+      const dot = k.ball(0.025, '#ff8a2a', [fx, A.top(fx, fz) + 0.005, fz], [1, 0.5, 1]);
       dot.castShadow = false;
       dot.userData.noOutline = true;
       body.add(dot);
@@ -1080,7 +1125,7 @@ export function buildCreature(speciesId: SpeciesId, mutations: MutationId[], see
   }
   if (muts.includes('blossom')) {
     // little flowers sprouting on the back and one on the head
-    const spots: [number, number, number][] = [[A.back.x + 0.08, A.back.y, A.back.z], [A.back.x - 0.1, A.back.y - 0.02, A.back.z - 0.08], [A.head.x + 0.06, A.head.y, A.head.z]];
+    const spots: [number, number, number][] = [[A.back.x + 0.08, A.top(A.back.x + 0.08, A.back.z), A.back.z], [A.back.x - 0.1, A.top(A.back.x - 0.1, A.back.z - 0.08), A.back.z - 0.08], [A.head.x + 0.06, A.head.y, A.head.z]];
     spots.forEach(([x, y, z], j) => {
       const f = new THREE.Group();
       for (let i = 0; i < 5; i++) {
@@ -1109,7 +1154,7 @@ export function buildCreature(speciesId: SpeciesId, mutations: MutationId[], see
     const swirl = new THREE.Group();
     swirl.position.copy(A.center);
     for (let i = 0; i < 2; i++) {
-      const ring = k.mesh(new THREE.TorusGeometry(1, 0.05, 4, 24, Math.PI * 1.3), '#ffffff', [0.34 * A.scale - i * 0.05, 0.34 * A.scale - i * 0.05, 0.34], [0, -0.06 + i * 0.12, 0], '#dff4ff');
+      const ring = k.mesh(G.swirl, '#ffffff', [0.34 * A.scale - i * 0.05, 0.34 * A.scale - i * 0.05, 0.34], [0, -0.06 + i * 0.12, 0], '#dff4ff');
       ring.rotation.set(Math.PI / 2 + 0.2, 0, i * 2.4);
       ring.castShadow = false;
       ring.userData.noOutline = true;
@@ -1124,7 +1169,9 @@ export function buildCreature(speciesId: SpeciesId, mutations: MutationId[], see
     bubbles.position.copy(A.center);
     for (let i = 0; i < 4; i++) {
       const a = (i / 4) * Math.PI * 2;
-      const bub = new THREE.Mesh(G.sphere, new THREE.MeshToonMaterial({ color: '#c8f2ff', transparent: true, opacity: 0.45, emissive: '#9ae6ff', emissiveIntensity: 0.3 }));
+      const bubMat = new THREE.MeshToonMaterial({ color: '#c8f2ff', transparent: true, opacity: 0.45, emissive: '#9ae6ff', emissiveIntensity: 0.3 });
+      k.mats.push(bubMat);
+      const bub = new THREE.Mesh(G.sphere, bubMat);
       bub.scale.setScalar(0.05 + (i % 2) * 0.03);
       bub.position.set(Math.cos(a) * 0.36 * A.scale, (i % 2) * 0.15, Math.sin(a) * 0.36 * A.scale);
       bub.add(k.ball(0.3, '#ffffff', [-0.35, 0.35, 0.6], [1, 1, 0.5]));
@@ -1148,15 +1195,16 @@ export function buildCreature(speciesId: SpeciesId, mutations: MutationId[], see
     orbit.add(k.ball(0.045, '#f4f0ff', [0.28 * A.scale, 0, 0], [1, 1, 1], '#c9b8ff'));
     orbit.rotation.z = 0.3;
     orbit.userData.spin = 1.4;
-    body.add(orbit);
+    onHead(orbit);
     spinners.push(orbit);
   }
   if (muts.includes('crystal')) {
     // gems growing from the back
     for (let i = 0; i < 4; i++) {
       const a = (i / 4) * Math.PI * 2 + 0.4;
-      const gem = k.mesh(new THREE.OctahedronGeometry(1, 0), i % 2 ? '#bff4ff' : '#d8c8ff', [0.05, 0.12 + (i % 2) * 0.04, 0.05],
-        [A.back.x + Math.cos(a) * 0.09 * A.scale, A.back.y + 0.06, A.back.z + Math.sin(a) * 0.09 * A.scale], '#8ad8ff');
+      const gx = A.back.x + Math.cos(a) * 0.09 * A.scale;
+      const gz = A.back.z + Math.sin(a) * 0.09 * A.scale;
+      const gem = k.mesh(G.octa, i % 2 ? '#bff4ff' : '#d8c8ff', [0.05, 0.12 + (i % 2) * 0.04, 0.05], [gx, A.top(gx, gz) + 0.05, gz], '#8ad8ff');
       gem.rotation.set(Math.sin(a) * 0.4, 0, -Math.cos(a) * 0.4);
       body.add(gem);
     }
@@ -2175,6 +2223,7 @@ Object.assign(BUILDERS, {
     }
     const nose = k.mesh(G.cone, P.belly, [0.09, 0.16, 0.09], [0, 0.22, 0.36]);
     nose.rotation.x = Math.PI / 2;
+    nose.userData.head = true;
     b.add(nose);
     b.add(k.ball(0.035, '#2a1d16', [0, 0.22, 0.45]));
     k.eye(b, 0.09, 0.32, 0.31, 0.045);
@@ -2359,6 +2408,7 @@ Object.assign(BUILDERS, {
     }
     const tip = k.mesh(G.cone, P.second, [0.05, 0.12, 0.05], [0, 0.46, 0]);
     shell.add(tip);
+    shell.userData.measure = true;
     b.add(shell);
     m.tail = shell;
     m.height = 0.75;
@@ -2491,7 +2541,9 @@ Object.assign(BUILDERS, {
     BUILDERS.cloudserpent(k, P, m);
     // no clouds under a sea dragon: swap the puffs for fins
     for (const c of [...m.body.children]) {
-      if (!m.segments.includes(c)) m.body.remove(c);
+      if (m.segments.includes(c)) continue;
+      m.body.remove(c);
+      if (c instanceof THREE.Sprite) c.material.dispose();
     }
     for (const i of [3, 6, 9]) {
       for (const s of [1, -1]) {
@@ -2598,7 +2650,9 @@ Object.assign(BUILDERS, {
   zephyrwisp: (k, P, m) => {
     const b = m.body;
     b.add(k.ball(0.18, P.main, [0, 0, 0], [1, 1, 1], P.second));
-    const shell = new THREE.Mesh(G.sphere, new THREE.MeshToonMaterial({ color: P.accent, transparent: true, opacity: 0.4, emissive: P.second, emissiveIntensity: 0.4 }));
+    const shellMat = new THREE.MeshToonMaterial({ color: P.accent, transparent: true, opacity: 0.4, emissive: P.second, emissiveIntensity: 0.4 });
+    k.mats.push(shellMat);
+    const shell = new THREE.Mesh(G.sphere, shellMat);
     shell.scale.set(0.28, 0.3, 0.28);
     b.add(shell);
     k.eye(b, 0.08, 0.05, 0.25, 0.045);
@@ -2637,7 +2691,10 @@ Object.assign(BUILDERS, {
         w.add(f);
       }
     }
-    for (const g of m.glows) g.removeFromParent();
+    for (const g of m.glows) {
+      g.removeFromParent();
+      g.material.dispose();
+    }
     m.glows.length = 0;
     // a white feather crest
     const head = m.body.children.find((c) => c instanceof THREE.Group && c.position.z > 0.2)!;

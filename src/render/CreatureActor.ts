@@ -104,6 +104,7 @@ export class CreatureActor {
   /** A little toy for the moment: a butterfly, a firefly, a bubble or a ball. */
   private prop: THREE.Group | null = null;
   private propKind: 'butterfly' | 'firefly' | 'bubble' | 'ball' | null = null;
+  private splashing = false;
   /** Its temper (first personality trait), adjusted by its other traits. */
   private get temper(): Temper {
     const t = temperOf(this.creature);
@@ -180,7 +181,9 @@ export class CreatureActor {
     this.ring.visible = on;
     // a wandering creature stops and waits while you look at it
     this.held = on;
-    if (on && (this.state === 'wander' || this.state === 'idle')) {
+    if (on && ['wander', 'idle', 'chase', 'flee', 'flutter', 'ball', 'splash', 'dance', 'sunbathe'].includes(this.state)) {
+      this.dropProp();
+      this.partner = null;
       this.state = 'idle';
       this.timer = 1;
       this.emote('❓', 1.2);
@@ -431,17 +434,26 @@ export class CreatureActor {
           this.decide(ctx, asleepTime);
         }
         break;
-      case 'splash':
-        if (this.moveToward(dt, 1.1)) {
+      case 'splash': {
+        const there = this.moveToward(dt, 1.1);
+        if (there && !this.splashing) {
+          this.splashing = true;
+          this.timer = 2.5 + Math.random() * 1.5;
+        }
+        if (this.splashing) {
           this.fxTimer -= dt;
           if (this.fxTimer <= 0) {
             this.fxTimer = 0.3;
             ctx.fx('splash', this.p.clone().add(new THREE.Vector3(Math.sin(this.heading) * 0.35, 0.05, Math.cos(this.heading) * 0.35)));
           }
           if (Math.random() < dt * 0.6) this.emote('💦', 1);
-          if (this.timer <= 0) this.decide(ctx, asleepTime);
-        } else this.timer = Math.max(this.timer, 2.5);
+          if (this.timer <= 0) {
+            this.splashing = false;
+            this.decide(ctx, asleepTime);
+          }
+        } else if (this.timer < -10) this.decide(ctx, asleepTime); // couldn't get to the water: never mind
         break;
+      }
       case 'shelter':
         this.moveToward(dt, 1.1);
         if (ctx.sky !== 'storm' && ctx.sky !== 'blizzard') this.decide(ctx, asleepTime);
@@ -762,7 +774,8 @@ export class CreatureActor {
     }
     // meet a neighbour: say hello, or pick a playful squabble
     if (this.socialCooldown <= 0) {
-      const near = ctx.actors.find((o) => o !== this && o.geo === this.geo && !['sleep', 'nap', 'arrive', 'dig', 'squabble', 'social'].includes(o.state)
+      const near = ctx.actors.find((o) => o !== this && o.geo === this.geo && !o.held && !o.waitAt
+        && !['sleep', 'nap', 'arrive', 'dig', 'squabble', 'social', 'carried', 'fetch', 'chase', 'flee', 'cuddle', 'eat'].includes(o.state)
         && Math.hypot(o.position.x - this.position.x, o.position.z - this.position.z) < 2.4 && o.isSwimmer === this.isSwimmer);
       if (near) {
         const r = Math.random();
@@ -912,9 +925,13 @@ export class CreatureActor {
     if (w && r < 0.22 && !this.isFlyer) {
       const a = Math.atan2(this.p.z - w.z, this.p.x - w.x);
       const edge = w.r + (this.amphibious ? -0.3 : 0.35);
-      this.target.set(w.x + Math.cos(a) * edge, 0, w.z + Math.sin(a) * edge);
+      const tx = w.x + Math.cos(a) * edge;
+      const tz = w.z + Math.sin(a) * edge;
+      if (isBlocked(this.geo, tx, tz, 0.6)) return false;
+      this.target.set(tx, 0, tz);
       this.state = 'splash';
-      this.timer = 2.5 + Math.random() * 1.5;
+      this.splashing = false;
+      this.timer = 0;
       this.fxTimer = 0;
       return true;
     }

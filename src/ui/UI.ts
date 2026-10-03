@@ -46,7 +46,7 @@ export function shopTabFor(text: string): ShopTab | null {
   if (!/mango|shop|out of|you need|you have no|empty/.test(t)) return null;
   if (/lure/.test(t)) return 'lure';
   if (/pantry|food|snack|feast|feedbag|berr/.test(t)) return 'food';
-  if (/spray|tonic|deleter|wiper|stone|mist|tracker|summon|item/.test(t)) return 'item';
+  if (/spray|tonic|deleter|wiper|stone|mist|tracker|summon|item|charm|chart|telescope/.test(t)) return 'item';
   if (/decor/.test(t)) return 'decor';
   if (/egg/.test(t)) return 'egg';
   return null;
@@ -513,7 +513,14 @@ export class UI {
       const noSell = canSell(g.state, c);
       const want = marketWants(g.state, g.now()).find((w) => !wantFilled(g.state, w, g.now()) && wantMatches(w, c));
       const foodLeft = (g.state.food.fruit ?? 0) + (g.state.food.snack ?? 0);
-      b.append(h('div', { class: 'care' },
+      if (c.stored) {
+        // resting in storage: no hunger, no trips; just bring it back out (or sell it)
+        b.append(h('div', { class: 'care' },
+          h('p', { class: 'muted', style: 'margin:0 0 8px' }, 'Resting in storage: no hunger, no growing up.'),
+          h('div', { class: 'care-actions', style: 'grid-template-columns:1fr 1fr' },
+            h('button', { class: 'btn small', onClick: () => g.retrieve(c.id) }, `Bring to ${ISLANDS[g.world.current].icon} ${ISLANDS[g.world.current].name}`),
+            h('button', { class: 'btn small secondary', disabled: !!noSell, onClick: () => this.confirmSell(c) }, rich(`Sell {coin} ${price.toLocaleString()}`)))));
+      } else b.append(h('div', { class: 'care' },
         h('div', { class: 'hunger-row' },
           h('span', { class: 'hunger-ico' }, isHungry(c) ? '🍖' : '🍓'),
           h('div', { class: 'hunger-bar' }, h('div', { class: `progress small ${isHungry(c) ? 'hungry' : ''}` }, h('i', { style: `width:${full}%` })),
@@ -550,7 +557,7 @@ export class UI {
       b.append(h('div', { class: 'btns' },
         h('button', { class: 'btn', onClick: () => { this.fontPick = [c.id, null]; this.showFont(); } }, '⛲ Create with…'),
         h('button', { class: 'btn secondary', onClick: () => { this.game.setPinned(pinned ? null : c.id); this.rerender(); } }, pinned ? '📌 Unpin' : '📌 Pin to widget'),
-        ...others.map((i) => h('button', { class: 'btn secondary', onClick: () => this.game.moveCreature(c.id, i) }, `${ISLANDS[i].icon} Move to ${ISLANDS[i].name}`)),
+        ...(c.stored ? [] : others.map((i) => h('button', { class: 'btn secondary', onClick: () => this.game.moveCreature(c.id, i) }, `${ISLANDS[i].icon} Move to ${ISLANDS[i].name}`))),
         h('button', { class: 'btn danger', onClick: () => this.confirmRelease(c) }, 'Say goodbye'),
       ));
     });
@@ -836,8 +843,10 @@ export class UI {
       // press and hold a pet to start picking several; tap to add or remove
       const pickable = (row: HTMLElement, c: Creature, open: () => void) => {
         let timer = 0;
-        row.addEventListener('pointerdown', () => {
+        row.addEventListener('pointerdown', (e) => {
           this.longPressFired = false;
+          // pressing a button in the row (Feed, the heart...) is just pressing that button
+          if ((e.target as Element).closest('button')) return;
           timer = window.setTimeout(() => {
             this.longPressFired = true;
             this.petSel ??= new Set();
@@ -1966,8 +1975,8 @@ export class UI {
             h('div', { class: 'lv-rewards' }, rich(`{coin} ${chest.coins.toLocaleString()}${chest.shards ? `  {gem} ${chest.shards}` : ''}`)),
             items.length ? h('div', { class: 'muted' }, `and ${items.join(', ')}`) : null),
           h('div', { class: 'col', style: 'gap:6px' },
-            h('button', { class: 'btn small ad', onClick: async () => { await this.game.openChest(true); box.remove(); } }, '▶ Double'),
-            h('button', { class: 'btn small', onClick: () => { void this.game.openChest(false); box.remove(); } }, 'Open')));
+            h('button', { class: 'btn small ad', onClick: async () => { if (await this.game.openChest(true)) box.remove(); } }, '▶ Double'),
+            h('button', { class: 'btn small', onClick: async () => { if (await this.game.openChest(false)) box.remove(); } }, 'Open')));
         m.append(box);
       }
       m.append(...lines,

@@ -125,6 +125,8 @@ button:focus-visible { outline: 3px solid var(--white); outline-offset: 2px; }
 .banner.hidden { opacity: 0; }
 
 .toasts {
+  /* above sheets and pop-ups, so a toast's Shop button can always be tapped */
+  z-index: 50;
   position: absolute; top: calc(var(--safe-top) + 150px); left: 0; right: 0;
   display: flex; flex-direction: column; align-items: center; gap: 6px; pointer-events: none; padding: 0 16px;
 }
