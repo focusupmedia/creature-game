@@ -21,8 +21,7 @@ describe('quests', () => {
     const s = createGame(2, 0);
     s.quests = { day: '1970-01-01', daily: [{ id: 'd-hatch', progress: 0, claimed: false }], tiers: {} };
     expect(claimDaily(s, 'd-hatch').ok).toBe(false);
-    questEvent(s, { kind: 'hatch', species: 'mossfrog', newSpecies: false, newMutations: 0 });
-    questEvent(s, { kind: 'hatch', species: 'mossfrog', newSpecies: false, newMutations: 0 });
+    for (let i = 0; i < 5; i++) questEvent(s, { kind: 'hatch', species: 'mossfrog', newSpecies: false, newMutations: 0 });
     expect(claimable(s)).toBeGreaterThan(0);
     const coins = s.glimmer;
     expect(claimDaily(s, 'd-hatch').ok).toBe(true);

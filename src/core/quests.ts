@@ -25,16 +25,18 @@ export interface DailyDef {
   when?: (s: GameState) => boolean;
 }
 
+// Dailies take a couple of sessions and pay well: together, the three are worth
+// about a session's earnings (measured with the economy sim).
 export const DAILY_POOL: DailyDef[] = [
-  { id: 'd-hatch', stat: 'hatch', target: 2, text: 'Hatch 2 eggs', reward: { coins: 90, shards: 2, xp: 40 } },
-  { id: 'd-breed', stat: 'breed', target: 2, text: 'Breed 2 pairs', reward: { coins: 80, shards: 2, xp: 40 } },
-  { id: 'd-lure', stat: 'lure', target: 3, text: 'Set out 3 lures', reward: { coins: 60, shards: 1, xp: 30 } },
-  { id: 'd-coins', stat: 'coinsPicked', target: 60, text: 'Pick up 60 coins from the ground', reward: { coins: 70, shards: 2, xp: 30 } },
-  { id: 'd-finds', stat: 'finds', target: 5, text: 'Collect 5 finds', reward: { coins: 60, shards: 1, xp: 30 } },
-  { id: 'd-dig', stat: 'digSpot', target: 2, text: 'Drop creatures on 2 dig spots', reward: { coins: 80, shards: 2, xp: 40 } },
-  { id: 'd-egg', stat: 'shopEgg', target: 1, text: 'Buy an egg from Mango', reward: { coins: 50, shards: 2, xp: 25 } },
+  { id: 'd-hatch', stat: 'hatch', target: 5, text: 'Hatch 5 eggs', reward: { coins: 600, shards: 8, xp: 150 } },
+  { id: 'd-breed', stat: 'breed', target: 5, text: 'Breed 5 pairs', reward: { coins: 550, shards: 8, xp: 140 } },
+  { id: 'd-lure', stat: 'lure', target: 12, text: 'Set out 12 lures', reward: { coins: 450, shards: 6, xp: 120 } },
+  { id: 'd-coins', stat: 'coinsPicked', target: 300, text: 'Pick up 300 coins from the ground', reward: { coins: 500, shards: 6, xp: 120 } },
+  { id: 'd-finds', stat: 'finds', target: 25, text: 'Collect 25 finds', reward: { coins: 450, shards: 6, xp: 120 } },
+  { id: 'd-dig', stat: 'digSpot', target: 8, text: 'Drop creatures on 8 dig spots', reward: { coins: 600, shards: 8, xp: 150 } },
+  { id: 'd-egg', stat: 'shopEgg', target: 2, text: 'Buy 2 eggs from Mango', reward: { coins: 400, shards: 10, xp: 100 } },
   {
-    id: 'd-fetch', stat: 'creatureCoins', target: 25, text: 'Have your creatures fetch 25 coins', reward: { coins: 80, shards: 2, xp: 35 },
+    id: 'd-fetch', stat: 'creatureCoins', target: 120, text: 'Have your creatures fetch 120 coins', reward: { coins: 550, shards: 8, xp: 130 },
     when: (s) => s.creatures.some((c) => hasQuirk(c, 'greedy')),
   },
 ];

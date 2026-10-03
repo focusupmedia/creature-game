@@ -4,11 +4,11 @@ import { createGame } from '../src/core/state';
 
 describe('keeper levels', () => {
   it('has a gentle start and a long but reachable top', () => {
-    expect(xpForLevel(5)).toBeLessThan(200);
-    expect(xpForLevel(20)).toBeGreaterThan(3000);
-    expect(xpForLevel(20)).toBeLessThan(7000);
+    expect(xpForLevel(5)).toBeLessThan(700);
+    expect(xpForLevel(20)).toBeGreaterThan(6000);
+    expect(xpForLevel(20)).toBeLessThan(11_000);
     expect(xpForLevel(50)).toBeGreaterThan(40_000);
-    expect(xpForLevel(50)).toBeLessThan(80_000);
+    expect(xpForLevel(50)).toBeLessThan(60_000);
     expect(levelOf(0)).toBe(1);
     expect(levelOf(1e9)).toBe(MAX_LEVEL);
   });

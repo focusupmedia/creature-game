@@ -144,7 +144,7 @@ export function buyStorageSlot(state: GameState): Result {
 
 // ---------------------------------------------------------------- selling
 
-const BASE: Record<Rarity, number> = { common: 40, uncommon: 90, rare: 220, legendary: 600, mythical: 1500 };
+const BASE: Record<Rarity, number> = { common: 15, uncommon: 35, rare: 100, legendary: 350, mythical: 900 };
 
 export function canSell(state: GameState, c: Creature): string | null {
   if (c.favorite) return 'Favourites can\'t be sold. Unmark it first.';
@@ -159,7 +159,9 @@ export function sellPrice(state: GameState, c: Creature, toCollector: boolean): 
   let p = BASE[sp.rarity];
   p *= 0.8 + Math.min(2.7, c.size) * 0.25;
   if (isOutlier(c.size)) p *= 1.5;
-  for (const m of c.mutations) p *= MUTATIONS[m].tier === 'legendary' ? 3 : MUTATIONS[m].tier === 'epic' ? 2 : 1.4;
+  // each mutation adds a bonus (they add up, capped, so stacks don't explode the price)
+  const bonus = c.mutations.reduce((b, m) => b + ({ legendary: 1.5, epic: 0.8, rare: 0.4, common: 0.25 } as Record<string, number>)[MUTATIONS[m].tier], 0);
+  p *= 1 + Math.min(3, bonus);
   if (toCollector) p *= sp.traits.includes(state.collector.wants) ? 3 : 2;
   return Math.max(5, Math.round(p / 5) * 5);
 }

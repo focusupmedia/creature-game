@@ -1,7 +1,7 @@
 // Keeper levels 1-50. XP comes only from things the player does (hatching,
 // breeding, lures, digging, quests), never from idle time. Levels 1-5 come
-// in minutes, 20 means you play a good amount, and 50 takes a few days of
-// actual play: far, but always in sight for a returning player.
+// in the first hour, 20 in about a week of regular play, and 50 in about six
+// weeks: far, but always in sight for a returning player.
 
 import { TUNING } from '../content/tuning';
 import { makeCreature } from './creatures';
@@ -18,7 +18,7 @@ export const LEVEL_CREATURES: Record<number, SpeciesId> = {
 
 /** XP needed to go from `level` to `level + 1`. */
 export function xpToNext(level: number): number {
-  return Math.round(TUNING.levelXpBase * Math.pow(level, 1.5));
+  return Math.round(20 + TUNING.levelXpBase * Math.pow(level, 0.9));
 }
 
 /** Total XP needed to reach a level. */
