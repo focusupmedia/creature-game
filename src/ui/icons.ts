@@ -147,3 +147,12 @@ export const FOOD = svg(`
   <path d="M32 18c0-6 2-10 6-12" fill="none" stroke="${INK}" stroke-width="4" stroke-linecap="round"/>
   <path d="M34 12c4-6 12-6 14-2-4 4-10 5-14 2z" fill="#7ed321" stroke="${INK}" stroke-width="3" stroke-linejoin="round"/>
   <ellipse cx="22" cy="30" rx="4" ry="6" fill="#fff" opacity=".7"/>`);
+
+/** Pets: a chunky paw print. */
+export const PAW = svg(`
+  <path d="M32 30c-9 0-17 9-17 17 0 6 5 9 10 8 3-1 5-2 7-2s4 1 7 2c5 1 10-2 10-8 0-8-8-17-17-17z" fill="#ff9fcf" stroke="${INK}" stroke-width="4" stroke-linejoin="round"/>
+  <ellipse cx="14" cy="27" rx="6" ry="7.5" fill="#ff9fcf" stroke="${INK}" stroke-width="4"/>
+  <ellipse cx="25" cy="15" rx="6" ry="8" fill="#ff9fcf" stroke="${INK}" stroke-width="4"/>
+  <ellipse cx="39" cy="15" rx="6" ry="8" fill="#ff9fcf" stroke="${INK}" stroke-width="4"/>
+  <ellipse cx="50" cy="27" rx="6" ry="7.5" fill="#ff9fcf" stroke="${INK}" stroke-width="4"/>
+  <path d="M24 38q3-4 7-4" stroke="#fff" stroke-width="4" stroke-linecap="round" fill="none"/>`);

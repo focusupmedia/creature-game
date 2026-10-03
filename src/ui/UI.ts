@@ -1,6 +1,6 @@
 import { SPECIES, species } from '../content/species';
 import { DECOR, EGG_TIERS, EVENTS, FOODS, GIFTABLE_MUTATIONS, TOOLS, ITEMS, LEGENDARY, LEGENDARY_ORDER, LURES, MUTATIONS, SPOTS } from '../content/world';
-import { ISLANDS, ISLAND_ORDER, SIZE_CAPACITY, SIZE_NAMES, SIZE_PRICE } from '../content/islands';
+import { ISLANDS, ISLAND_ORDER, SIZE_NAMES, SIZE_PRICE } from '../content/islands';
 import { TUNING } from '../content/tuning';
 import { NESTS, FONT, SHOP_STALL } from '../content/layout';
 import * as A from '../core/actions';
@@ -21,6 +21,8 @@ import { MAX_LEVEL, levelOf, levelProgress, levelReward, type LevelUp } from '..
 import { DAILY_POOL, LASTING, claimable, lastingReward, refreshDailies } from '../core/quests';
 import { type AwayFind, canSell, collectorHere, findVisitor, isHungry, visitorThanks, nextSlotPrice, ripeFruit, sellPrice, storedCount } from '../core/care';
 import { rarityTag } from './rarity';
+
+type PetsSort = 'newest' | 'rarity' | 'name' | 'size' | 'hunger';
 
 const fmtClock = (ms: number) => `${Math.floor(Math.max(0, ms) / 60000)}:${String(Math.floor(Math.max(0, ms) / 1000) % 60).padStart(2, '0')}`;
 
@@ -48,9 +50,12 @@ export class UI {
     h('span', { class: 'emoji' }, '🎁'), h('span', { class: 'lbl' }, 'GIFT'));
   private overlay: HTMLElement | null = null;
   private questBadge = h('span', { class: 'count hidden' });
+  private islandsBadge = h('span', { class: 'count alert hidden' }, '!');
   private questTile = h('button', { class: 'hud-tile quests', 'aria-label': 'Quests', onClick: () => { this.game.audio.play('tap'); this.showQuests(); } },
     h('span', { class: 'emoji' }, '📜'), h('span', { class: 'lbl' }, 'QUESTS'), this.questBadge);
   private questTab: 'daily' | 'lasting' = 'daily';
+  private petsTab: 'wandering' | 'storage' = 'wandering';
+  private petsSort: PetsSort = 'newest';
   private collectorTile = h('button', { class: 'hud-tile collector hidden', 'aria-label': 'The Collector is visiting', onClick: () => { this.game.audio.play('tap'); this.showCollector(); } },
     h('span', { class: 'emoji' }, '🎩'), h('span', { class: 'lbl' }, 'BUYER'));
   private levelNum = h('span', { class: 'lv-num' });
@@ -101,8 +106,8 @@ export class UI {
           h('div', { class: 'hud-col right' },
             h('button', { class: 'hud-tile', 'aria-label': 'Watch an ad to summon a sky event', onClick: () => this.showSummon() },
               I.icon(I.SUMMON), h('span', { class: 'lbl' }, 'EVENT'), this.adsBadge),
-            h('button', { class: 'hud-tile islands', 'aria-label': 'Islands', onClick: () => { this.game.audio.play('tap'); this.showIslands(); } },
-              I.icon(I.ISLANDS), h('span', { class: 'lbl' }, 'ISLANDS')),
+            h('button', { class: 'hud-tile islands', 'aria-label': 'Islands', onClick: () => { this.game.audio.play('tap'); this.showIslands(this.firstAlert()); } },
+              I.icon(I.ISLANDS), h('span', { class: 'lbl' }, 'ISLANDS'), this.islandsBadge),
             this.questTile,
             this.collectorTile,
             this.giftTile,
@@ -115,6 +120,7 @@ export class UI {
     this.dock = h('nav', { class: 'dock' },
       dockBtn(I.LURE, 'LURES', () => this.showLures()),
       dockBtn(I.CREATE, 'CREATE', () => this.showFont()),
+      dockBtn(I.PAW, 'PETS', () => this.showPets()),
       dockBtn(I.JOURNAL, 'JOURNAL', () => this.showJournal(), this.journalDot),
       dockBtn(I.SHOP, 'SHOP', () => this.showShop(), this.shopDot),
       dockBtn(I.DECOR, 'DECOR', () => this.showDecor()),
@@ -164,6 +170,7 @@ export class UI {
       this.levelFill.style.width = `${Math.round(lp.pct * 100)}%`;
     }
     this.collectorTile.classList.toggle('hidden', !collectorHere(s, t));
+    this.islandsBadge.classList.toggle('hidden', this.worldAlerts().size === 0);
     const ready = claimable(s);
     this.questBadge.textContent = String(ready);
     this.questBadge.classList.toggle('hidden', ready === 0);
@@ -499,23 +506,65 @@ export class UI {
 
   // ---- storage and the Collector
 
+  /** Old name for the Storage tab of the Pets list. */
   showStorage(): void {
-    const s = this.game.state;
+    this.showPets('storage');
+  }
+
+  /** Every creature you have: out on your worlds, or resting in storage. Sortable, with favourites. */
+  showPets(tab?: 'wandering' | 'storage'): void {
     const g = this.game;
-    this.openSheet('Storage', `${storedCount(s)} of ${s.storageSlots} slots used. Stored creatures rest: no hunger, no growing.`, (b) => {
+    const s = g.state;
+    if (tab) this.petsTab = tab;
+    const RANK: Record<string, number> = { mythical: 0, legendary: 1, rare: 2, uncommon: 3, common: 4 };
+    const SORTS: { id: PetsSort; label: string; cmp: (a: Creature, b: Creature) => number }[] = [
+      { id: 'newest', label: 'Newest', cmp: (a, b) => b.bornAt - a.bornAt },
+      { id: 'rarity', label: 'Rarity', cmp: (a, b) => RANK[species(a.species).rarity] - RANK[species(b.species).rarity] || b.bornAt - a.bornAt },
+      { id: 'name', label: 'Name', cmp: (a, b) => displayName(a).localeCompare(displayName(b)) },
+      { id: 'size', label: 'Size', cmp: (a, b) => b.size - a.size },
+      { id: 'hunger', label: 'Hungriest', cmp: (a, b) => a.fullness - b.fullness },
+    ];
+    this.openSheet('Pets', 'Everyone you keep. Favourites (♥) can\'t be sold or released by mistake.', (b) => {
+      const out = s.creatures.filter((c) => !c.stored);
       const stored = s.creatures.filter((c) => c.stored);
-      if (!stored.length) b.append(h('p', { class: 'muted' }, 'Nobody is in storage. Use "📦 Store" on a creature\'s card to rest it here.'));
-      const list = h('div', { class: 'list' });
-      for (const c of stored) {
-        list.append(h('div', { class: 'item' }, this.portrait(c, 'swatch-img'),
-          h('div', { class: 'grow' }, h('div', { class: 'name' }, displayName(c)), h('div', { class: 'desc' }, species(c.species).name)),
-          h('button', { class: 'btn small', onClick: () => g.retrieve(c.id) }, `Bring to ${ISLANDS[g.world.current].icon}`)));
+      const tabBtn = (id: typeof this.petsTab, label: string) =>
+        h('button', { class: this.petsTab === id ? 'on' : '', onClick: () => { this.petsTab = id; this.rerender(); } }, label);
+      const sort = SORTS.find((x) => x.id === this.petsSort) ?? SORTS[0];
+      b.append(h('div', { class: 'tabs pets-tabs' },
+        tabBtn('wandering', `Wandering (${out.length})`), tabBtn('storage', `Storage (${stored.length}/${s.storageSlots})`)),
+        h('div', { class: 'sort-row' }, h('span', { class: 'muted' }, 'Favourites first, then'),
+          h('button', { class: 'sort-btn', onClick: () => { this.petsSort = SORTS[(SORTS.indexOf(sort) + 1) % SORTS.length].id; this.rerender(); } }, `Sort: ${sort.label} ▾`)));
+      const heart = (c: Creature) => h('button', { class: `fav-btn ${c.favorite ? 'on' : ''}`, 'aria-label': c.favorite ? 'Unfavourite' : 'Favourite',
+        onClick: (e: Event) => { e.stopPropagation(); c.favorite = !c.favorite; g.saveSoon(); this.rerender(); } }, c.favorite ? '♥' : '♡');
+      const list = h('div', { class: 'list pets' });
+      const favFirst = (a: Creature, b2: Creature) => Number(!!b2.favorite) - Number(!!a.favorite) || sort.cmp(a, b2);
+      if (this.petsTab === 'wandering') {
+        for (const c of out.sort(favFirst)) {
+          const isl = ISLANDS[c.island];
+          list.append(h('div', { class: 'item tappable', onClick: () => { this.closeSheet(false); this.focusCreature(c.id); } },
+            this.portrait(c, 'swatch-img'),
+            h('div', { class: 'grow' }, h('div', { class: 'name' }, displayName(c)),
+              h('div', { class: 'desc row', style: 'gap:6px;flex-wrap:wrap' }, rarityTag(species(c.species).rarity), h('span', { class: 'muted' }, `${isl.icon} ${isl.name}`)),
+              h('div', { class: `progress tiny ${isHungry(c) ? 'hungry' : ''}` }, h('i', { style: `width:${Math.round(c.fullness * 100)}%` }))),
+            heart(c),
+            h('button', { class: 'btn small secondary', onClick: (e: Event) => { e.stopPropagation(); g.store(c.id, true); } }, 'Store')));
+        }
+      } else {
+        if (!stored.length) b.append(h('p', { class: 'muted' }, 'Nobody is in storage. Store a creature to rest it here: no hunger, no growing, and it frees a spot on its world.'));
+        for (const c of stored.sort(favFirst)) {
+          list.append(h('div', { class: 'item' }, this.portrait(c, 'swatch-img'),
+            h('div', { class: 'grow' }, h('div', { class: 'name' }, displayName(c)), h('div', { class: 'desc' }, rarityTag(species(c.species).rarity))),
+            heart(c),
+            h('button', { class: 'btn small', onClick: () => g.retrieve(c.id) }, `Bring to ${ISLANDS[g.world.current].icon}`)));
+        }
       }
       b.append(list);
-      const price = nextSlotPrice(s);
-      b.append(h('button', { class: 'btn wide', style: 'margin-top:10px', disabled: price === null || s.glimmer < price, onClick: () => g.buySlot() },
-        price === null ? 'Storage is as big as it gets' : rich(`Add a slot · {coin} ${price}`)));
-    }, '📦');
+      if (this.petsTab === 'storage') {
+        const price = nextSlotPrice(s);
+        b.append(h('button', { class: 'btn wide', style: 'margin-top:10px', disabled: price === null || s.glimmer < price, onClick: () => g.buySlot() },
+          price === null ? 'Storage is as big as it gets' : rich(`Add a storage slot · {coin} ${price}`)));
+      }
+    }, I.PAW);
   }
 
   showCollector(): void {
@@ -1383,12 +1432,32 @@ export class UI {
 
   // ------------------------------------------------------------------ islands
 
+  /** Things waiting for you on other worlds: a ready egg at home, or a rare-or-better visitor. */
+  worldAlerts(): Map<IslandId, string> {
+    const s = this.game.state;
+    const here = this.game.world.current;
+    const out = new Map<IslandId, string>();
+    for (const v of s.visitors) {
+      if (v.island === here || !s.islands[v.island]?.owned) continue;
+      const r = species(v.creature.species).rarity;
+      if (r === 'common' || r === 'uncommon') continue;
+      out.set(v.island, `A ${r} ${species(v.creature.species).name} is waiting at the ${SPOTS[v.spot].name}!`);
+    }
+    if (here !== 'home' && s.eggs.some((e) => e.nest !== null && e.progressMs >= e.incubationMs)) out.set('home', 'An egg is ready to hatch!');
+    return out;
+  }
+
+  private firstAlert(): IslandId | undefined {
+    return this.worldAlerts().keys().next().value;
+  }
+
   showIslands(highlight?: IslandId): void {
     const s = this.game.state;
     // centre the highlighted world once, not on every refresh (that fought your scrolling)
     let scrolled = false;
     this.openSheet('Islands', 'Tap an island to visit it. Roll each globe to explore it.', (b) => {
-      b.append(h('button', { class: 'btn secondary wide', style: 'margin-bottom:10px', onClick: () => this.showStorage() }, `📦 Storage (${storedCount(s)} / ${s.storageSlots})`));
+      b.append(h('button', { class: 'btn secondary wide', style: 'margin-bottom:10px', onClick: () => this.showPets('storage') }, `Pets & storage (${storedCount(s)} / ${s.storageSlots} stored)`));
+      const alerts = this.worldAlerts();
       for (const id of ISLAND_ORDER) {
         const def = ISLANDS[id];
         const isl = s.islands[id] ?? { owned: false, size: 0 };
@@ -1400,7 +1469,8 @@ export class UI {
             h('div', { class: 'grow col' },
               h('div', { class: 'name' }, def.name, here ? h('span', { class: 'chip', style: 'margin-left:6px' }, 'You are here') : null),
               h('div', { class: 'desc' }, def.blurb),
-              isl.owned ? h('div', { class: 'muted' }, `${SIZE_NAMES[isl.size]} · ${pop}/${SIZE_CAPACITY[isl.size]} creatures`) : null,
+              isl.owned ? h('div', { class: 'muted' }, `${SIZE_NAMES[isl.size]} · ${pop}/${islandCapacity(s, id)} creatures`) : null,
+              alerts.has(id) ? h('div', { class: 'alert-line' }, h('b', null, '!'), alerts.get(id)!) : null,
             )),
         );
         const btns = h('div', { class: 'btns' });
