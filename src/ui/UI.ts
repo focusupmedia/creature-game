@@ -83,6 +83,7 @@ export class UI {
   private refreshTimer = 0;
   private fontPick: [string | null, string | null] = [null, null];
   private journalTab: 'creatures' | 'mutations' | 'notes' = 'creatures';
+  private journalWorld: IslandId | 'all' = 'all';
   private shopTab: 'lure' | 'egg' | 'item' | 'decor' | 'shards' | 'food' = 'egg';
   private coachDismissed = -1;
   private coachShownAt = 0;
@@ -1108,6 +1109,15 @@ export class UI {
         h('button', { class: this.journalTab === id ? 'on' : '', onClick: () => { this.journalTab = id; this.rerender(); } }, label);
       b.append(h('div', { class: 'tabs' }, tab('creatures', '🐾 Creatures'), tab('mutations', '✨ Mutations'), tab('notes', `📝 Notes (${s.journal.notes.length})`)));
       if (this.journalTab === 'creatures') {
+        // one journal, filtered by world: a world's creatures are the ones its habitats attract
+        const worldOf = (id: IslandId): Trait[] => (id === 'home' ? ['Grove', 'Tide', 'Bloom', 'Mystic'] : [ISLANDS[id].habitat]);
+        const inWorld = (x: (typeof SPECIES)[number]) => this.journalWorld === 'all' || worldOf(this.journalWorld).some((t) => x.traits.includes(t));
+        const chip = (id: IslandId | 'all', label: string) => {
+          const list = SPECIES.filter((x) => id === 'all' || worldOf(id).some((t) => x.traits.includes(t)));
+          const got = list.filter((x) => s.journal.species[x.id]).length;
+          return h('button', { class: `chip-btn ${this.journalWorld === id ? 'on' : ''}`, onClick: () => { this.journalWorld = id; this.rerender(); } }, `${label} ${got}/${list.length}`);
+        };
+        b.append(h('div', { class: 'world-filter' }, chip('all', 'All'), ...ISLAND_ORDER.map((id) => chip(id, `${ISLANDS[id].icon} ${ISLANDS[id].name}`))));
         const sections: [string, (x: (typeof SPECIES)[number]) => boolean][] = [
           ['Wild', (x) => x.origin === 'wild' && x.rarity !== 'mythical'],
           ['Created', (x) => x.origin === 'hybrid' && x.rarity !== 'mythical'],
@@ -1115,9 +1125,11 @@ export class UI {
           ['★ Level rewards', (x) => x.origin === 'reward'],
         ];
         for (const [title, keep] of sections) {
+          const shown = SPECIES.filter((x) => keep(x) && inWorld(x));
+          if (!shown.length) continue;
           b.append(h('div', { class: 'section-title' }, title));
           const grid = h('div', { class: 'grid' });
-          for (const sp of SPECIES.filter(keep)) {
+          for (const sp of shown) {
             const entry = s.journal.species[sp.id];
             const el = h('button', { class: 'tile', onClick: () => this.showSpeciesEntry(sp.id) },
               img(this.game.world.portraits.get(sp.id, [], !entry)),
@@ -1155,6 +1167,8 @@ export class UI {
       case 'angelic': return 'Legendary. Some say angels visit, very rarely, and leave a mark.';
       case 'infernal': return 'Legendary. What happens if Ember Peak ever wakes up?';
       case 'abyssal': return 'Legendary. The lagoon is deeper than it looks. Something rises from it, once in a long while.';
+      case 'aurora': return 'On the clearest, coldest nights, ribbons of light sometimes dance overhead.';
+      case 'misty': return 'Shy things come out when a soft fog rolls in. Some keep a little of it.';
       default: return 'Vanishingly rare. Nobody you know has seen one.';
     }
   }
