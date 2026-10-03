@@ -93,6 +93,9 @@ export class World {
   /** The player pushed past the island edge toward another island. */
   onEdgePush: (toward: IslandId) => void = () => {};
   onCarryStart: (creatureId: string) => void = () => {};
+  /** A creature on screen makes a little sound. */
+  onVoice: (c: Creature) => void = () => {};
+  private voiceTimer = 3;
   /** A Greedy creature picked up a gift for the player. */
   onCreatureCollect: (giftId: string, creatureId: string) => void = () => {};
   /** A creature you dropped on a dig spot found something (auto-collected). */
@@ -1140,6 +1143,12 @@ export class World {
     for (const a of visible) a.update(dt, this.time, ctx);
     this.updateCarry();
     this.updateWanderer(dt);
+    this.voiceTimer -= dt;
+    if (this.voiceTimer <= 0) {
+      this.voiceTimer = 4 + Math.random() * 6;
+      const awake = visible.filter((a) => a.state !== 'sleep' && a.state !== 'nap' && !a.carried);
+      if (awake.length) this.onVoice(awake[Math.floor(Math.random() * awake.length)].creature);
+    }
     this.animateGhost();
     this.legendaryFx.update(dt, (x, z, alt) => this.at(x, z, alt, this.legendaryIsland));
     for (const v of this.digViews.values()) if (v.root.visible) animateDigSpot(v, this.time);

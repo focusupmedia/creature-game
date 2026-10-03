@@ -20,6 +20,7 @@ import { SHADES, type ShadeId } from '../content/shades';
 import { PET_COOLDOWN_MIN, PLAY_COOLDOWN_MIN, hearts } from '../core/friendship';
 import { EXPEDITIONS, EXPEDITION_ORDER, expeditionSlots, type ExpeditionId } from '../content/expeditions';
 import type { ExpeditionHaul } from '../core/expeditions';
+import { voiceOf } from '../render/voices';
 import { LOGIN_REWARDS, canClaimLogin, loginDay } from '../core/login';
 import { COLLECTIONS, claimableCollections } from '../core/collections';
 import { DECOR_CATS, DECOR_LIST } from '../content/decor';
@@ -163,6 +164,8 @@ export class UI {
   /** Tap on a creature: name bubble over its head; ⚙️ opens the full menu. */
   selectCreature(id: string | null): void {
     if (this.sheetOpen) this.closeSheet(false);
+    const c = id ? this.game.state.creatures.find((x) => x.id === id) : undefined;
+    if (c) this.game.audio.voice(voiceOf(c), c.size);
     this.game.world.select(id);
     this.labels.select(id);
     if (id && this.game.state.tutorial === 2) this.game.setTutorial(3);

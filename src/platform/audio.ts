@@ -2,9 +2,12 @@
 // the prototype has sound without an asset pipeline. Production replaces these
 // with authored sounds behind the same calls. Background music lives in music.ts.
 
-import type { EventKind, LegendaryKind } from '../core/types';
+import type { EventKind, IslandId, LegendaryKind } from '../core/types';
 import type { MoodId } from './composer';
 import { Music } from './music';
+
+/** The kinds of voice creatures have (see voiceOf in render/voices.ts). */
+export type VoiceKind = 'croak' | 'tweet' | 'squeak' | 'purr' | 'hiss' | 'buzz' | 'bloop' | 'roar' | 'chime' | 'ooh' | 'pop' | 'click';
 
 type Sfx = 'tap' | 'place' | 'arrive' | 'discover' | 'crack' | 'hatch' | 'coin' | 'thunder' | 'chime' | 'egg' | 'error' | 'fanfare';
 
@@ -73,7 +76,7 @@ export class Audio {
   }
 
   /** Called every frame with world conditions. */
-  ambience(dt: number, darkness: number, sky: EventKind | null, legendary: LegendaryKind | null = null): void {
+  ambience(dt: number, darkness: number, sky: EventKind | null, legendary: LegendaryKind | null = null, world: IslandId = 'home'): void {
     // Legendary and sky events set the music's mood; otherwise day or night,
     // with a little overlap at dawn and dusk so it doesn't flip back and forth.
     if (legendary) this.mood = legendary;
@@ -85,12 +88,19 @@ export class Audio {
     this.music?.update();
     const storm = sky === 'storm';
     const t = this.ctx.currentTime;
-    this.rain.gain.setTargetAtTime(storm ? 0.09 : 0, t, 1.5);
-    this.wind.gain.setTargetAtTime(storm ? 0.12 : 0.04, t, 2);
+    // each world and sky has its own bed of sound
+    const windy = sky === 'blizzard' ? 0.16 : storm ? 0.12 : world === 'desert' ? 0.07 : sky === 'fog' ? 0.02 : 0.04;
+    this.rain.gain.setTargetAtTime(storm ? 0.09 : sky === 'rainbow' ? 0.025 : 0, t, 1.5);
+    this.wind.gain.setTargetAtTime(windy, t, 2);
+    const shore = world === 'lagoon' || world === 'beach';
+    this.waves ??= this.noiseBed(700, 0);
+    this.waveT += dt;
+    this.waves.gain.setTargetAtTime(shore ? 0.03 + Math.max(0, Math.sin(this.waveT * 0.7)) * 0.05 : 0, t, 0.4);
     this.chirpTimer -= dt;
     if (this.chirpTimer <= 0) {
       this.chirpTimer = 2 + Math.random() * 6;
-      if (!storm) darkness > 0.6 ? this.cricket() : this.bird();
+      if (world === 'volcano') this.noiseBurst(0.6, 120, 0.05); // the mountain grumbles
+      else if (!storm && sky !== 'blizzard') darkness > 0.6 ? this.cricket() : shore && Math.random() < 0.5 ? this.gull() : this.bird();
     }
   }
 
@@ -129,9 +139,67 @@ export class Audio {
     src.start();
   }
 
+  // ---------------------------------------------------------------- creature voices
+
+  /**
+   * A creature's own little sound. The kind decides the voice (frogs croak,
+   * birds tweet, dragons rumble...); bigger pets sound lower. `happy` is for
+   * petting and playing, `alarm` for being picked up.
+   */
+  voice(kind: VoiceKind, size = 1, mood: 'idle' | 'happy' | 'alarm' = 'idle'): void {
+    if (!this.ctx || !this.master || !this.enabled) return;
+    const now = this.ctx.currentTime;
+    if (now - this.lastVoice < 0.25) return;
+    this.lastVoice = now;
+    const p = 1 / Math.sqrt(Math.max(0.35, size)); // pitch: small pets squeak higher
+    const up = mood === 'happy' ? 1.12 : mood === 'alarm' ? 1.25 : 1;
+    const v = mood === 'idle' ? 0.035 : 0.06;
+    const f = (hz: number) => hz * p * up;
+    switch (kind) {
+      case 'croak': this.tone(f(180), 0.12, 'square', v * 0.6, -40); this.tone(f(150), 0.14, 'square', v * 0.6, -30, 0.15); break;
+      case 'tweet': for (let i = 0; i < (mood === 'happy' ? 3 : 2); i++) this.tone(f(2400 + i * 300), 0.07, 'sine', v, 500, i * 0.09); break;
+      case 'squeak': this.tone(f(1400), 0.08, 'triangle', v, 400); if (mood !== 'idle') this.tone(f(1700), 0.07, 'triangle', v, 300, 0.1); break;
+      case 'purr': for (let i = 0; i < 4; i++) this.tone(f(110), 0.09, 'sawtooth', v * 0.35, 10, i * 0.08); break;
+      case 'hiss': this.noiseBurst(0.25, 3000 * p, v * 1.2); break;
+      case 'buzz': this.tone(f(240), 0.25, 'sawtooth', v * 0.5, 30); break;
+      case 'bloop': this.tone(f(400), 0.12, 'sine', v * 1.3, 500); if (mood !== 'idle') this.tone(f(500), 0.1, 'sine', v, 400, 0.13); break;
+      case 'roar': this.tone(f(140), 0.45, 'sawtooth', v * 0.7, -50); this.noiseBurst(0.35, 600, v * 0.8); break;
+      case 'chime': [1, 1.25, 1.5].forEach((k, i) => this.tone(f(880 * k), 0.5, 'sine', v * 0.8, 0, i * 0.08)); break;
+      case 'ooh': this.tone(f(300), 0.25, 'sine', v * 1.2, 180); if (mood !== 'idle') this.tone(f(420), 0.2, 'sine', v, 200, 0.22); break;
+      case 'pop': this.tone(f(700), 0.05, 'square', v * 0.6, -300); this.tone(f(900), 0.05, 'square', v * 0.5, -300, 0.08); break;
+      case 'click': for (let i = 0; i < 3; i++) this.tone(f(2000), 0.02, 'square', v * 0.6, 0, i * 0.05); break;
+    }
+  }
+
+  private lastVoice = 0;
+
+  private noiseBurst(dur: number, freq: number, vol: number): void {
+    const ctx = this.ctx!;
+    const buf = ctx.createBuffer(1, Math.floor(ctx.sampleRate * dur), ctx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / d.length);
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    const flt = ctx.createBiquadFilter();
+    flt.type = 'bandpass';
+    flt.frequency.value = freq;
+    const g = ctx.createGain();
+    g.gain.value = vol;
+    src.connect(flt).connect(g).connect(this.master!);
+    src.start();
+  }
+
   private bird(): void {
     const base = 2200 + Math.random() * 1500;
     for (let i = 0; i < 2 + Math.floor(Math.random() * 3); i++) this.tone(base + Math.random() * 400, 0.08, 'sine', 0.03, 600, i * 0.11);
+  }
+
+  private waves: GainNode | null = null;
+  private waveT = 0;
+
+  private gull(): void {
+    this.tone(1300, 0.18, 'triangle', 0.025, -500);
+    this.tone(1200, 0.2, 'triangle', 0.02, -500, 0.22);
   }
 
   private cricket(): void {

@@ -7,6 +7,7 @@ import { claimExpedition, sendOnExpedition } from '../core/expeditions';
 import { canClaimLogin, claimLogin } from '../core/login';
 import { claimCollection } from '../core/collections';
 import { planNotifications } from '../core/notify';
+import { voiceOf } from '../render/voices';
 import { EXPEDITIONS, type ExpeditionId } from '../content/expeditions';
 import { claimDaily, claimLasting, questEvent, refreshDailies } from '../core/quests';
 import { awayFinds, buyStorageSlot, findVisitor, keepVisitor, releaseCreature, sendAwayVisitor, feastIsland, feedCreature, hangFeedbag, harvestTree, retrieveCreature, sellCreature, storeCreature } from '../core/care';
@@ -74,7 +75,13 @@ export class Game {
     };
     this.world.onFrame = (dt) => this.frame(dt);
     this.world.onRevealTap = () => this.audio.play('crack');
-    this.world.onCarryStart = () => this.audio.play('egg');
+    this.world.onCarryStart = (id) => {
+      this.audio.play('egg');
+      const c = this.state.creatures.find((x) => x.id === id);
+      if (c) this.audio.voice(voiceOf(c), c.size, 'alarm');
+    };
+    // creatures on screen pipe up now and then
+    this.world.onVoice = (c) => this.audio.voice(voiceOf(c), c.size);
     this.world.onCreatureCollect = (giftId, by) => this.collectGift(giftId, by);
     this.world.onDigFound = (giftId, by) => this.collectGift(giftId, by, true);
     this.world.onCarryDrop = (id, target) => this.onCarryDrop(id, target);
@@ -246,7 +253,7 @@ export class Game {
     this.world.sky.center.copy(this.world.rig.center);
     this.world.sky.update(phase, sky, dt, performance.now() / 1000);
     const legend = this.state.legendary && t < this.state.legendary.end ? this.state.legendary.kind : null;
-    this.audio.ambience(dt, this.world.sky.darkness, sky, legend);
+    this.audio.ambience(dt, this.world.sky.darkness, sky, legend, this.world.current);
     this.ui.update(dt);
     this.saveAcc += dt;
     if (this.saveAcc > 15 || (this.dirty && this.saveAcc > 1)) {
@@ -812,6 +819,8 @@ export class Game {
     const r = how === 'pet' ? petCreature(this.state, id, this.now()) : playWith(this.state, id, this.now());
     if (!r.ok) return this.ui.toast(r.error);
     this.audio.play(r.newHeart ? 'chime' : 'tap');
+    const pet = this.state.creatures.find((x) => x.id === id);
+    if (pet) this.audio.voice(voiceOf(pet), pet.size, 'happy');
     this.world.cheer(id, how === 'play' || r.newHeart);
     this.ui.toast(r.message, r.newHeart ? 'discovery' : 'info', undefined, r.newHeart ? 4000 : 1800);
     this.analytics.track('befriend', { how, hearts: r.hearts });
