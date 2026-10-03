@@ -2581,6 +2581,12 @@ Object.assign(PALETTES, {
   moonrabbit: { main: '#eeeaff', second: '#c9b8ff', accent: '#ffe680', belly: '#ffffff' },
   tanuki: { main: '#9a7552', second: '#3a2e2a', accent: '#5fbf5a', belly: '#f2e0c4' },
   shisa: { main: '#f0b04a', second: '#d8483e', accent: '#3aa86a', belly: '#fff0d0' },
+  sunmane: { main: '#f2c060', second: '#b8642a', accent: '#5a3a2a', belly: '#fff0c8' },
+  embertiger: { main: '#ff9a3a', second: '#2a1a1a', accent: '#ffd23d', belly: '#fff4e0' },
+  mossyphant: { main: '#a8b4ac', second: '#6fbf5a', accent: '#ffe0d0', belly: '#c8d0cc' },
+  bamboopanda: { main: '#ffffff', second: '#2a2a32', accent: '#7fd05a', belly: '#f4f4f4' },
+  waddlefin: { main: '#2a3a5a', second: '#ffffff', accent: '#ff9a2a', belly: '#ffffff' },
+  duskbat: { main: '#5a4a7a', second: '#3a2a5a', accent: '#ffd21a', belly: '#8a7aaa' },
   leviathan: { main: '#1f7aa8', second: '#14507a', accent: '#7affe0', belly: '#bff4ff' },
   worldturtle: { main: '#9ab87a', second: '#8a7a5a', accent: '#5fa35a', belly: '#e8dcb8' },
 });
@@ -2637,6 +2643,93 @@ Object.assign(BUILDERS, {
     b.add(tail);
     m.tail = tail;
     m.height = 0.95;
+  },
+  sunmane: (k, P, m) => {
+    beast(k, P, m, { long: 1.25, tall: 0.3, snout: 'cat', ears: 'round', mane: P.second });
+    const head = m.body.children.find((c) => c instanceof THREE.Group && c.position.y > 0.6) ?? m.body;
+    // a big fluffy mane all around the face
+    for (let i = 0; i < 12; i++) {
+      const a = (i / 12) * Math.PI * 2;
+      head.add(k.ball(0.075, i % 2 ? P.second : '#d8843a', [Math.cos(a) * 0.17, Math.sin(a) * 0.16, -0.05], [1, 1, 0.8]));
+    }
+    head.add(k.ball(0.03, P.accent, [0, -0.02, 0.15]));
+  },
+  embertiger: (k, P, m) => {
+    beast(k, P, m, { long: 1.3, tall: 0.28, snout: 'cat', ears: 'round' });
+    // dark stripes over the back and a glowing tail tip
+    for (let i = 0; i < 4; i++) {
+      const stripe = k.mesh(G.box, P.second, [0.34, 0.03, 0.035], [0, 0.48, 0.18 - i * 0.11]);
+      stripe.rotation.z = (i % 2 ? 1 : -1) * 0.12;
+      m.body.add(stripe);
+    }
+    const tip = m.tail?.children[0];
+    if (tip) tip.add(k.ball(0.05, P.accent, [0, 0.36, -0.13], [1, 1, 1], '#ff7a1a'));
+  },
+  mossyphant: (k, P, m) => {
+    beast(k, P, m, { long: 1.2, tall: 0.26, snout: 'trunk', ears: 'none' });
+    const head = m.body.children.find((c) => c instanceof THREE.Group && c.position.y > 0.5) ?? m.body;
+    for (const sgn of [1, -1]) head.add(k.ball(0.11, P.main, [sgn * 0.16, 0.02, -0.04], [0.35, 1.2, 1]));
+    for (const sgn of [1, -1]) head.add(k.ball(0.07, P.accent, [sgn * 0.17, 0.02, -0.02], [0.2, 0.9, 0.7]));
+    // a mossy blanket with a tiny flower
+    m.body.add(k.ball(0.17, P.second, [0, 0.42, -0.02], [1.1, 0.35, 1.2]));
+    m.body.add(k.ball(0.035, '#ff8fc8', [0.05, 0.49, 0.02]));
+  },
+  bamboopanda: (k, P, m) => {
+    beast(k, P, m, { long: 1.05, tall: 0.22, snout: 'cat', ears: 'round' });
+    const head = m.body.children.find((c) => c instanceof THREE.Group && c.position.y > 0.4) ?? m.body;
+    for (const sgn of [1, -1]) {
+      head.add(k.ball(0.045, P.second, [sgn * 0.07, 0.03, 0.1], [1, 1.25, 0.5]));
+      head.add(k.ball(0.05, P.second, [sgn * 0.11, 0.1, -0.02], [1, 1, 0.5]));
+    }
+    // dark legs and shoulders, and a bamboo snack
+    for (const leg of m.legs) leg.traverse((o) => { if (o instanceof THREE.Mesh) o.material = k.mat(P.second); });
+    m.body.add(k.ball(0.15, P.second, [0, 0.33, 0.12], [1.05, 0.6, 0.6]));
+    const stick = k.mesh(G.cyl, P.accent, [0.02, 0.3, 0.02], [0.12, 0.5, 0.3]);
+    stick.rotation.z = 0.6;
+    m.body.add(stick);
+  },
+  waddlefin: (k, P, m) => {
+    const b = m.body;
+    b.add(k.ball(0.26, P.main, [0, 0.34, 0], [0.9, 1.15, 0.85]));
+    b.add(k.ball(0.2, P.belly, [0, 0.3, 0.07], [0.85, 1.1, 0.8]));
+    k.eye(b, 0.08, 0.5, 0.19, 0.045);
+    k.eye(b, -0.08, 0.5, 0.19, 0.045);
+    const beak = k.mesh(G.cone, P.accent, [0.045, 0.12, 0.045], [0, 0.44, 0.24]);
+    beak.rotation.x = Math.PI / 2;
+    b.add(beak);
+    for (const sgn of [1, -1]) {
+      const flip = pivot(sgn * 0.23, 0.42, 0, k.ball(0.08, P.main, [sgn * 0.02, -0.1, 0], [0.35, 1.3, 0.6]));
+      b.add(flip);
+      m.wings.push(flip);
+      const foot = pivot(sgn * 0.08, 0.06, 0.05, k.ball(0.06, P.accent, [0, -0.03, 0.03], [1, 0.4, 1.4]));
+      b.add(foot);
+      m.legs.push(foot);
+    }
+    m.height = 0.72;
+  },
+  duskbat: (k, P, m) => {
+    const b = m.body;
+    b.add(k.ball(0.17, P.main, [0, 0.45, 0], [1, 1.05, 0.95]));
+    b.add(k.ball(0.11, P.belly, [0, 0.42, 0.08], [0.9, 1, 0.7]));
+    k.eye(b, 0.06, 0.5, 0.14, 0.04);
+    k.eye(b, -0.06, 0.5, 0.14, 0.04);
+    for (const sgn of [1, -1]) {
+      const ear = k.mesh(G.cone, P.main, [0.06, 0.16, 0.05], [sgn * 0.09, 0.66, -0.01]);
+      ear.rotation.z = -0.3 * sgn;
+      b.add(ear);
+      const wing = new THREE.Group();
+      wing.position.set(sgn * 0.14, 0.48, -0.02);
+      for (let i = 0; i < 3; i++) {
+        const f = k.mesh(G.cone, i === 1 ? P.second : P.main, [0.08, 0.3 - i * 0.05, 0.02], [sgn * (0.12 + i * 0.07), -0.04 - i * 0.03, 0]);
+        f.rotation.z = sgn * (1.9 + i * 0.25);
+        wing.add(f);
+      }
+      b.add(wing);
+      m.wings.push(wing);
+    }
+    b.add(k.ball(0.022, '#ffffff', [0.03, 0.38, 0.15]));
+    b.add(k.ball(0.022, '#ffffff', [-0.03, 0.38, 0.15]));
+    m.height = 0.8;
   },
   shisa: (k, P, m) => {
     beast(k, P, m, { long: 1.2, tall: 0.3, snout: 'cat', ears: 'round', mane: P.second });

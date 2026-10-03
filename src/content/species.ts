@@ -436,6 +436,49 @@ export const SPECIES: SpeciesDef[] = [
     hint: 'A gift for reaching keeper level 50.', eggColors: ['#ffffff', '#ff9ee8'],
   },
   // ---- Star Keeper rewards: one every 10 levels from 60 to 100
+  // ---- newer wild friends
+  {
+    id: 'sunmane', name: 'Sunmane Lion', traits: ['Mammal', 'Sand'], rarity: 'rare',
+    activity: 'day', movement: 'walk', origin: 'wild',
+    blurb: 'Its golden mane catches the sunlight. Roars very politely, then naps for hours.',
+    hint: 'Something proud dozes in the warm sand. A Sunbaked Lure might wake it.',
+    eggColors: ['#e8b44a', '#a8602a'],
+  },
+  {
+    id: 'embertiger', name: 'Ember Tiger', traits: ['Mammal', 'Ember'], rarity: 'rare',
+    activity: 'any', movement: 'walk', origin: 'wild',
+    blurb: 'Its stripes glow like coals when it purrs. Loves a warm rock and a long stretch.',
+    hint: 'Striped and fiery. It prowls where the ground is warm.',
+    eggColors: ['#ff8a2a', '#2a1a1a'],
+  },
+  {
+    id: 'mossyphant', name: 'Mossyphant', traits: ['Mammal', 'Grove'], rarity: 'uncommon',
+    activity: 'day', movement: 'walk', origin: 'wild',
+    blurb: 'A little elephant with moss on its back. Waters the flowers with its trunk.',
+    hint: 'Big ears, small footsteps, somewhere in the forest.',
+    eggColors: ['#9aa8a0', '#6fbf5a'],
+  },
+  {
+    id: 'bamboopanda', name: 'Bamboo Panda', traits: ['Mammal', 'Bloom', 'Grove'], rarity: 'uncommon',
+    activity: 'day', movement: 'walk', origin: 'wild',
+    blurb: 'Eats, rolls over, eats again. A professional at being cozy.',
+    hint: 'It loves anything sweet and leafy. Try something that smells of flowers.',
+    eggColors: ['#ffffff', '#2a2a2a'],
+  },
+  {
+    id: 'waddlefin', name: 'Waddlefin', traits: ['Bird', 'Shore', 'Tide'], rarity: 'common',
+    activity: 'day', movement: 'waddle', origin: 'wild',
+    blurb: 'A little penguin that slides on its belly whenever nobody is looking.',
+    hint: 'Waddles along the tide line. Salty smells bring it in.',
+    eggColors: ['#2a3a5a', '#ffffff'],
+  },
+  {
+    id: 'duskbat', name: 'Duskbat', traits: ['Mammal', 'Mystic', 'Spirit'], rarity: 'uncommon',
+    activity: 'night', movement: 'fly', origin: 'wild',
+    blurb: 'Hangs upside down to think. Squeaks a happy song when it finds a moth to chat with.',
+    hint: 'Something flutters about after dark, drawn to secrets.',
+    eggColors: ['#4a3a6a', '#ffd21a'],
+  },
   {
     id: 'moonrabbit', name: 'Moon Rabbit', traits: ['Mammal', 'Mystic', 'Spirit'], rarity: 'legendary',
     activity: 'night', movement: 'hop', origin: 'reward',
