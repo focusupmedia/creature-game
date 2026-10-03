@@ -473,3 +473,10 @@ input.rename { font-family: var(--display); font-size: 22px; border: var(--outli
 .modal.levelup .lv-burst { font-size: 64px; color: #ffd23d; -webkit-text-stroke: 3px var(--ink); animation: lv-pop .6s cubic-bezier(.3, 1.6, .5, 1); }
 .modal.levelup .lv-rewards { font-family: var(--display); font-size: 22px; }
 @keyframes lv-pop { from { transform: scale(0) rotate(-40deg); } to { transform: scale(1) rotate(0); } }
+
+/* ---- quests */
+.hud-tile.quests { background: linear-gradient(180deg, #8fe07a, #3aaa4a); }
+.hud-tile.quests .emoji, .hud-tile.gift .emoji { font-size: 28px; line-height: 1; }
+.hud-tile .count.hidden { display: none; }
+.item.quest.claimed { opacity: .55; }
+.quest-done { font-size: 24px; }

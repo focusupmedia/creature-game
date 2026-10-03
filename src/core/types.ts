@@ -296,6 +296,10 @@ export interface GameState {
   tools: Record<string, number>;
   /** Keeper XP (see core/levels.ts). */
   xp: number;
+  /** Daily quests (new each day) and claimed tiers of lasting quests. */
+  quests: { day: string; daily: { id: string; progress: number; claimed: boolean }[]; tiers: Record<string, number> };
+  /** Lifetime counts that quests read. */
+  questStats: Record<string, number>;
   decorOwned: Record<DecorId, number>;
   placedDecor: PlacedDecor[];
   creatures: Creature[];

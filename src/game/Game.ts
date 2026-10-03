@@ -2,6 +2,7 @@ import { species } from '../content/species';
 import { DIG_KINDS, EVENTS, ITEMS, LEGENDARY, LURES, MUTATIONS, SPOTS } from '../content/world';
 import { claimBlessing, startLegendary } from '../core/legendary';
 import { addXp } from '../core/levels';
+import { claimDaily, claimLasting, questEvent, refreshDailies } from '../core/quests';
 import { xpFor, type PlayEvent } from '../core/progress';
 import { ISLANDS } from '../content/islands';
 import { refreshShop } from '../core/shop';
@@ -46,6 +47,7 @@ export class Game {
   private dirty = false;
   private hiddenAt = 0;
   private digHints = 0;
+  private questCheck = 0;
 
   constructor(container: HTMLElement) {
     this.state = this.load();
@@ -179,6 +181,10 @@ export class Game {
       if (events.length) this.dispatch(events, true);
     }
     const t = this.now();
+    if (this.questCheck-- <= 0) {
+      this.questCheck = 60;
+      refreshDailies(this.state, t);
+    }
     const sky = activeEvent(this.state, t)?.kind ?? null;
     const phase = dayPhase(this.state, t);
     this.world.sync(this.state, t, sky);
@@ -572,12 +578,28 @@ export class Game {
 
   /** Something the player did: earns XP (and later counts toward quests). */
   record(ev: PlayEvent): void {
-    const ups = addXp(this.state, xpFor(ev), this.now());
+    questEvent(this.state, ev);
+    this.gainXp(xpFor(ev));
+  }
+
+  private gainXp(amount: number): void {
+    const ups = addXp(this.state, amount, this.now());
     for (const up of ups) {
       this.analytics.track('level_up', { level: up.level });
       setTimeout(() => this.ui.showLevelUp(up), this.world.revealing ? 2500 : 400);
     }
     if (ups.length) this.saveSoon();
+  }
+
+  claimQuest(kind: 'daily' | 'lasting', id: string): void {
+    const r = kind === 'daily' ? claimDaily(this.state, id) : claimLasting(this.state, id);
+    if (!r.ok) return this.ui.toast(r.error);
+    this.audio.play('chime');
+    this.analytics.track('quest_claimed', { kind, id });
+    this.ui.toast(`✅ ${r.text}: {coin} +${r.reward.coins}  {gem} +${r.reward.shards}  ★ +${r.reward.xp} XP`, 'discovery');
+    this.gainXp(r.reward.xp);
+    this.ui.rerender();
+    this.saveSoon();
   }
 
   /** Buy a Starshard or coin pack. On the web playtest build nothing is charged. */

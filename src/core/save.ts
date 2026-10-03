@@ -39,6 +39,12 @@ const MIGRATIONS: Record<number, Migration> = {
   2: (raw) => {
     raw.digSpots = [];
   },
+  // v6 → v7: quests. Lifetime counts start from what the save already tracked.
+  6: (raw) => {
+    const stats = raw.stats as { hatches?: number; combines?: number; lures?: number } | undefined;
+    raw.quests = { day: '', daily: [], tiers: {} };
+    raw.questStats = { hatch: stats?.hatches ?? 0, breed: stats?.combines ?? 0, lure: stats?.lures ?? 0 };
+  },
   // v5 → v6: keeper levels. Existing keepers start with XP for what they've already done.
   5: (raw) => {
     const journal = raw.journal as { species?: Record<string, unknown>; mutations?: Record<string, unknown> } | undefined;

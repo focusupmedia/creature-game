@@ -17,6 +17,7 @@ import { WorldLabels } from './Labels';
 import { QUIRKS } from '../content/quirks';
 import { deleteQuirk, wipeQuirks } from '../core/quirks';
 import { MAX_LEVEL, levelProgress, levelReward, type LevelUp } from '../core/levels';
+import { DAILY_POOL, LASTING, claimable, lastingReward, refreshDailies } from '../core/quests';
 import { rarityTag } from './rarity';
 
 const fmtClock = (ms: number) => `${Math.floor(Math.max(0, ms) / 60000)}:${String(Math.floor(Math.max(0, ms) / 1000) % 60).padStart(2, '0')}`;
@@ -43,6 +44,10 @@ export class UI {
   private giftTile = h('button', { class: 'hud-tile gift hidden', 'aria-label': 'Claim a legendary gift', onClick: () => { this.game.audio.play('tap'); this.showBlessing(); } },
     h('span', { class: 'emoji' }, '🎁'), h('span', { class: 'lbl' }, 'GIFT'));
   private overlay: HTMLElement | null = null;
+  private questBadge = h('span', { class: 'count hidden' });
+  private questTile = h('button', { class: 'hud-tile quests', 'aria-label': 'Quests', onClick: () => { this.game.audio.play('tap'); this.showQuests(); } },
+    h('span', { class: 'emoji' }, '📜'), h('span', { class: 'lbl' }, 'QUESTS'), this.questBadge);
+  private questTab: 'daily' | 'lasting' = 'daily';
   private levelNum = h('span', { class: 'lv-num' });
   private levelFill = h('i');
   private levelBadge = h('button', { class: 'level-badge', 'aria-label': 'Keeper level and rewards', onClick: () => { this.game.audio.play('tap'); this.showLevels(); } },
@@ -93,6 +98,7 @@ export class UI {
               I.icon(I.SUMMON), h('span', { class: 'lbl' }, 'EVENT'), this.adsBadge),
             h('button', { class: 'hud-tile islands', 'aria-label': 'Islands', onClick: () => { this.game.audio.play('tap'); this.showIslands(); } },
               I.icon(I.ISLANDS), h('span', { class: 'lbl' }, 'ISLANDS')),
+            this.questTile,
             this.giftTile,
           ),
         ),
@@ -151,6 +157,9 @@ export class UI {
       this.levelNum.textContent = `Lv ${lp.level}`;
       this.levelFill.style.width = `${Math.round(lp.pct * 100)}%`;
     }
+    const ready = claimable(s);
+    this.questBadge.textContent = String(ready);
+    this.questBadge.classList.toggle('hidden', ready === 0);
     this.giftTile.classList.toggle('hidden', !(s.blessing && t < s.blessing.expiresAt));
     const phase = dayPhase(s, t);
     const ev = activeEvent(s, t);
@@ -476,6 +485,51 @@ export class UI {
         row('👉', 'Tap', 'Choose things: creatures, nests, the shop, lure spots.'),
         h('div', { class: 'btns' }, h('button', { class: 'btn', onClick: close }, 'Got it!')));
     });
+  }
+
+  // ---- quests
+
+  showQuests(): void {
+    const s = this.game.state;
+    refreshDailies(s, this.game.now());
+    this.openSheet('Quests', 'Finish them for coins, Starshards and XP.', (b) => {
+      const tab = (id: typeof this.questTab, label: string) =>
+        h('button', { class: this.questTab === id ? 'on' : '', onClick: () => { this.questTab = id; this.rerender(); } }, label);
+      b.append(h('div', { class: 'tabs' }, tab('daily', '☀️ Daily'), tab('lasting', '🏆 Lasting')));
+      const list = h('div', { class: 'list' });
+      const reward = (r: { coins: number; shards: number; xp: number }) => rich(`{coin} ${r.coins}  ·  {gem} ${r.shards}  ·  ★ ${r.xp} XP`);
+      if (this.questTab === 'daily') {
+        const left = Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), new Date().getUTCDate() + 1) - Date.now();
+        b.append(h('p', { class: 'muted' }, `New daily quests in ${fmtDuration(left)}.`));
+        for (const q of s.quests.daily) {
+          const def = DAILY_POOL.find((d) => d.id === q.id);
+          if (!def) continue;
+          const done = q.progress >= def.target;
+          list.append(h('div', { class: `item quest ${q.claimed ? 'claimed' : ''}` },
+            h('div', { class: 'grow' }, h('div', { class: 'name' }, def.text), h('div', { class: 'desc' }, reward(def.reward)),
+              h('div', { class: 'progress small' }, h('i', { style: `width:${Math.round((q.progress / def.target) * 100)}%` })),
+              h('div', { class: 'muted' }, `${q.progress} / ${def.target}`)),
+            q.claimed ? h('span', { class: 'quest-done' }, '✓') : h('button', { class: 'btn small', disabled: !done, onClick: () => this.game.claimQuest('daily', q.id) }, done ? 'Claim' : '…')));
+        }
+      } else {
+        for (const def of LASTING) {
+          const tier = s.quests.tiers[def.id] ?? 0;
+          const all = tier >= def.tiers.length;
+          const target = def.tiers[Math.min(tier, def.tiers.length - 1)];
+          const prog = Math.min(target, def.progress(s));
+          list.append(h('div', { class: `item quest ${all ? 'claimed' : ''}` },
+            h('div', { class: 'swatch' }, def.icon),
+            h('div', { class: 'grow' },
+              h('div', { class: 'name' }, `${def.name} ${'★'.repeat(tier)}${'☆'.repeat(def.tiers.length - tier)}`),
+              h('div', { class: 'desc' }, all ? 'Every tier complete!' : def.text.replace('{n}', target.toLocaleString())),
+              all ? null : h('div', { class: 'desc' }, reward(lastingReward(tier))),
+              all ? null : h('div', { class: 'progress small' }, h('i', { style: `width:${Math.round((prog / target) * 100)}%` })),
+              all ? null : h('div', { class: 'muted' }, `${prog.toLocaleString()} / ${target.toLocaleString()}`)),
+            all ? h('span', { class: 'quest-done' }, '🏆') : h('button', { class: 'btn small', disabled: prog < target, onClick: () => this.game.claimQuest('lasting', def.id) }, prog >= target ? 'Claim' : '…')));
+        }
+      }
+      b.append(list);
+    }, '📜');
   }
 
   // ---- keeper levels

@@ -5,7 +5,7 @@ import { recordSpecies } from './journal';
 import { generateShop } from './shop';
 import type { GameState } from './types';
 
-export const SAVE_VERSION = 6;
+export const SAVE_VERSION = 7;
 
 export function createGame(now: number, seed = Math.floor(Math.random() * 2 ** 31)): GameState {
   const state: GameState = {
@@ -21,6 +21,8 @@ export function createGame(now: number, seed = Math.floor(Math.random() * 2 ** 3
     items: {},
     tools: {},
     xp: 0,
+    quests: { day: '', daily: [], tiers: {} },
+    questStats: {},
     decorOwned: {},
     placedDecor: [],
     creatures: [],
