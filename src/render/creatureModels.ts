@@ -1939,3 +1939,278 @@ export function animateWanderer(g: THREE.Group, t: number, sneaky: boolean): voi
   const prop = g.userData.prop as THREE.Object3D | undefined;
   if (prop) prop.position.y += Math.sin(t * 2) * 0.0008;
 }
+
+// ---------------------------------------------------------------- wave 2 creatures
+
+Object.assign(PALETTES, {
+  hedgehum: { main: '#c9a27a', second: '#7a5a42', accent: '#f7a6c4', belly: '#fff0dc' },
+  magmole: { main: '#5a4a52', second: '#3a2e34', accent: '#ff8a3a', belly: '#8a7078' },
+  ashowl: { main: '#8a8590', second: '#5a5660', accent: '#ffb04a', belly: '#e8e2da' },
+  bubblecrab: { main: '#ff7a5a', second: '#e2483e', accent: '#bfefff', belly: '#ffe0c8' },
+  glidemanta: { main: '#3a5aa8', second: '#24397a', accent: '#bfe8ff', belly: '#eaf6ff' },
+  sandotter: { main: '#a8784e', second: '#7a5232', accent: '#9aa7a0', belly: '#f2dcc0' },
+  conchsnail: { main: '#9fd0c0', second: '#f7b8a0', accent: '#fff1e0', belly: '#d8f0e8' },
+  dunefox: { main: '#f0c88a', second: '#d89a5a', accent: '#ffb0a0', belly: '#fff6e4' },
+  aurorastag: { main: '#c9d2ff', second: '#8a7aff', accent: '#5affc0', belly: '#f4f6ff' },
+  prismkoi: { main: '#ffe8f4', second: '#ff6a8a', accent: '#6ad8ff', belly: '#ffffff' },
+});
+Object.assign(MYTHIC_GLOW, { aurorastag: '#5affc0', prismkoi: '#ff9ee8' });
+
+const RAINBOW = ['#ff5a5a', '#ffa83a', '#ffe14d', '#5fd06a', '#4ab8ff', '#9a6aff'];
+
+Object.assign(BUILDERS, {
+  hedgehum: (k, P, m) => {
+    const b = m.body;
+    b.add(k.ball(0.3, P.belly, [0, 0.26, 0.02], [1, 0.85, 1.15]));
+    // a brown spiky coat over the back; spines point straight out from it
+    b.add(k.ball(0.31, P.main, [0, 0.29, -0.05], [1.02, 0.9, 1.1]));
+    const up = new THREE.Vector3(0, 1, 0);
+    for (let r = 0; r < 4; r++) {
+      const n = 5 + r;
+      for (let i = 0; i < n; i++) {
+        const a = (i / (n - 1) - 0.5) * 2.6;
+        const el = 1.25 - r * 0.32;
+        const dir = new THREE.Vector3(Math.sin(a) * Math.cos(el) * 0.9, Math.cos(a) * Math.cos(el) * 0.9 + 0.1, -Math.sin(el) - 0.15 + r * 0.05).normalize();
+        const sp = k.mesh(G.cone, r % 2 ? P.second : P.main, [0.055, 0.24, 0.055],
+          [dir.x * 0.36, 0.29 + dir.y * 0.33, -0.05 + dir.z * 0.39]);
+        sp.quaternion.setFromUnitVectors(up, dir);
+        b.add(sp);
+      }
+    }
+    const nose = k.mesh(G.cone, P.belly, [0.09, 0.16, 0.09], [0, 0.22, 0.36]);
+    nose.rotation.x = Math.PI / 2;
+    b.add(nose);
+    b.add(k.ball(0.035, '#2a1d16', [0, 0.22, 0.45]));
+    k.eye(b, 0.09, 0.32, 0.31, 0.045);
+    k.eye(b, -0.09, 0.32, 0.31, 0.045);
+    for (const s of [1, -1]) {
+      b.add(k.ball(0.04, P.accent, [s * 0.15, 0.24, 0.3], [1, 0.6, 0.5]));
+      for (const z of [0.16, -0.14]) {
+        const leg = pivot(s * 0.14, 0.1, z, k.ball(0.05, P.second, [0, -0.04, 0.02], [0.9, 0.7, 1.2]));
+        b.add(leg);
+        m.legs.push(leg);
+      }
+    }
+    // petals stuck in its spines
+    for (const [x, y, z] of [[0.12, 0.52, -0.05], [-0.16, 0.44, -0.2]] as const) {
+      const f = new THREE.Group();
+      for (let i = 0; i < 5; i++) {
+        const a = (i / 5) * Math.PI * 2;
+        f.add(k.ball(0.035, P.accent, [Math.cos(a) * 0.04, 0, Math.sin(a) * 0.04]));
+      }
+      f.add(k.ball(0.025, '#ffe066', [0, 0.01, 0]));
+      f.position.set(x, y, z);
+      f.rotation.x = 0.4;
+      b.add(f);
+    }
+    m.height = 0.75;
+  },
+  magmole: (k, P, m) => {
+    const b = m.body;
+    b.add(k.ball(0.3, P.main, [0, 0.3, -0.02], [1, 0.9, 1.2]));
+    b.add(k.ball(0.22, P.belly, [0, 0.26, 0.1], [0.9, 0.8, 0.9]));
+    // glowing nose and sleepy little eyes
+    b.add(k.ball(0.08, P.accent, [0, 0.33, 0.38], [1, 0.85, 1], P.accent));
+    k.eye(b, 0.1, 0.44, 0.27, 0.04);
+    k.eye(b, -0.1, 0.44, 0.27, 0.04);
+    for (const s of [1, -1]) {
+      b.add(k.ball(0.035, P.accent, [s * 0.15, 0.32, 0.3], [1, 0.6, 0.5]));
+      // big digging paws
+      const paw = pivot(s * 0.24, 0.24, 0.22, k.ball(0.09, P.accent, [s * 0.04, -0.06, 0.03], [1.2, 0.5, 1]));
+      for (let i = 0; i < 3; i++) {
+        const claw = k.mesh(G.cone, '#fff1e0', [0.018, 0.07, 0.018], [s * 0.04 + (i - 1) * 0.04, -0.07, 0.12]);
+        claw.rotation.x = Math.PI / 2;
+        paw.add(claw);
+      }
+      paw.rotation.z = -0.4 * s;
+      b.add(paw);
+      m.wings.push(paw);
+      const leg = pivot(s * 0.13, 0.08, -0.16, k.ball(0.06, P.second, [0, -0.02, 0.02], [1, 0.6, 1.3]));
+      b.add(leg);
+      m.legs.push(leg);
+    }
+    // a few hot cracks on its back
+    for (let i = 0; i < 3; i++) b.add(k.ball(0.03, P.accent, [(i - 1) * 0.1, 0.56, -0.08 - i * 0.05], [1.6, 0.4, 0.6], P.accent));
+    const tail = new THREE.Group();
+    tail.position.set(0, 0.24, -0.34);
+    tail.add(k.ball(0.04, P.accent, [0, 0.02, -0.06], [0.8, 0.8, 2]));
+    b.add(tail);
+    m.tail = tail;
+    m.height = 0.7;
+  },
+  ashowl: (k, P, m) => {
+    const b = m.body;
+    b.add(k.ball(0.32, P.main, [0, 0.38, 0], [1, 1.08, 0.95]));
+    b.add(k.ball(0.24, P.belly, [0, 0.32, 0.12], [1, 1, 0.85]));
+    // face disc with big wise eyes
+    b.add(k.ball(0.2, P.belly, [0, 0.52, 0.18], [1.3, 0.85, 0.5]));
+    k.eye(b, 0.1, 0.54, 0.27, 0.08);
+    k.eye(b, -0.1, 0.54, 0.27, 0.08);
+    for (const s of [1, -1]) b.add(k.ball(0.085, P.accent, [s * 0.1, 0.54, 0.24], [1, 1, 0.3]));
+    const beak = k.mesh(G.cone, P.accent, [0.04, 0.1, 0.04], [0, 0.44, 0.31]);
+    beak.rotation.x = Math.PI / 2 + 0.6;
+    b.add(beak);
+    for (const s of [1, -1]) {
+      const tuft = k.mesh(G.cone, P.second, [0.06, 0.18, 0.05], [s * 0.17, 0.74, 0.05]);
+      tuft.rotation.z = -0.35 * s;
+      b.add(tuft);
+      b.add(k.ball(0.025, P.accent, [s * 0.2, 0.83, 0.05], [1, 1, 1], P.accent));
+      const wing = pivot(0.29 * s, 0.42, -0.02, k.ball(0.17, P.second, [0.03 * s, -0.05, 0], [0.4, 0.95, 1.1]));
+      wing.add(k.ball(0.06, P.accent, [0.04 * s, -0.2, -0.04], [0.5, 0.8, 1], P.accent));
+      b.add(wing);
+      m.wings.push(wing);
+      const leg = pivot(0.1 * s, 0.1, 0.04, k.mesh(G.cyl, P.accent, [0.025, 0.12, 0.025], [0, -0.03, 0]));
+      b.add(leg);
+      m.legs.push(leg);
+    }
+    const tail = new THREE.Group();
+    tail.position.set(0, 0.3, -0.28);
+    tail.add(k.ball(0.08, P.second, [0, -0.04, -0.06], [1, 0.4, 1.4]));
+    b.add(tail);
+    m.tail = tail;
+    m.height = 0.9;
+  },
+  bubblecrab: (k, P, m) => {
+    const b = m.body;
+    b.add(k.ball(0.24, P.main, [0, 0.2, 0], [1.25, 0.6, 1]));
+    b.add(k.ball(0.18, P.belly, [0, 0.15, 0.06], [1.2, 0.45, 0.9]));
+    for (const s of [1, -1]) {
+      const stalk = k.mesh(G.cyl, P.main, [0.02, 0.12, 0.02], [s * 0.08, 0.36, 0.14]);
+      b.add(stalk);
+      k.eye(b, s * 0.08, 0.44, 0.15, 0.05);
+      const arm = pivot(0.24 * s, 0.2, 0.14, k.ball(0.04, P.main, [0.05 * s, 0.02, 0.05], [1, 1, 1.8]));
+      arm.add(k.ball(0.1, P.second, [0.1 * s, 0.06, 0.15], [1, 0.8, 1.1]));
+      const pinch = k.mesh(G.cone, P.second, [0.035, 0.1, 0.035], [0.07 * s, 0.1, 0.24]);
+      pinch.rotation.x = Math.PI / 2 - 0.3;
+      arm.add(pinch);
+      b.add(arm);
+      m.wings.push(arm);
+      for (let i = 0; i < 3; i++) {
+        const leg = pivot(0.24 * s, 0.14, 0.04 - i * 0.1, k.mesh(G.cyl, P.second, [0.018, 0.16, 0.018], [0.06 * s, -0.05, 0]));
+        leg.rotation.z = 0.8 * s;
+        b.add(leg);
+        m.legs.push(leg);
+      }
+    }
+    b.add(k.ball(0.06, '#c23a3a', [0, 0.2, 0.25], [1.2, 0.5, 0.4]));
+    // its happy bubble
+    const bubble = k.ball(0.08, P.accent, [0.06, 0.4, 0.3], [1, 1, 1], '#ffffff');
+    bubble.userData.noOutline = true;
+    b.add(bubble);
+    b.add(k.ball(0.04, P.accent, [-0.05, 0.36, 0.32], [1, 1, 1], '#ffffff'));
+    m.height = 0.55;
+  },
+  glidemanta: (k, P, m) => {
+    const b = m.body;
+    b.add(k.ball(0.22, P.main, [0, 0.14, 0], [1.05, 0.38, 1.4]));
+    b.add(k.ball(0.19, P.belly, [0, 0.1, 0.02], [1, 0.3, 1.3]));
+    for (const s of [1, -1]) {
+      const wing = new THREE.Group();
+      wing.position.set(s * 0.18, 0.14, 0);
+      const w = k.ball(0.26, P.main, [s * 0.22, 0, -0.02], [1.1, 0.12, 0.85]);
+      w.rotation.y = 0.35 * s;
+      wing.add(w);
+      wing.add(k.ball(0.06, P.accent, [s * 0.26, 0.03, -0.02], [1, 0.3, 1], P.accent));
+      b.add(wing);
+      m.wings.push(wing);
+      // little horn-fins by the face
+      const fin = k.ball(0.05, P.second, [s * 0.11, 0.14, 0.32], [0.6, 0.4, 1.4]);
+      fin.rotation.y = -0.3 * s;
+      b.add(fin);
+      k.eye(b, s * 0.15, 0.2, 0.22, 0.045, new THREE.Vector3(s, 0, 0.5));
+    }
+    for (let i = 0; i < 4; i++) b.add(k.ball(0.025, P.accent, [(i - 1.5) * 0.06, 0.22, -0.05 - (i % 2) * 0.06], [1, 1, 1], P.accent));
+    const tail = new THREE.Group();
+    tail.position.set(0, 0.14, -0.28);
+    const whip = k.mesh(G.cone, P.second, [0.025, 0.42, 0.025], [0, 0, -0.2]);
+    whip.rotation.x = -Math.PI / 2;
+    tail.add(whip);
+    b.add(tail);
+    m.tail = tail;
+    m.height = 0.45;
+  },
+  sandotter: (k, P, m) => {
+    beast(k, P, m, { long: 1.6, tall: 0.14, snout: 'cat', ears: 'round' });
+    // a long, thick tail instead of a fluffy one
+    const tail = m.tail!;
+    tail.clear();
+    const t = k.mesh(G.cone, P.main, [0.08, 0.42, 0.06], [0, -0.06, -0.2]);
+    t.rotation.x = -Math.PI / 2 - 0.25;
+    tail.add(t);
+    // a favourite pebble held on its tummy
+    m.body.add(k.ball(0.05, P.accent, [0, 0.2, 0.26], [1.2, 0.8, 1]));
+    for (const s of [1, -1]) m.body.add(k.ball(0.012, '#2a1d16', [s * 0.04, 0.58, 0.48]));
+  },
+  conchsnail: (k, P, m) => {
+    const b = m.body;
+    b.add(k.ball(0.14, P.main, [0, 0.1, 0.06], [1, 0.6, 2.4]));
+    b.add(k.ball(0.12, P.main, [0, 0.2, 0.32], [0.9, 1.1, 0.9]));
+    for (const s of [1, -1]) {
+      const stalk = k.mesh(G.cyl, P.main, [0.018, 0.16, 0.018], [s * 0.05, 0.36, 0.34]);
+      stalk.rotation.z = -0.2 * s;
+      b.add(stalk);
+      k.eye(b, s * 0.07, 0.45, 0.35, 0.04);
+    }
+    b.add(k.ball(0.03, P.second, [0, 0.16, 0.43], [1.4, 0.5, 0.5]));
+    // the spiral conch: shrinking rings climbing to a point
+    const shell = new THREE.Group();
+    shell.position.set(0, 0.24, -0.06);
+    shell.rotation.x = -0.5;
+    for (let i = 0; i < 6; i++) {
+      const r = 0.2 - i * 0.03;
+      const a = i * 1.3;
+      shell.add(k.ball(r, i % 2 ? P.second : P.accent, [Math.cos(a) * 0.04, i * 0.07, Math.sin(a) * 0.04], [1, 0.7, 1]));
+    }
+    const tip = k.mesh(G.cone, P.second, [0.05, 0.12, 0.05], [0, 0.46, 0]);
+    shell.add(tip);
+    b.add(shell);
+    m.tail = shell;
+    m.height = 0.75;
+  },
+  dunefox: (k, P, m) => {
+    beast(k, P, m, { long: 1.15, tall: 0.26, snout: 'fox', ears: 'none', mane: P.belly });
+    // enormous ears
+    const head = m.body.children.find((c) => c instanceof THREE.Group && c.position.y > 0.6) ?? m.body;
+    for (const s of [1, -1]) {
+      const ear = k.mesh(G.cone, P.main, [0.1, 0.32, 0.04], [s * 0.13, 0.22, -0.03]);
+      ear.rotation.z = -0.45 * s;
+      ear.add(k.mesh(G.cone, P.accent, [0.55, 0.75, 0.5], [0, -0.04, 0.4]));
+      head.add(ear);
+    }
+  },
+  aurorastag: (k, P, m) => {
+    beast(k, P, m, { long: 1.35, tall: 0.42, snout: 'horse', ears: 'pointy', mane: P.accent });
+    const head = m.body.children.find((c) => c instanceof THREE.Group && c.position.y > 0.8) ?? m.body;
+    // branching antlers that hold the northern lights
+    for (const s of [1, -1]) {
+      const antler = new THREE.Group();
+      antler.position.set(s * 0.06, 0.13, -0.02);
+      antler.rotation.z = -0.35 * s;
+      const main = k.mesh(G.cyl, '#ffffff', [0.02, 0.36, 0.02], [0, 0.18, 0]);
+      antler.add(main);
+      for (let i = 0; i < 3; i++) {
+        const tine = k.mesh(G.cyl, RAINBOW[(i * 2 + (s > 0 ? 3 : 4)) % 6], [0.014, 0.14, 0.014], [s * 0.05, 0.1 + i * 0.1, 0], RAINBOW[(i * 2 + (s > 0 ? 3 : 4)) % 6]);
+        tine.rotation.z = -0.9 * s;
+        antler.add(tine);
+      }
+      antler.add(k.ball(0.03, P.accent, [0, 0.37, 0], [1, 1, 1], P.accent));
+      head.add(antler);
+    }
+    const glow = glowSprite('#5affc0', 1.4, 0.35);
+    glow.position.set(0, 1.1, 0.3);
+    m.body.add(glow);
+    m.height += 0.3;
+  },
+  prismkoi: (k, P, m) => {
+    fish(k, P, m, true);
+    // every scale a different colour
+    for (let i = 0; i < 12; i++) {
+      const a = i * 2.1;
+      const c = RAINBOW[i % 6];
+      m.body.add(k.ball(0.055, c, [Math.cos(a) * 0.18, 0.1 + Math.sin(i * 1.7) * 0.12, -0.2 + (i / 11) * 0.42], [1, 1, 0.4], c));
+    }
+    const glow = glowSprite('#ff9ee8', 1.2, 0.35);
+    glow.position.set(0, 0.2, 0);
+    m.body.add(glow);
+  },
+} satisfies Record<string, Builder>);

@@ -325,6 +325,7 @@ export const RESONANCES: ResonanceRule[] = [
   { id: 'r-cloudserpent', requires: ['Dragon', 'Storm'], both: 'Dragon', sky: 'storm', result: 'cloudserpent', chance: 0.35 },
   { id: 'r-phoenix', requires: ['Bird', 'Ember'], sky: 'eclipse', result: 'phoenix', chance: 0.35 },
   { id: 'r-qilin', requires: ['Dragon', 'Mammal', 'Mystic'], sky: 'starry', result: 'qilin', chance: 0.35 },
+  { id: 'r-aurorastag', requires: ['Mammal', 'Spirit'], sky: 'aurora', result: 'aurorastag', chance: 0.35 },
 ];
 
 // ---------------------------------------------------------------- dig spots
@@ -444,7 +445,7 @@ export const EGG_TIERS: Record<string, EggTier> = {
   },
   starry: {
     id: 'starry', name: 'Starry Egg', price: 60, currency: 'shards', habitats: [],
-    weights: { common: 0, uncommon: 6, rare: 4, legendary: 0.6 }, colors: ['#1e2468', '#fff1a8'],
+    weights: { common: 0, uncommon: 6, rare: 4, legendary: 0.8 }, colors: ['#1e2468', '#fff1a8'],
     blurb: 'Always uncommon or rarer, with a small chance of something legendary.',
   },
 };
