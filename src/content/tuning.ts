@@ -47,8 +47,11 @@ export const TUNING = {
   sizeOutlierChance: 0.06,
   /** The first N eggs a keeper makes always hold a creature they haven't discovered. */
   firstNewEggs: 3,
-  /** After that, chance an egg holds a "distant relative" that shares a trait with a parent. */
-  distantRelativeChance: 0.06,
+  /**
+   * After that, chance an egg holds a different creature that shares a type
+   * with a parent (picked by rarity) instead of a copy of a parent: half the time.
+   */
+  distantRelativeChance: 0.5,
   /** Digging: relative dig rate by personality. */
   digRate: { energetic: 1.8, lazy: 0.4, shy: 0.8, curious: 1.4, grumpy: 1, friendly: 1 } as Record<string, number>,
   digItemChance: 0.03,
