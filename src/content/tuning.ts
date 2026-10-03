@@ -91,6 +91,8 @@ export const TUNING = {
   digSpotEveryMin: 6,
   digSpotMax: 2,
   digSpotLifeMin: 25,
+  /** Wanderers drop by about this often while you're playing. */
+  wandererEveryMin: 14,
   /** How long a legendary event's gift waits to be claimed. */
   blessingHours: 24,
 

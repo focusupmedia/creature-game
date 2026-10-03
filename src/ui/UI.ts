@@ -16,6 +16,7 @@ import { fmtDuration, h, img, rich } from './dom';
 import * as I from './icons';
 import { WorldLabels } from './Labels';
 import { QUIRKS } from '../content/quirks';
+import { WANDERERS } from '../content/wanderers';
 import { deleteQuirk, wipeQuirks } from '../core/quirks';
 import { MAX_LEVEL, levelOf, levelProgress, levelReward, type LevelUp } from '../core/levels';
 import { DAILY_POOL, LASTING, claimable, lastingReward, refreshDailies } from '../core/quests';
@@ -1451,6 +1452,9 @@ export class UI {
       const r = species(v.creature.species).rarity;
       if (r === 'common' || r === 'uncommon') continue;
       out.set(v.island, `A ${r} ${species(v.creature.species).name} is waiting at the ${SPOTS[v.spot].name}!`);
+    }
+    if (s.wanderer && s.wanderer.island !== here) {
+      out.set(s.wanderer.island, s.wanderer.kind === 'goblin' ? 'A Goblin is up to no good here!' : `${WANDERERS[s.wanderer.kind].name} is visiting!`);
     }
     if (here !== 'home' && s.eggs.some((e) => e.nest !== null && e.progressMs >= e.incubationMs)) out.set('home', 'An egg is ready to hatch!');
     return out;

@@ -115,3 +115,46 @@ describe('egg sprays', () => {
     expect(r.ok && r.creature.size).toBeGreaterThan(1.1);
   });
 });
+
+describe('wanderers', () => {
+  it('only come while you play; the Goblin steals or spoils a lure unless tapped, and tapping scares him off', async () => {
+    const { meetWanderer } = await import('../src/core/wanderers');
+    const { StateRng } = await import('../src/core/rng');
+    const s = createGame(11, 0);
+    s.glimmer = 500;
+    // offline: nobody comes
+    tick(s, 2 * HOUR, { maxStepMs: 10_000 });
+    expect(s.wanderer).toBeNull();
+    // live: someone turns up
+    let t = 2 * HOUR;
+    for (let i = 0; i < 3600 && !s.wanderer; i++) tick(s, (t += 1000), { live: true, here: 'home' });
+    expect(s.wanderer).not.toBeNull();
+    // a goblin left alone does mischief
+    s.wanderer = { kind: 'goblin', island: 'home', x: 0, z: 0, arrivedAt: t, until: t + 1000 };
+    const before = s.glimmer;
+    const evs = tick(s, (t += 2000), { live: true, here: 'home' });
+    const g = evs.find((e) => e.type === 'goblin');
+    expect(g).toBeTruthy();
+    expect(s.glimmer < before || (g as { did: string }).did === 'lure').toBe(true);
+    // a goblin tapped in time runs off and drops coins
+    s.wanderer = { kind: 'goblin', island: 'home', x: 0, z: 0, arrivedAt: t, until: t + 60_000 };
+    const coins = s.glimmer;
+    const r = meetWanderer(s, t, new StateRng(s));
+    expect(r.ok).toBe(true);
+    expect(s.glimmer).toBe(coins + 5);
+    expect(s.wanderer).toBeNull();
+  });
+
+  it('the Gardener Gnome gives a Berry Tree and the Treasure Hunter marks dig spots', async () => {
+    const { meetWanderer } = await import('../src/core/wanderers');
+    const { StateRng } = await import('../src/core/rng');
+    const s = createGame(12, 0);
+    s.wanderer = { kind: 'gnome', island: 'home', x: 0, z: 0, arrivedAt: 0, until: 60_000 };
+    meetWanderer(s, 1000, new StateRng(s));
+    expect(s.decorOwned.fruittree).toBe(1);
+    const spots = s.digSpots.length;
+    s.wanderer = { kind: 'treasure', island: 'home', x: 0, z: 0, arrivedAt: 0, until: 60_000 };
+    meetWanderer(s, 1000, new StateRng(s));
+    expect(s.digSpots.length).toBe(spots + 2);
+  });
+});

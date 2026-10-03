@@ -5,7 +5,7 @@ import { recordSpecies } from './journal';
 import { generateShop } from './shop';
 import type { GameState } from './types';
 
-export const SAVE_VERSION = 9;
+export const SAVE_VERSION = 10;
 
 export function createGame(now: number, seed = Math.floor(Math.random() * 2 ** 31)): GameState {
   const state: GameState = {
@@ -27,6 +27,8 @@ export function createGame(now: number, seed = Math.floor(Math.random() * 2 ** 3
     feedbags: {},
     storageSlots: TUNING.storageBase,
     visitors: [],
+    wanderer: null,
+    wandererNextAt: now + 8 * 60_000,
     collector: { nextAt: now + 60 * 60_000, until: 0, wants: 'Grove' },
     decorOwned: {},
     placedDecor: [],

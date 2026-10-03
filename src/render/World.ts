@@ -10,9 +10,9 @@ import { animateDigSpot, buildDigSpot, disposeDigSpot, type DigSpotView } from '
 import { LegendaryFx } from './legendaryFx';
 import { ripeFruit } from '../core/care';
 import { buildDecor } from './decor';
-import { animateShopkeeper } from './creatureModels';
+import { animateShopkeeper, animateWanderer, buildWanderer } from './creatureModels';
 import { buildEgg, disposeEgg, type EggModel } from './eggModel';
-import { glowSprite, toon } from './materials';
+import { emoteTexture, glowSprite, toon } from './materials';
 import { Portraits } from './portraits';
 import { Reveal, type RevealPhase } from './Reveal';
 import { buildIsland, type IslandView } from './sanctuary';
@@ -36,7 +36,8 @@ export type Pick =
   | { kind: 'decor'; id: string }
   | { kind: 'island'; id: IslandId }
   | { kind: 'ground'; x: number; z: number }
-  | { kind: 'dig'; id: string };
+  | { kind: 'dig'; id: string }
+  | { kind: 'wanderer' };
 
 /** What a carried creature is hovering over when you let go. */
 export type CarryTarget = { kind: 'creature'; id: string } | { kind: 'dig'; id: string };
@@ -72,6 +73,8 @@ export class World {
   private ghost: THREE.Group | null = null;
   private lureCtx: ActorContext['lures'] = [];
   private skyKind: EventKind | null = null;
+  /** The visiting wanderer, strolling about near where it arrived. */
+  private wanderer: { key: string; group: THREE.Group; island: IslandId; home: { x: number; z: number }; x: number; z: number; tx: number; tz: number; sneaky: boolean; wait: number } | null = null;
   private quality = 1;
   private frameTimes: number[] = [];
   private nowMs = Date.now();
@@ -274,6 +277,7 @@ export class World {
     }
     for (const a of this.actors.values()) a.root.visible = a.geo.id === this.current;
 
+    this.syncWanderer(state);
     this.syncEggs(state);
 
     // lures (only the current island's matter to its creatures)
@@ -447,6 +451,73 @@ export class World {
         if (ch instanceof THREE.Mesh && ch.material instanceof THREE.MeshToonMaterial) ch.visible = owned;
       });
     });
+  }
+
+  private syncWanderer(state: GameState): void {
+    const w = state.wanderer;
+    const key = w ? `${w.kind}:${w.arrivedAt}` : '';
+    if (this.wanderer && this.wanderer.key !== key) {
+      this.burst(this.at(this.wanderer.x, this.wanderer.z, 0.6, this.wanderer.island), '#ffffff', 16);
+      this.scene.remove(this.wanderer.group);
+      this.wanderer = null;
+    }
+    if (w && !this.wanderer) {
+      const group = buildWanderer(w.kind);
+      const hit = new THREE.Mesh(new THREE.SphereGeometry(0.7, 6, 4), new THREE.MeshBasicMaterial({ visible: false }));
+      hit.position.y = 0.6;
+      hit.userData.pick = { kind: 'wanderer' };
+      group.add(hit);
+      // a friendly "!" over the helpers; the Goblin doesn't announce himself
+      if (w.kind !== 'goblin') {
+        const mark = new THREE.Sprite(new THREE.SpriteMaterial({ map: emoteTexture('❗'), transparent: true, depthWrite: false }));
+        mark.scale.setScalar(0.5);
+        mark.position.y = 1.45;
+        group.add(mark);
+        group.userData.mark = mark;
+      }
+      this.scene.add(group);
+      this.wanderer = { key, group, island: w.island, home: { x: w.x, z: w.z }, x: w.x, z: w.z, tx: w.x, tz: w.z, sneaky: w.kind === 'goblin', wait: 0 };
+      this.place(group, w.x, w.z, 0, 0, w.island);
+      if (w.island === this.current) this.burst(this.at(w.x, w.z, 0.5, w.island), w.kind === 'goblin' ? '#8fd06a' : '#fff3b0', 18);
+    }
+  }
+
+  /** A wanderer you tapped heads off: a poof (and, for the Goblin, a scatter of leaves). */
+  wandererLeaves(w: { x: number; z: number; island: IslandId }, scared: boolean): void {
+    const v = this.wanderer;
+    const at = v ? this.at(v.x, v.z, 0.6, v.island) : this.at(w.x, w.z, 0.6, w.island);
+    this.burst(at, scared ? '#8fd06a' : '#fff3b0', scared ? 30 : 22, scared ? 2.4 : 1.4);
+  }
+
+  private updateWanderer(dt: number): void {
+    const v = this.wanderer;
+    if (!v) return;
+    v.group.visible = v.island === this.current;
+    if (!v.group.visible) return;
+    v.wait -= dt;
+    const dx = v.tx - v.x;
+    const dz = v.tz - v.z;
+    const d = Math.hypot(dx, dz);
+    if (d < 0.05) {
+      if (v.wait <= 0) {
+        // pick somewhere nearby to amble (or scurry) to
+        const a = Math.random() * Math.PI * 2;
+        const r = (v.sneaky ? 2.6 : 1.4) * Math.random();
+        const g = this.geoOf(v.island);
+        const nx = v.home.x + Math.cos(a) * r;
+        const nz = v.home.z + Math.sin(a) * r;
+        if (onLand(g, nx, nz) && !isBlocked(g, nx, nz) && !inWater(g, nx, nz, 0.3)) { v.tx = nx; v.tz = nz; }
+        v.wait = v.sneaky ? 0.6 + Math.random() : 2 + Math.random() * 3;
+      }
+    } else {
+      const step = Math.min(d, dt * (v.sneaky ? 1.6 : 0.6));
+      v.x += (dx / d) * step;
+      v.z += (dz / d) * step;
+    }
+    this.place(v.group, v.x, v.z, 0, Math.atan2(dx, dz), v.island);
+    animateWanderer(v.group, this.time, v.sneaky);
+    const mark = v.group.userData.mark as THREE.Sprite | undefined;
+    if (mark) mark.position.y = 1.45 + Math.sin(this.time * 3) * 0.08;
   }
 
   private addActor(c: Creature): CreatureActor {
@@ -866,9 +937,10 @@ export class World {
     for (const d of this.decor.values()) targets.push(d.children[d.children.length - 1]);
     if (this.current === 'home') for (const e of this.eggs.values()) targets.push(e.model.shell);
     for (const v of this.digViews.values()) if (v.root.visible) targets.push(v.root.children[v.root.children.length - 1]);
+    if (this.wanderer?.group.visible) targets.push(...this.wanderer.group.children.filter((c) => c.userData.pick));
     const hits = this.raycaster.intersectObjects(targets, false);
     // prefer creatures and gifts over big structures, and those over the ground
-    const rank = (k: string) => (k === 'creature' || k === 'gift' || k === 'dig' ? 0 : k === 'ground' ? 2 : 1);
+    const rank = (k: string) => (k === 'creature' || k === 'gift' || k === 'dig' || k === 'wanderer' ? 0 : k === 'ground' ? 2 : 1);
     let best: Pick | null = null;
     let bestRank = 9;
     for (const h of hits) {
@@ -907,6 +979,7 @@ export class World {
     // Only the island you're on is simulated visually; others are "unloaded".
     for (const a of visible) a.update(dt, this.time, ctx);
     this.updateCarry();
+    this.updateWanderer(dt);
     this.legendaryFx.update(dt, (x, z, alt) => this.at(x, z, alt, this.legendaryIsland));
     for (const v of this.digViews.values()) if (v.root.visible) animateDigSpot(v, this.time);
 

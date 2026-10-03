@@ -39,6 +39,11 @@ const MIGRATIONS: Record<number, Migration> = {
   2: (raw) => {
     raw.digSpots = [];
   },
+  // v9 → v10: wanderers.
+  9: (raw) => {
+    raw.wanderer = null;
+    raw.wandererNextAt = Number(raw.lastTick) + 8 * 60_000;
+  },
   // v8 → v9: lure visitors wait for you.
   8: (raw) => {
     raw.visitors = [];

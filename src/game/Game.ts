@@ -7,6 +7,9 @@ import { awayFinds, buyStorageSlot, findVisitor, keepVisitor, releaseCreature, s
 import { islandCapacity } from '../core/sim';
 import { xpFor, type PlayEvent } from '../core/progress';
 import { ISLANDS } from '../content/islands';
+import { WANDERERS } from '../content/wanderers';
+import { meetWanderer } from '../core/wanderers';
+import { StateRng } from '../core/rng';
 import { refreshShop } from '../core/shop';
 import { NESTS } from '../content/layout';
 import { TUNING } from '../content/tuning';
@@ -187,7 +190,7 @@ export class Game {
     this.tickAcc += dt;
     if (this.tickAcc >= LIVE_TICK_S && !this.world.revealing) {
       this.tickAcc = 0;
-      const events = tick(this.state, this.now(), { maxStepMs: 1000 });
+      const events = tick(this.state, this.now(), { maxStepMs: 1000, live: true, here: this.world.current });
       if (events.length) this.dispatch(events, true);
     }
     const t = this.now();
@@ -232,6 +235,24 @@ export class Game {
           }
           break;
         }
+        case 'wanderer': {
+          if (!live) break;
+          const def = WANDERERS[ev.wanderer.kind];
+          const away = ev.wanderer.island !== this.world.current;
+          this.audio.play(ev.wanderer.kind === 'goblin' ? 'error' : 'arrive');
+          this.ui.toast(away ? `${def.name} is visiting ${ISLANDS[ev.wanderer.island].name}!` : def.arrive, ev.wanderer.kind === 'goblin' ? 'info' : 'discovery', undefined, 4500);
+          break;
+        }
+        case 'wandererLeft':
+          if (live) this.ui.toast(`${WANDERERS[ev.kind].name} went on their way.`);
+          break;
+        case 'goblin':
+          if (!live) break;
+          this.audio.play('error');
+          this.ui.toast(ev.did === 'coins' ? `The Goblin pinched {coin} ${ev.coins} and ran off! Tap him quicker next time.`
+            : ev.did === 'lure' ? `The Goblin spoiled your lure at the ${SPOTS[ev.spot!].name}! Tap him quicker next time.`
+              : 'The Goblin found nothing worth taking and slunk off.', 'info', undefined, 5000);
+          break;
         case 'visitorLeft':
           if (live) this.ui.toast(`${speciesTitle(ev.creature)} got tired of waiting and wandered off.`, 'info', this.world.portraits.get(ev.creature.species, ev.creature.mutations));
           break;
@@ -348,6 +369,7 @@ export class Game {
         return this.ui.toast(`${k.icon} ${k.name}! Press and hold a creature, then drop it here.`);
       }
       case 'gift': return this.collectGift(p.id);
+      case 'wanderer': return this.meetWanderer();
     }
   }
 
@@ -631,6 +653,19 @@ export class Game {
       this.analytics.track('visitor_kept', { species: v.creature.species });
       if (to !== this.world.current) this.ui.toast(`${displayName(v.creature)} is off to ${ISLANDS[to].name}.`);
     }
+  }
+
+  /** You tapped the wanderer: a friendly one helps out; the Goblin runs for it. */
+  meetWanderer(): void {
+    const w = this.state.wanderer;
+    if (!w) return;
+    const r = meetWanderer(this.state, this.now(), new StateRng(this.state));
+    if (!r.ok) return this.ui.toast(r.error);
+    this.world.wandererLeaves(w, r.kind === 'goblin');
+    this.audio.play(r.kind === 'goblin' ? 'coin' : 'chime');
+    this.ui.toast(r.kind === 'goblin' ? `{coin} ${r.message}` : `${WANDERERS[r.kind].name}: ${r.message}`, 'discovery', undefined, 5500);
+    this.analytics.track('wanderer_met', { kind: r.kind });
+    this.saveSoon();
   }
 
   sendAwayVisitor(id: string): void {

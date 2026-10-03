@@ -22,6 +22,7 @@ export type DecorId = string;
 export type SpotId = string;
 export type IslandId = 'home' | 'volcano' | 'lagoon' | 'beach' | 'desert';
 export type Personality = 'energetic' | 'lazy' | 'shy' | 'curious' | 'grumpy' | 'friendly';
+export type WandererKind = 'fortune' | 'treasure' | 'chef' | 'gnome' | 'goblin';
 export type EventKind = 'storm' | 'eclipse' | 'starry' | 'fullmoon' | 'blizzard' | 'rainbow' | 'aurora' | 'meteor' | 'fog';
 
 export type Rarity = 'common' | 'uncommon' | 'rare' | 'legendary' | 'mythical';
@@ -299,6 +300,15 @@ export interface ShopState {
   nextRefreshAt: number;
 }
 
+export interface Wanderer {
+  kind: WandererKind;
+  island: IslandId;
+  x: number;
+  z: number;
+  arrivedAt: number;
+  until: number;
+}
+
 export interface PlacedDecor {
   id: string;
   decor: DecorId;
@@ -345,6 +355,9 @@ export interface GameState {
   storageSlots: number;
   /** Lure visitors waiting for you to Keep them or Send them away. */
   visitors: Visitor[];
+  /** A traveller visiting one of your worlds right now (only while you're playing). */
+  wanderer: Wanderer | null;
+  wandererNextAt: number;
   /** The travelling Collector: pays more than a quick sale, most for one type of creature. */
   collector: { nextAt: number; until: number; wants: Trait };
   hungerNotifiedDay?: string;
@@ -395,5 +408,8 @@ export type GameEvent =
   | { type: 'legendaryEnd'; kind: LegendaryKind; t: number }
   | { type: 'collector'; wants: Trait; until: number; t: number }
   | { type: 'visitorLeft'; creature: Creature; t: number }
+  | { type: 'wanderer'; wanderer: Wanderer; t: number }
+  | { type: 'wandererLeft'; kind: WandererKind; t: number }
+  | { type: 'goblin'; did: 'coins' | 'lure' | 'nothing'; coins?: number; spot?: SpotId; t: number }
   | { type: 'shopRefresh'; t: number }
   | { type: 'note'; text: string; t: number };

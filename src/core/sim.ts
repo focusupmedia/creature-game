@@ -15,13 +15,15 @@ import { refreshShop } from './shop';
 import { stepLegendary } from './legendary';
 import { hasQuirk, temperOf } from './quirks';
 import { stepCare } from './care';
+import { stepWanderer } from './wanderers';
 import { freeNest } from './state';
 import type { DigKind, EventKind, GameEvent, GameState, Gift, IslandId } from './types';
 import { activeEvent, isDark } from './world';
 
 const MIN = 60_000;
 
-export function tick(state: GameState, now: number, opts: { maxStepMs?: number } = {}): GameEvent[] {
+/** `live`: the keeper is playing right now (wanderers only come then); `here`: the world they're looking at. */
+export function tick(state: GameState, now: number, opts: { maxStepMs?: number; live?: boolean; here?: IslandId } = {}): GameEvent[] {
   const out: GameEvent[] = [];
   const maxStep = opts.maxStepMs ?? 1000;
   const cap = TUNING.offlineCapHours * 60 * MIN;
@@ -30,13 +32,13 @@ export function tick(state: GameState, now: number, opts: { maxStepMs?: number }
   while (t < now) {
     const dt = Math.min(maxStep, now - t);
     t += dt;
-    step(state, t, dt, out);
+    step(state, t, dt, out, opts.live ?? false, opts.here);
   }
   state.lastTick = now;
   return out;
 }
 
-function step(state: GameState, t: number, dt: number, out: GameEvent[]): void {
+function step(state: GameState, t: number, dt: number, out: GameEvent[], live = false, here?: IslandId): void {
   const rng = new StateRng(state);
   const ev = activeEvent(state, t);
   const sky: EventKind | null = ev ? ev.kind : null;
@@ -204,6 +206,9 @@ function step(state: GameState, t: number, dt: number, out: GameEvent[]): void {
 
   // ---- legendary events (very rare)
   stepLegendary(state, t, dt, rng, out);
+
+  // ---- wanderers (only while you're playing)
+  stepWanderer(state, t, rng, out, live, here);
 
   // ---- shop rotation
   if (t >= state.shop.nextRefreshAt) {

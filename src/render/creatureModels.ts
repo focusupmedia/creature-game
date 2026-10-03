@@ -1826,3 +1826,85 @@ Object.assign(BUILDERS, {
     m.height = 0.85;
   },
 } satisfies Record<string, Builder>);
+
+// ---------------------------------------------------------------- wanderers
+
+/** The travellers who drop by: little round folk with a hat and a prop each. */
+export function buildWanderer(kind: 'fortune' | 'treasure' | 'chef' | 'gnome' | 'goblin'): THREE.Group {
+  const k = new Kit();
+  const g = new THREE.Group();
+  const look = {
+    fortune: { robe: '#7a4ab8', skin: '#f2c79a', hat: '#4a2a8a', h: 1 },
+    treasure: { robe: '#a8743a', skin: '#e8b88a', hat: '#6a4a2a', h: 1 },
+    chef: { robe: '#ffffff', skin: '#f6d0a8', hat: '#ffffff', h: 1 },
+    gnome: { robe: '#3a7ad8', skin: '#f6c8a8', hat: '#e2483d', h: 0.8 },
+    goblin: { robe: '#6a4a2a', skin: '#7ac04a', hat: '#4a3a2a', h: 0.85 },
+  }[kind];
+  // body: a soft robe
+  g.add(k.ball(0.32, look.robe, [0, 0.32, 0], [1, 1.05, 0.95]));
+  const head = new THREE.Group();
+  head.position.set(0, 0.78, 0);
+  head.add(k.ball(0.25, look.skin, [0, 0, 0]));
+  for (const s of [1, -1]) k.eye(head, s * 0.09, 0.03, 0.2, 0.06);
+  head.add(k.ball(0.05, kind === 'goblin' ? '#5a9a3a' : '#ff9a8a', [0, -0.05, 0.25]));
+  if (kind === 'fortune') {
+    // headscarf and a glowing crystal ball
+    head.add(k.ball(0.27, look.hat, [0, 0.07, -0.02], [1.02, 0.75, 1.02]));
+    head.add(k.ball(0.05, '#ffd36a', [0, 0.16, 0.24]));
+    const orb = k.ball(0.14, '#c8a8ff', [0, 0.42, 0.34], [1, 1, 1], '#9a6aff');
+    g.add(orb);
+    g.userData.prop = orb;
+  } else if (kind === 'treasure') {
+    // explorer hat and a rolled map
+    head.add(k.mesh(G.cyl, look.hat, [0.38, 0.03, 0.38], [0, 0.1, 0]));
+    head.add(k.mesh(G.cyl, look.hat, [0.2, 0.16, 0.2], [0, 0.18, 0]));
+    const map = k.mesh(G.cyl, '#f4e2b0', [0.07, 0.34, 0.07], [0.22, 0.42, 0.28]);
+    map.rotation.z = Math.PI / 2.4;
+    g.add(map);
+    g.userData.prop = map;
+  } else if (kind === 'chef') {
+    // tall chef's hat and a little pot
+    head.add(k.mesh(G.cyl, '#ffffff', [0.16, 0.2, 0.16], [0, 0.26, 0]));
+    head.add(k.ball(0.2, '#ffffff', [0, 0.42, 0], [1, 0.7, 1]));
+    const pot = k.mesh(G.cyl, '#5a6a7a', [0.16, 0.13, 0.16], [0, 0.4, 0.32]);
+    g.add(pot);
+    g.add(k.ball(0.12, '#ffb02a', [0, 0.47, 0.32], [1, 0.4, 1]));
+    g.userData.prop = pot;
+  } else if (kind === 'gnome') {
+    // pointy red hat, white beard and a tiny sapling
+    const hat = k.mesh(G.cone, look.hat, [0.25, 0.5, 0.25], [0, 0.32, 0]);
+    hat.rotation.z = 0.15;
+    head.add(hat);
+    head.add(k.ball(0.18, '#ffffff', [0, -0.14, 0.12], [1.1, 1, 0.7]));
+    const sprout = k.mesh(G.cone, '#5fbf4a', [0.09, 0.22, 0.09], [0.28, 0.48, 0.2]);
+    g.add(sprout);
+    g.add(k.mesh(G.cyl, '#b0642e', [0.1, 0.12, 0.1], [0.28, 0.33, 0.2]));
+    g.userData.prop = sprout;
+  } else {
+    // goblin: big pointy ears, a hood and a sack over his shoulder
+    for (const s of [1, -1]) {
+      const ear = k.mesh(G.cone, look.skin, [0.08, 0.3, 0.08], [s * 0.27, 0.06, 0]);
+      ear.rotation.z = -s * 1.2;
+      head.add(ear);
+    }
+    head.add(k.ball(0.26, look.hat, [0, 0.08, -0.05], [1.02, 0.75, 1.02]));
+    const sack = k.ball(0.2, '#c8a46a', [-0.22, 0.6, -0.2]);
+    g.add(sack);
+    g.userData.prop = sack;
+  }
+  g.add(head);
+  g.userData.head = head;
+  // a little bigger than the creatures, so you spot them
+  g.scale.setScalar(look.h * 1.4);
+  addOutlines(g, 2.8);
+  return g;
+}
+
+/** Wanderers bob and look about; the Goblin sneaks with a crouch. */
+export function animateWanderer(g: THREE.Group, t: number, sneaky: boolean): void {
+  const head = g.userData.head as THREE.Group;
+  head.rotation.y = Math.sin(t * (sneaky ? 3 : 0.9)) * (sneaky ? 0.6 : 0.3);
+  g.children[0].position.y = 0.32 + Math.abs(Math.sin(t * (sneaky ? 9 : 4))) * 0.03;
+  const prop = g.userData.prop as THREE.Object3D | undefined;
+  if (prop) prop.position.y += Math.sin(t * 2) * 0.0008;
+}
