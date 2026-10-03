@@ -8,11 +8,12 @@ import { arrivalWeights } from '../core/lures';
 import { nestOccupant } from '../core/state';
 import { activeEvent, isDark } from '../core/world';
 import type { Game } from '../game/Game';
+import { hearts } from '../core/friendship';
 import { h, setText } from './dom';
 import { rarityTag } from './rarity';
 import { QUIRKS } from '../content/quirks';
 import { species } from '../content/species';
-import { GEAR, icon } from './icons';
+import { GEAR, icon, HAND_OPEN, HEART } from './icons';
 
 // Labels that float over the 3D world and always face the player.
 // - Signs (Shop, Kindred Font, nests) fade in when zoomed in.
@@ -43,6 +44,7 @@ export interface LabelActions {
   openShop(): void;
   openBasket(): void;
   openCreatureMenu(id: string): void;
+  pet(id: string): void;
   openIsland(id: IslandId): void;
 }
 
@@ -52,6 +54,8 @@ export class WorldLabels {
   private bubble: HTMLElement;
   private bubbleName = h('div', { class: 'wl-bubble-name' });
   private bubbleLine = h('div', { class: 'wl-bubble-line' });
+  private bubbleHearts = h('div', { class: 'wl-bubble-hearts' });
+  private lastHearts = -1;
   private bubbleFor: string | null = null;
   private lastName = '';
   private lastLine = '';
@@ -59,7 +63,11 @@ export class WorldLabels {
   constructor(private game: Game, mount: HTMLElement, private act: LabelActions) {
     mount.prepend(this.host);
     this.bubble = h('div', { class: 'wl wl-bubble hidden' },
-      h('div', { class: 'wl-bubble-text' }, this.bubbleName, this.bubbleLine),
+      h('div', { class: 'wl-bubble-text' }, this.bubbleName, this.bubbleHearts, this.bubbleLine),
+      h('button', {
+        class: 'wl-cog wl-pet', 'aria-label': 'Pet it',
+        onClick: (e: MouseEvent) => { e.stopPropagation(); if (this.bubbleFor) this.act.pet(this.bubbleFor); },
+      }, icon(HAND_OPEN)),
       h('button', {
         class: 'wl-cog', 'aria-label': 'Creature options',
         onClick: (e: MouseEvent) => { e.stopPropagation(); if (this.bubbleFor) this.act.openCreatureMenu(this.bubbleFor); },
@@ -138,6 +146,7 @@ export class WorldLabels {
     this.bubbleFor = id;
     this.lastName = '';
     this.lastLine = '';
+    this.lastHearts = -1;
     this.bubble.classList.toggle('hidden', !id);
   }
 
@@ -181,7 +190,10 @@ export class WorldLabels {
       }
       const sp = w.toScreen(head.x, head.y, head.z);
       this.bubble.style.opacity = sp.visible && w.facesCamera(head, c.island) ? '1' : '0';
-      this.bubble.style.transform = `translate(-50%, -100%) translate(${sp.x.toFixed(1)}px, ${sp.y.toFixed(1)}px)`;
+      // keep the whole bubble on screen, even for a creature near the edge
+      const half = this.bubble.offsetWidth / 2;
+      const bx = Math.min(Math.max(sp.x, half + 8), window.innerWidth - half - 8);
+      this.bubble.style.transform = `translate(-50%, -100%) translate(${bx.toFixed(1)}px, ${sp.y.toFixed(1)}px)`;
       const name = displayName(c);
       const line = w.creatureActivity(c.id);
       const r = species(c.species).rarity;
@@ -193,6 +205,11 @@ export class WorldLabels {
         this.bubbleName.replaceChildren(document.createTextNode(name + ' '), rarityTag(r), odd ? h('span', { class: 'rarity r-outlier' }, odd) : '', h('span', { class: 'quirk-icons' }, icons));
       }
       if (line !== this.lastLine) setText(this.bubbleLine, (this.lastLine = line));
+      const n = hearts(c);
+      if (n !== this.lastHearts) {
+        this.lastHearts = n;
+        this.bubbleHearts.replaceChildren(...[0, 1, 2, 3, 4].map((i) => h('span', { class: `hr ${i < n ? 'on' : ''}` }, icon(HEART))));
+      }
     }
   }
 }

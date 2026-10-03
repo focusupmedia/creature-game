@@ -2,6 +2,7 @@ import { species } from '../content/species';
 import { DIG_KINDS, EVENTS, ITEMS, LEGENDARY, LURES, MUTATIONS, SPOTS } from '../content/world';
 import { claimBlessing, startLegendary } from '../core/legendary';
 import { addXp, grantMissingLevelCreatures } from '../core/levels';
+import { petCreature, playWith } from '../core/friendship';
 import { claimDaily, claimLasting, questEvent, refreshDailies } from '../core/quests';
 import { awayFinds, buyStorageSlot, findVisitor, keepVisitor, releaseCreature, sendAwayVisitor, feastIsland, feedCreature, hangFeedbag, harvestTree, nextHungryAt, retrieveCreature, sellCreature, storeCreature } from '../core/care';
 import { islandCapacity } from '../core/sim';
@@ -738,6 +739,18 @@ export class Game {
     this.ui.rerender();
     this.saveSoon();
     return true;
+  }
+
+  /** Pet or play with a creature to grow your friendship. */
+  befriend(id: string, how: 'pet' | 'play'): void {
+    const r = how === 'pet' ? petCreature(this.state, id, this.now()) : playWith(this.state, id, this.now());
+    if (!r.ok) return this.ui.toast(r.error);
+    this.audio.play(r.newHeart ? 'chime' : 'tap');
+    this.world.cheer(id, how === 'play' || r.newHeart);
+    this.ui.toast(r.message, r.newHeart ? 'discovery' : 'info', undefined, r.newHeart ? 4000 : 1800);
+    this.analytics.track('befriend', { how, hearts: r.hearts });
+    this.ui.rerender();
+    this.saveSoon();
   }
 
   feed(id: string): void {

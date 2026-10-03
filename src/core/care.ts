@@ -7,6 +7,7 @@ import { FOODS, MUTATIONS } from '../content/world';
 import { ISLAND_ORDER } from '../content/islands';
 import { TUNING } from '../content/tuning';
 import { displayName, isOutlier } from './creatures';
+import { addBond, hearts } from './friendship';
 import { StateRng } from './rng';
 import type { Creature, GameEvent, GameState, IslandId, Rarity, Trait } from './types';
 
@@ -58,7 +59,9 @@ export function feedCreature(state: GameState, id: string): Result {
   if (!food) return fail('Your pantry is empty. Pick berries from a Berry Tree or buy snacks from Mango.');
   state.food[food] -= 1;
   c.fullness = Math.min(1, c.fullness + FOODS[food].amount);
-  return { ok: true, message: `${displayName(c)} munched a ${FOODS[food].name}. Yum!` };
+  // feeding by hand makes friends
+  const r = addBond(c, 2);
+  return { ok: true, message: `${displayName(c)} munched a ${FOODS[food].name}. Yum!${r.newHeart ? ` Friendship grew to ${hearts(c)} hearts!` : ''}` };
 }
 
 /** A Feast Basket feeds everyone on an island. */

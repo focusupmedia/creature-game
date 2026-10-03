@@ -246,3 +246,24 @@ describe('color shades', () => {
     expect(same / 2000).toBeGreaterThan(0.45);
   });
 });
+
+describe('friendship', () => {
+  it('petting, playing and feeding fill hearts, with cooldowns; best friends dig better', async () => {
+    const { petCreature, playWith, hearts, findBonus } = await import('../src/core/friendship');
+    const { feedCreature } = await import('../src/core/care');
+    const s = createGame(41, 0);
+    const c = s.creatures[0];
+    expect(hearts(c)).toBe(0);
+    let t = 0;
+    expect(petCreature(s, c.id, t).ok).toBe(true);
+    expect(petCreature(s, c.id, t + 60_000).ok).toBe(false);
+    for (let i = 0; i < 40; i++) { t += 2 * HOUR; petCreature(s, c.id, t); playWith(s, c.id, t); }
+    expect(hearts(c)).toBe(5);
+    expect(findBonus(c)).toBeGreaterThan(1);
+    const other = s.creatures[1];
+    other.fullness = 0.2;
+    s.food.snack = 1;
+    feedCreature(s, other.id);
+    expect(other.bond).toBe(2);
+  });
+});

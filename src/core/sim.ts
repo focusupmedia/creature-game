@@ -16,6 +16,7 @@ import { stepLegendary } from './legendary';
 import { hasQuirk, temperOf } from './quirks';
 import { stepCare } from './care';
 import { stepWanderer } from './wanderers';
+import { findBonus } from './friendship';
 import { freeNest } from './state';
 import type { DigKind, EventKind, GameEvent, GameState, Gift, IslandId } from './types';
 import { activeEvent, isDark } from './world';
@@ -171,9 +172,10 @@ function step(state: GameState, t: number, dt: number, out: GameEvent[], live = 
       const p = randomLand(g, () => rng.next());
       const [g0, g1] = TUNING.giftGlimmer;
       const curious = hasQuirk(from, 'curious') ? 2 : 1;
+      const friend = findBonus(from);
       const lucky = hasQuirk(from, 'lucky') ? 2 : 1;
       const gift: Gift = {
-        id: newId(state, 'g'), x: p.x, z: p.z, glimmer: rng.int(g0, g1),
+        id: newId(state, 'g'), x: p.x, z: p.z, glimmer: Math.round(rng.int(g0, g1) * friend),
         shards: rng.chance(TUNING.giftShardChance * curious * lucky) ? 1 : 0, from: from.id, island: from.island,
       };
       if (lucky > 1) gift.glimmer = Math.round(gift.glimmer * 1.5);

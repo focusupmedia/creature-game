@@ -17,6 +17,7 @@ import * as I from './icons';
 import { WorldLabels } from './Labels';
 import { QUIRKS } from '../content/quirks';
 import { SHADES, type ShadeId } from '../content/shades';
+import { PET_COOLDOWN_MIN, PLAY_COOLDOWN_MIN, hearts } from '../core/friendship';
 import { DECOR_CATS, DECOR_LIST } from '../content/decor';
 import { WANDERERS } from '../content/wanderers';
 import { deleteQuirk, wipeQuirks } from '../core/quirks';
@@ -149,6 +150,7 @@ export class UI {
       openShop: () => this.showShop(),
       openBasket: () => this.showBasket(),
       openCreatureMenu: (id) => this.showCreature(id),
+      pet: (id) => game.befriend(id, 'pet'),
       openIsland: (id) => (game.state.islands[id]?.owned ? game.travel(id) : this.showIslands(id)),
     });
   }
@@ -411,6 +413,7 @@ export class UI {
       b.append(head);
       const t = this.game.now();
       const grown = growth(c, t);
+      b.append(this.friendBlock(c));
       b.append(this.metBlock(c));
       const tools = this.game.state.tools;
       const g = this.game;
@@ -541,6 +544,28 @@ export class UI {
   }
 
   // ---- storage and the Collector
+
+  /** Friendship: five hearts, with Pet and Play buttons. */
+  private friendBlock(c: Creature): HTMLElement {
+    const g = this.game;
+    const n = hearts(c);
+    const t = g.now();
+    const petWait = c.pettedAt !== undefined ? Math.max(0, PET_COOLDOWN_MIN * 60_000 - (t - c.pettedAt)) : 0;
+    const playWait = c.playedAt !== undefined ? Math.max(0, PLAY_COOLDOWN_MIN * 60_000 - (t - c.playedAt)) : 0;
+    return h('div', { class: 'friend' },
+      h('div', { class: 'friend-top' }, h('span', { class: 'k' }, n >= 5 ? 'Best friends!' : 'Friendship'), this.heartsRow(c)),
+      h('div', { class: 'muted' }, n >= 5 ? 'Follows you around and brings back better finds.'
+        : n >= 4 ? 'Close friends bring back better finds. One more heart to best friends!'
+          : 'Pet, play with and feed it to fill the hearts. Best friends follow you around.'),
+      h('div', { class: 'btns', style: 'margin-top:6px' },
+        h('button', { class: 'btn small', disabled: petWait > 0, onClick: () => g.befriend(c.id, 'pet') }, petWait > 0 ? `✋ Pet (${fmtDuration(petWait)})` : '✋ Pet'),
+        h('button', { class: 'btn small', disabled: playWait > 0, onClick: () => g.befriend(c.id, 'play') }, playWait > 0 ? `🎾 Play (${fmtDuration(playWait)})` : '🎾 Play')));
+  }
+
+  heartsRow(c: Creature): HTMLElement {
+    const n = hearts(c);
+    return h('span', { class: 'hearts-row' }, ...[0, 1, 2, 3, 4].map((i) => h('span', { class: `hr ${i < n ? 'on' : ''}` }, I.icon(I.HEART))));
+  }
 
   /** The pet's color shade: a little swatch chip (Pastel and Shiny stand out). */
   private shadeChip(c: Creature): HTMLElement {

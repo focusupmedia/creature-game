@@ -13,6 +13,7 @@ import { addNote, recordMutation, recordResonance, recordSpecies } from './journ
 import { StateRng } from './rng';
 import { hasQuirk } from './quirks';
 import { levelOf } from './levels';
+import { addBond, findBonus } from './friendship';
 import { refreshShop } from './shop';
 import { freeNest } from './state';
 import type { Creature, Egg, EventKind, GameState, Gift, IslandId, MutationId, SpeciesId, SpotId } from './types';
@@ -198,7 +199,7 @@ export function workDigSpot(state: GameState, spotId: string, creatureId: string
   if (species(c.species).movement === 'swim' && d.kind !== 'puddle') return fail(`${displayName(c)} can't do that on dry land.`);
   const rng = new StateRng(state);
   const gift: Gift = {
-    id: newId(state, 'g'), x: d.x, z: d.z, glimmer: rng.int(kind.glimmer[0], kind.glimmer[1]),
+    id: newId(state, 'g'), x: d.x, z: d.z, glimmer: Math.round(rng.int(kind.glimmer[0], kind.glimmer[1]) * findBonus(c)),
     shards: rng.chance(kind.shardChance * (hasQuirk(c, 'lucky') ? 2 : 1)) ? 1 : 0, from: c.id, island: d.island, via: d.kind,
   };
   if (hasQuirk(c, 'lucky')) gift.glimmer = Math.round(gift.glimmer * 1.5);
@@ -206,6 +207,7 @@ export function workDigSpot(state: GameState, spotId: string, creatureId: string
   else if (rng.chance(kind.eggChance) && state.eggs.filter((e) => e.nest === null).length < TUNING.basketSize) gift.item = 'egg';
   state.digSpots = state.digSpots.filter((x) => x !== d);
   state.gifts.push(gift);
+  addBond(c, 2);
   return { ok: true, gift };
 }
 

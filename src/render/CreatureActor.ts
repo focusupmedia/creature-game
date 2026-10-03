@@ -25,6 +25,8 @@ export interface ActorContext {
   gifts: { id: string; x: number; z: number }[];
   /** A creature picked up a gift for the player. */
   collect: (giftId: string, by: CreatureActor) => void;
+  /** The patch of globe the keeper is looking at (best friends wander over to it). */
+  focus: { x: number; z: number } | null;
 }
 
 export type FxKind = 'dirt' | 'dust' | 'splash' | 'leaf';
@@ -730,7 +732,28 @@ export class CreatureActor {
       } else if (this.q('lucky') && Math.random() < 0.15) this.emote('🍀', 1.5);
       return;
     }
+    // best friends come and hang out wherever you're looking
+    if ((this.creature.bond ?? 0) >= 100 && ctx.focus && !this.isSwimmer && Math.random() < 0.55) {
+      const a = Math.random() * Math.PI * 2;
+      const r = 0.8 + Math.random() * 1.4;
+      const tx = ctx.focus.x + Math.cos(a) * r;
+      const tz = ctx.focus.z + Math.sin(a) * r;
+      if (!isBlocked(this.geo, tx, tz) && !inWater(this.geo, tx, tz, 0.3)) {
+        this.target.set(tx, 0, tz);
+        this.state = 'wander';
+        this.timer = 0;
+        if (Math.random() < 0.3) this.emote('💕', 1.4);
+        return;
+      }
+    }
     this.pickWander();
+  }
+
+  /** You petted or played with it: a happy hop and hearts. */
+  cheer(big = false): void {
+    this.state = 'celebrate';
+    this.timer = big ? 2.2 : 1.2;
+    this.emote(big ? '💞' : '💕', big ? 2.5 : 1.6);
   }
 
   private pickWander(): void {

@@ -74,6 +74,9 @@ export class World {
   private ghost: THREE.Group | null = null;
   private lureCtx: ActorContext['lures'] = [];
   private skyKind: EventKind | null = null;
+  /** Where on the current globe the camera is looking (refreshed a few times a second). */
+  private focusPoint: { x: number; z: number } | null = null;
+  private focusTimer = 0;
   private state: GameState | null = null;
   /** Decoration being placed: where, which way it faces, and how much room it needs. */
   private placing: { decorId: string; x: number; z: number; rot: number; footprint: number } | null = null;
@@ -738,6 +741,10 @@ export class World {
     this.rig.lookAtDir(n, distance === undefined ? this.rig.distance : this.rig.radius + distance * 0.85);
   }
 
+  cheer(id: string, big = false): void {
+    this.actors.get(id)?.cheer(big);
+  }
+
   emote(id: string, text: string): void {
     this.actors.get(id)?.emote(text, 2);
   }
@@ -1112,6 +1119,13 @@ export class World {
       return;
     }
     this.rig.update(dt);
+    this.focusTimer -= dt;
+    if (this.focusTimer <= 0) {
+      this.focusTimer = 0.5;
+      const r = this.renderer.domElement.getBoundingClientRect();
+      const p = this.pointerGround(r.left + r.width / 2, r.top + r.height * 0.55);
+      this.focusPoint = p ? { x: p.x, z: p.z } : null;
+    }
     const darkness = this.sky.darkness;
     const visible = [...this.actors.values()].filter((a) => a.root.visible);
     const gifts: ActorContext['gifts'] = [];
@@ -1120,7 +1134,7 @@ export class World {
     }
     const ctx: ActorContext = {
       darkness, sky: this.skyKind, lures: this.lureCtx, actors: visible, now: this.nowMs, fx: this.fx,
-      gifts, collect: (id, by) => this.onCreatureCollect(id, by.id),
+      gifts, collect: (id, by) => this.onCreatureCollect(id, by.id), focus: this.focusPoint,
     };
     // Only the island you're on is simulated visually; others are "unloaded".
     for (const a of visible) a.update(dt, this.time, ctx);

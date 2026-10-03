@@ -566,3 +566,15 @@ input.rename { font-family: var(--display); font-size: 22px; border: var(--outli
 .shade-chip.s-dusky { background: #c8c0d8; } .shade-chip.s-ocean { background: #bfe0ff; }
 .shade-chip.s-pastel { background: linear-gradient(90deg, #ffd8ec, #d8ecff, #e8ffd8); }
 .shade-chip.s-shiny { background: linear-gradient(90deg, #fff3a0, #ffd21a, #fff3a0); box-shadow: 0 0 8px #ffd21a; }
+
+/* friendship */
+.friend { background: #fff0f7; border: 3px solid #ffc2df; border-radius: 16px; padding: 10px 12px; margin: 10px 0; }
+.friend-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.friend .k { font-family: var(--display); font-size: 13px; color: #e0559a; letter-spacing: .04em; text-transform: uppercase; }
+.hearts-row { display: inline-flex; gap: 2px; }
+.hr { color: #ffffff; display: inline-grid; }
+.hr.on { color: #ff4a8b; }
+.hearts-row .hr .icon { width: 22px; height: 22px; }
+.wl-bubble-hearts { display: flex; gap: 1px; margin: 1px 0; }
+.wl-bubble-hearts .hr .icon { width: 13px; height: 13px; }
+.wl-pet { background: linear-gradient(180deg, #ffd0e6, #ff9fcf) !important; }

@@ -187,6 +187,10 @@ export interface Creature {
   seed: number;
   /** Color shade rolled at birth (see content/shades.ts). Older pets: classic. */
   shade?: string;
+  /** Friendship points 0-100 (hearts at 10/25/45/70/100), and when you last petted or played. */
+  bond?: number;
+  pettedAt?: number;
+  playedAt?: number;
   nickname?: string;
   history: HistoryEntry[];
   /** Arrived but still walking in / eating at a lure. Purely presentational. */
