@@ -201,3 +201,8 @@ export const GESTURE_PINCH = svg(`${tip(22, 42)}${tip(42, 22)}${arrow('M14 50l-8
 export const GESTURE_TWIST = svg(`<circle cx="32" cy="32" r="19" fill="none" stroke="#9ab0c8" stroke-width="3" stroke-dasharray="4 5"/>${tip(19, 19)}${tip(45, 45)}${arrow('M44 8a26 26 0 0 1 14 14M52 22h6v-6')}${arrow('M20 56A26 26 0 0 1 6 42M12 42H6v6')}`);
 export const GESTURE_HOLD = svg(`<circle cx="31" cy="12" r="10" fill="none" stroke="#ff9fcf" stroke-width="4"/><circle cx="31" cy="12" r="5" fill="#ff5f9a"/><g transform="translate(0 6)">${pointer()}</g>`);
 export const GESTURE_TAP = svg(`<g transform="translate(0 7)">${pointer()}</g>${arrow('M31 3v3M19 8l2 2M43 8l-2 2', '#ffd21a')}`);
+
+/** Favorite toggle: a heart that fills in (its fill is `currentColor`, set by CSS). */
+export const HEART = svg(`
+  <path d="M32 54C14 41 7 31 7 21a12 12 0 0 1 25-6 12 12 0 0 1 25 6c0 10-7 20-25 33z" fill="currentColor" stroke="${INK}" stroke-width="4.5" stroke-linejoin="round"/>
+  <path d="M15 20a6 6 0 0 1 6-5" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" opacity=".75"/>`);

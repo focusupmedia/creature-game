@@ -147,7 +147,7 @@ export function buyStorageSlot(state: GameState): Result {
 const BASE: Record<Rarity, number> = { common: 15, uncommon: 35, rare: 100, legendary: 350, mythical: 900 };
 
 export function canSell(state: GameState, c: Creature): string | null {
-  if (c.favorite) return 'Favourites can\'t be sold. Unmark it first.';
+  if (c.favorite) return 'Favorites can\'t be sold. Unmark it first.';
   if (species(c.species).origin === 'reward') return 'Level gifts can\'t be sold.';
   if (state.creatures.filter((x) => !x.stored && x.id !== c.id).length < 2) return 'Keep at least two creatures.';
   return null;
@@ -269,7 +269,7 @@ export function sendAwayVisitor(state: GameState, id: string): Result {
 export function releaseCreature(state: GameState, id: string): Result {
   const c = state.creatures.find((x) => x.id === id);
   if (!c) return fail('Who?');
-  if (c.favorite) return fail('Favourites can\'t be released. Unmark it first.');
+  if (c.favorite) return fail('Favorites can\'t be released. Unmark it first.');
   if (state.creatures.filter((x) => !x.stored && x.id !== id).length < 2) return fail('Keep at least two creatures.');
   state.creatures = state.creatures.filter((x) => x !== c);
   return { ok: true, message: `${displayName(c)} wandered off into the wild.` };

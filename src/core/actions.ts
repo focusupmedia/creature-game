@@ -374,6 +374,25 @@ export function consumeAd(state: GameState, t: number): void {
   state.ads.count += 1;
 }
 
+/** Free coins for a rewarded ad: a few a day, worth more as you level up. */
+export function coinAdsLeft(state: GameState, t: number): number {
+  if (state.ads.day !== today(t)) return TUNING.coinAdsPerDay;
+  return Math.max(0, TUNING.coinAdsPerDay - (state.ads.coins ?? 0));
+}
+
+export function coinAdReward(state: GameState): number {
+  return Math.round((TUNING.coinAdBase + TUNING.coinAdPerLevel * levelOf(state.xp)) / 5) * 5;
+}
+
+export function claimCoinAd(state: GameState, t: number): Result<{ coins: number }> {
+  if (coinAdsLeft(state, t) <= 0) return fail('No more free coins today. Come back tomorrow!');
+  if (state.ads.day !== today(t)) state.ads = { day: today(t), count: 0 };
+  state.ads.coins = (state.ads.coins ?? 0) + 1;
+  const coins = coinAdReward(state);
+  state.glimmer += coins;
+  return { ok: true, coins };
+}
+
 export function adHatch(state: GameState, eggId: string, t: number): Result {
   const egg = state.eggs.find((e) => e.id === eggId);
   if (!egg || !canAdHatch(state, egg, t)) return fail('Not available.');

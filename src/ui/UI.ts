@@ -57,6 +57,7 @@ export class UI {
     h('span', { class: 'emoji' }, '📜'), h('span', { class: 'lbl' }, 'QUESTS'), this.questBadge);
   private questTab: 'daily' | 'lasting' = 'daily';
   private petsTab: 'wandering' | 'storage' = 'wandering';
+  private heartPop: { id: string; at: number } | null = null;
   private petsSort: PetsSort = 'newest';
   private collectorTile = h('button', { class: 'hud-tile collector hidden', 'aria-label': 'The Collector is visiting', onClick: () => { this.game.audio.play('tap'); this.showCollector(); } },
     h('span', { class: 'emoji' }, '🎩'), h('span', { class: 'lbl' }, 'BUYER'));
@@ -395,7 +396,7 @@ export class UI {
             h('span', { class: 'muted' }, isHungry(c) ? 'Hungry! It won\'t dig or breed until it eats.' : c.fullness >= 0.7 ? 'Well fed and happy' : 'Peckish')),
           h('button', { class: 'btn small', onClick: () => g.feed(c.id) }, `Feed (${(g.state.food.fruit ?? 0) + (g.state.food.snack ?? 0)})`)),
         h('div', { class: 'btns', style: 'margin-top:8px' },
-          h('button', { class: `btn small ${c.favorite ? '' : 'secondary'}`, onClick: () => { c.favorite = !c.favorite; g.saveSoon(); this.rerender(); } }, c.favorite ? '❤️ Favourite' : '🤍 Favourite'),
+          this.heartToggle(c),
           h('button', { class: 'btn small secondary', onClick: () => g.store(c.id) }, '📦 Store'),
           h('button', { class: 'btn small secondary', disabled: !!noSell, title: noSell ?? '', onClick: () => this.confirmSell(c) }, rich(here ? `🎩 Sell · {coin} ${price}` : `Sell · {coin} ${price}`))),
         noSell ? h('div', { class: 'muted' }, noSell) : null));
@@ -512,12 +513,27 @@ export class UI {
 
   // ---- storage and the Collector
 
+  /** Favorite: a heart that fills in when you tap it. Favorites can't be sold or released by mistake. */
+  private heartToggle(c: Creature): HTMLButtonElement {
+    const pop = this.heartPop?.id === c.id && performance.now() - this.heartPop.at < 400;
+    const btn = h('button', { class: `fav-heart ${c.favorite ? 'on' : ''} ${pop ? 'pop' : ''}`, 'aria-label': c.favorite ? 'Unfavorite' : 'Favorite', 'aria-pressed': String(!!c.favorite),
+      onClick: (e: Event) => {
+        e.stopPropagation();
+        c.favorite = !c.favorite;
+        this.heartPop = { id: c.id, at: performance.now() };
+        this.game.audio.play(c.favorite ? 'chime' : 'tap');
+        this.game.saveSoon();
+        this.rerender();
+      } }, I.icon(I.HEART));
+    return btn;
+  }
+
   /** Old name for the Storage tab of the Pets list. */
   showStorage(): void {
     this.showPets('storage');
   }
 
-  /** Every creature you have: out on your worlds, or resting in storage. Sortable, with favourites. */
+  /** Every creature you have: out on your worlds, or resting in storage. Sortable, with favorites. */
   showPets(tab?: 'wandering' | 'storage'): void {
     const g = this.game;
     const s = g.state;
@@ -530,7 +546,7 @@ export class UI {
       { id: 'size', label: 'Size', cmp: (a, b) => b.size - a.size },
       { id: 'hunger', label: 'Hungriest', cmp: (a, b) => a.fullness - b.fullness },
     ];
-    this.openSheet('Pets', 'Everyone you keep. Favourites (♥) can\'t be sold or released by mistake.', (b) => {
+    this.openSheet('Pets', 'Everyone you keep. Tap ♥ to make one a Favorite: favorites can\'t be sold or released by mistake.', (b) => {
       const out = s.creatures.filter((c) => !c.stored);
       const stored = s.creatures.filter((c) => c.stored);
       const tabBtn = (id: typeof this.petsTab, label: string) =>
@@ -538,10 +554,9 @@ export class UI {
       const sort = SORTS.find((x) => x.id === this.petsSort) ?? SORTS[0];
       b.append(h('div', { class: 'tabs pets-tabs' },
         tabBtn('wandering', `Wandering (${out.length})`), tabBtn('storage', `Storage (${stored.length}/${s.storageSlots})`)),
-        h('div', { class: 'sort-row' }, h('span', { class: 'muted' }, 'Favourites first, then'),
+        h('div', { class: 'sort-row' }, h('span', { class: 'muted' }, 'Favorites first, then'),
           h('button', { class: 'sort-btn', onClick: () => { this.petsSort = SORTS[(SORTS.indexOf(sort) + 1) % SORTS.length].id; this.rerender(); } }, `Sort: ${sort.label} ▾`)));
-      const heart = (c: Creature) => h('button', { class: `fav-btn ${c.favorite ? 'on' : ''}`, 'aria-label': c.favorite ? 'Unfavourite' : 'Favourite',
-        onClick: (e: Event) => { e.stopPropagation(); c.favorite = !c.favorite; g.saveSoon(); this.rerender(); } }, c.favorite ? '♥' : '♡');
+      const heart = (c: Creature) => this.heartToggle(c);
       const list = h('div', { class: 'list pets' });
       const favFirst = (a: Creature, b2: Creature) => Number(!!b2.favorite) - Number(!!a.favorite) || sort.cmp(a, b2);
       if (this.petsTab === 'wandering') {
@@ -553,6 +568,8 @@ export class UI {
               h('div', { class: 'desc row', style: 'gap:6px;flex-wrap:wrap' }, rarityTag(species(c.species).rarity), h('span', { class: 'muted' }, `${isl.icon} ${isl.name}`)),
               h('div', { class: `progress tiny ${isHungry(c) ? 'hungry' : ''}` }, h('i', { style: `width:${Math.round(c.fullness * 100)}%` }))),
             heart(c),
+            h('button', { class: `btn small ${isHungry(c) ? '' : 'secondary'}`, disabled: c.fullness > 0.97, 'aria-label': `Feed ${displayName(c)}`,
+              onClick: (e: Event) => { e.stopPropagation(); g.feed(c.id); } }, '🍓 Feed'),
             h('button', { class: 'btn small secondary', onClick: (e: Event) => { e.stopPropagation(); g.store(c.id, true); } }, 'Store')));
         }
       } else {
@@ -1036,6 +1053,12 @@ export class UI {
         const iap = h('div', { class: 'list' });
         for (const cur of ['shards', 'coins'] as const) {
           iap.append(h('div', { class: 'section-title' }, cur === 'shards' ? 'Starshards' : 'Coins'));
+          if (cur === 'coins') {
+            const left = A.coinAdsLeft(s, t);
+            iap.append(h('div', { class: 'item free-coins' }, h('div', { class: 'swatch' }, I.icon(I.COIN)),
+              h('div', { class: 'grow' }, h('div', { class: 'name' }, rich(`Free {coin} ${A.coinAdReward(s)}`)), h('div', { class: 'desc' }, left ? `Watch a short ad. ${left} left today.` : 'All used up. More tomorrow!')),
+              h('button', { class: 'btn small ad', disabled: !left, onClick: () => this.game.adCoins() }, '▶ Watch')));
+          }
           for (const p of this.game.purchases.products().filter((x) => x.currency === cur)) {
             iap.append(h('div', { class: 'item' }, h('div', { class: 'swatch' }, I.icon(cur === 'shards' ? I.GEM : I.COIN)),
               h('div', { class: 'grow' }, h('div', { class: 'name' }, `${p.amount.toLocaleString()} ${cur === 'shards' ? 'Starshards' : 'coins'}`), p.tag ? h('div', { class: 'desc' }, p.tag) : null),
@@ -1548,7 +1571,7 @@ export class UI {
 
   // ------------------------------------------------------------------ widget
 
-  /** Small pinned panel: next egg timer and a favourite creature at a glance. */
+  /** Small pinned panel: next egg timer and a favorite creature at a glance. */
   private updateWidget(): void {
     const s = this.game.state;
     const nestEggs = s.eggs.filter((e) => e.nest !== null).sort((a, b) => A.remainingMs(a) - A.remainingMs(b));

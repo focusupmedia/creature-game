@@ -247,7 +247,11 @@ export class Sky {
     arr[i * 6 + 3] = x + 0.08; arr[i * 6 + 4] = y - 0.7; arr[i * 6 + 5] = z;
   }
 
+  /** Weather and the sky dome travel with the globe you're looking at. */
+  readonly center = new THREE.Vector3();
+
   update(phase: number, event: EventKind | null, dt: number, time: number): void {
+    this.group.position.set(this.center.x, 0, this.center.z);
     // ease event visuals in and out
     for (const k of Object.keys(this.mix) as EventKind[]) {
       this.mix[k] += ((event === k ? 1 : 0) - this.mix[k]) * Math.min(1, dt * 0.6);
@@ -291,8 +295,8 @@ export class Sky {
     const day = phase > 0.22 && phase < 0.78;
     const a = day ? ((phase - 0.22) / 0.56) * Math.PI : ((phase + (phase < 0.5 ? 1 : 0) - 0.78) / 0.44) * Math.PI;
     const dir = new THREE.Vector3(Math.cos(a) * 14, Math.max(4, Math.sin(a) * 18), 6);
-    this.sun.position.copy(dir);
-    this.sun.target.position.set(0, 0, 0);
+    this.sun.position.copy(dir).add(this.group.position);
+    this.sun.target.position.copy(this.group.position);
     this.sunDisc.position.copy(dir.clone().normalize().multiplyScalar(90));
     (this.sunDisc.material as THREE.SpriteMaterial).color.set(day ? '#fff2c4' : '#dfe6ff');
     (this.sunDisc.material as THREE.SpriteMaterial).opacity = 0.9 * (1 - Math.max(mx.storm, mx.blizzard) * 0.9);
@@ -397,7 +401,7 @@ export class Sky {
     }
     this.fx = this.fx.filter((f) => {
       if (f.life > 0) return true;
-      this.group.remove(f.obj);
+      f.obj.removeFromParent();
       f.obj.traverse((o) => {
         if (o instanceof THREE.Mesh || o instanceof THREE.Line) o.geometry.dispose();
       });
@@ -405,8 +409,9 @@ export class Sky {
     });
   }
 
-  private add(obj: THREE.Object3D, life: number, update?: Fx['update']): void {
-    this.group.add(obj);
+  /** Effects aimed at a point in the world go in the scene; sky-only ones (shooting stars) travel with the sky. */
+  private add(obj: THREE.Object3D, life: number, update?: Fx['update'], skyLocal = false): void {
+    (skyLocal ? this.group : this.scene).add(obj);
     this.fx.push({ obj, life, max: life, update });
   }
 
@@ -419,7 +424,7 @@ export class Sky {
     this.add(line, 0.7, (k) => {
       line.position.copy(dir).multiplyScalar(k * 22);
       mat.opacity = 1 - k;
-    });
+    }, true);
   }
 
   /** Sparkfall: a jagged bolt from the clouds to a point. */

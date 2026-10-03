@@ -112,7 +112,12 @@ export const TUNING = {
 
   /** Rewarded ads: optional, capped, never interrupting. */
   adHatchMaxRemainingMin: 15,
-  adsPerDay: 6,
+  adsPerDay: 12,
+  /** Free coins for watching an ad (coins tab of the shop): this many a day... */
+  coinAdsPerDay: 5,
+  /** ...each worth this much, plus a bit per keeper level. */
+  coinAdBase: 60,
+  coinAdPerLevel: 15,
   /** Premium skip price: shards per minute of incubation left (a 30-minute egg costs 15). */
   skipShardsPerMin: 0.5,
 

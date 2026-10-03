@@ -194,7 +194,7 @@ export interface Creature {
   quirks: QuirkId[];
   /** 1 = full, 0 = starving. Empties over about 10 hours. */
   fullness: number;
-  /** Favourites can't be sold. */
+  /** Favorites can't be sold. */
   favorite?: boolean;
   /** How you met (shown on its card). Missing on creatures from older saves. */
   met?: CreatureOrigin;
@@ -383,7 +383,8 @@ export interface GameState {
   /** An event summoned by the player (rewarded ad). Takes precedence over the schedule. */
   summoned?: { kind: EventKind; start: number; end: number } | null;
   tutorial: number;
-  ads: { day: string; count: number };
+  /** Rewarded ads watched today: `count` for events, hatching and shop refreshes; `coins` for free coins. */
+  ads: { day: string; count: number; coins?: number };
   stats: { combines: number; hatches: number; arrivals: number; lures: number };
   nextId: number;
   /** Creature shown in the on-screen widget. */

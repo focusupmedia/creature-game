@@ -201,6 +201,7 @@ export class Game {
     const sky = activeEvent(this.state, t)?.kind ?? null;
     const phase = dayPhase(this.state, t);
     this.world.sync(this.state, t, sky);
+    this.world.sky.center.copy(this.world.rig.center);
     this.world.sky.update(phase, sky, dt, performance.now() / 1000);
     const legend = this.state.legendary && t < this.state.legendary.end ? this.state.legendary.kind : null;
     this.audio.ambience(dt, this.world.sky.darkness, sky, legend);
@@ -606,6 +607,20 @@ export class Game {
     this.saveSoon();
   }
 
+  /** Watch an ad for free coins (shop coins tab). */
+  async adCoins(): Promise<void> {
+    if (A.coinAdsLeft(this.state, this.now()) <= 0) return;
+    const ok = await this.ads.showRewarded('free_coins');
+    if (!ok) return;
+    const r = A.claimCoinAd(this.state, this.now());
+    if (!r.ok) return this.ui.toast(r.error);
+    this.audio.play('coin');
+    this.ui.toast(`{coin} +${r.coins} free coins. Thanks for watching!`, 'discovery');
+    this.analytics.track('ad_rewarded', { placement: 'free_coins', coins: r.coins });
+    this.ui.rerender();
+    this.saveSoon();
+  }
+
   buy(offerId: string): void {
     const offer = this.state.shop.offers.find((o) => o.id === offerId);
     const r = A.buyOffer(this.state, offerId, this.now());
@@ -673,7 +688,7 @@ export class Game {
     if (this.careResult(sendAwayVisitor(this.state, id), 'coin')) this.analytics.track('visitor_sent', { species: v?.creature.species ?? '' });
   }
 
-  /** Say goodbye to a creature for good (favourites are protected). */
+  /** Say goodbye to a creature for good (favorites are protected). */
   release(id: string): boolean {
     return this.careResult(releaseCreature(this.state, id));
   }

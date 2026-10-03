@@ -60,7 +60,7 @@ export const ISLANDS: Record<IslandId, IslandDef> = {
   volcano: {
     id: 'volcano', name: 'Ember Peak', icon: '🌋', habitat: 'Ember', status: 'buyable',
     blurb: 'Warm black sand, glowing lava pools and a sleepy volcano. Fire-loving creatures nest here.',
-    ox: -31, oz: -22, baseRadius: 9, price: { coins: 1500, level: 4 }, capacityBonus: 1,
+    ox: -48, oz: -34, baseRadius: 9, price: { coins: 1500, level: 4 }, capacityBonus: 1,
     palette: { top: '#6e5a52', patch: '#5d4a44', lip: '#3a2e2e', under: '#4a3434', rock: '#2f2a35', grass: '#c9a24a' },
     water: [],
     lava: [{ x: 3.2, z: 2.2, r: 1.3 }, { x: -3.6, z: 3.4, r: 0.9 }],
@@ -76,7 +76,7 @@ export const ISLANDS: Record<IslandId, IslandDef> = {
   lagoon: {
     id: 'lagoon', name: 'Coral Lagoon', icon: '🪸', habitat: 'Reef', status: 'buyable',
     blurb: 'A ring of soft sand around a glittering lagoon, full of coral. Water creatures love it here.',
-    ox: 31, oz: -22, baseRadius: 9, price: { coins: 4000, level: 8 }, capacityBonus: 2,
+    ox: 48, oz: -34, baseRadius: 9, price: { coins: 4000, level: 8 }, capacityBonus: 2,
     palette: { top: '#ffe2a0', patch: '#ffd88a', lip: '#e8b46a', under: '#c88e58', rock: '#ff8fa8', grass: '#5fc23f' },
     water: [{ x: 0, z: 0.4, r: 5.2 }],
     obstacles: [{ x: -6.6, z: -3, r: 0.6 }, { x: 6.8, z: -2.4, r: 0.6 }, { x: 0.5, z: -7.2, r: 0.6 }],
@@ -85,7 +85,7 @@ export const ISLANDS: Record<IslandId, IslandDef> = {
   beach: {
     id: 'beach', name: 'Sunny Shore', icon: '🏖️', habitat: 'Shore', status: 'buyable',
     blurb: 'Golden sand, warm tide pools and a lazy sea breeze. Shore birds wade here.',
-    ox: -36, oz: 14, baseRadius: 8.5, price: { coins: 9000, level: 14 }, capacityBonus: 3,
+    ox: -56, oz: 22, baseRadius: 8.5, price: { coins: 9000, level: 14 }, capacityBonus: 3,
     palette: { top: '#ffe6a8', patch: '#ffdc90', lip: '#e8b46a', under: '#c88e58', rock: '#d0b090', grass: '#6fc23f' },
     water: [{ x: -2.4, z: 1.8, r: 1.6 }, { x: 3.0, z: -2.2, r: 1.1 }],
     obstacles: [{ x: 4.6, z: 2.8, r: 0.7 }, { x: -4.8, z: -2.6, r: 0.6 }, { x: -1.5, z: -5.2, r: 0.5 }, { x: 5.2, z: -3.6, r: 0.5 }],
@@ -95,7 +95,7 @@ export const ISLANDS: Record<IslandId, IslandDef> = {
   desert: {
     id: 'desert', name: 'Dune Hollow', icon: '🏜️', habitat: 'Sand', status: 'buyable',
     blurb: 'Windswept dunes, a cool little oasis and tracks you can\'t quite explain.',
-    ox: 36, oz: 14, baseRadius: 8.5, price: { coins: 16000, level: 20 }, capacityBonus: 4,
+    ox: 56, oz: 22, baseRadius: 8.5, price: { coins: 16000, level: 20 }, capacityBonus: 4,
     palette: { top: '#f2c46a', patch: '#e8b45a', lip: '#d08a40', under: '#b06a34', rock: '#c09060', grass: '#9fbf3f' },
     water: [{ x: -1.6, z: -1.8, r: 1.7 }],
     obstacles: [{ x: 3.6, z: -3.2, r: 0.5 }, { x: 4.8, z: 1.6, r: 0.5 }, { x: -4.6, z: 2.4, r: 0.5 }, { x: 1.6, z: 4.4, r: 0.9 }, { x: -3.8, z: -3.4, r: 0.5 }],
