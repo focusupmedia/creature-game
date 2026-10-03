@@ -254,6 +254,14 @@ export function buyIsland(state: GameState, id: IslandId): Result {
   return { ok: true };
 }
 
+/** Worlds you could open right now: high enough level and enough coins. */
+export function buyableWorlds(state: GameState): IslandId[] {
+  return (Object.keys(ISLANDS) as IslandId[]).filter((id) => {
+    const def = ISLANDS[id];
+    return def.status === 'buyable' && !state.islands[id]?.owned && levelOf(state.xp) >= def.price.level && state.glimmer >= def.price.coins;
+  });
+}
+
 export function upgradeIsland(state: GameState, id: IslandId, currency: 'glimmer' | 'shards'): Result {
   const isl = state.islands[id];
   if (!isl?.owned) return fail('You don\'t own this island.');

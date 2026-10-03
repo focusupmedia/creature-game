@@ -65,7 +65,7 @@ export function eventInWindow(state: Pick<GameState, 'seed' | 'createdAt'>, w: n
   const kind = pickKind(hash01(state.seed, w, 2));
   const [dMin, dMax] = EVENTS[kind].durationMin;
   const dur = (dMin + (dMax - dMin) * hash01(state.seed, w, 3)) * MIN;
-  const start = winStart + hash01(state.seed, w, 4) * (winMs - dur - MIN);
+  const start = winStart + hash01(state.seed, w, 4) * Math.min(TUNING.eventJitterMin * MIN, winMs - dur - MIN);
   return { key: String(w), kind, start, end: start + dur };
 }
 

@@ -25,9 +25,11 @@ function eggTexture(sp: SpeciesId, seed: number): THREE.CanvasTexture {
   const def = species(sp);
   const [base, pat] = def.eggColors;
   const c = document.createElement('canvas');
-  c.width = 128;
-  c.height = 128;
+  // drawn at 128 and stored at 256, so cracks drawn on it later (render/Reveal.ts) stay crisp
+  c.width = 256;
+  c.height = 256;
   const g = c.getContext('2d')!;
+  g.scale(2, 2);
   const r = mulberry32(seed);
   g.fillStyle = base;
   g.fillRect(0, 0, 128, 128);

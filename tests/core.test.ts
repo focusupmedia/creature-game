@@ -79,16 +79,19 @@ describe('sky events', () => {
     expect(counts.blizzard).toBeLessThan(counts.eclipse);
   });
 
-  it('sky events come about 1.5x as often as they used to (about 2.6 an hour)', () => {
-    let n = 0;
-    const hours = 20 * 24;
+  it('a new sky arrives 5-20 minutes after the last one ends', () => {
     for (let seed = 1; seed <= 20; seed++) {
       const s = fresh(seed);
-      for (let w = 1; w <= (24 * 60) / TUNING.eventWindowMin; w++) if (eventInWindow(s, w)) n++;
+      let prev = eventInWindow(s, 0)!;
+      for (let w = 1; w <= (24 * 60) / TUNING.eventWindowMin; w++) {
+        const e = eventInWindow(s, w)!;
+        expect(e).toBeTruthy();
+        const gapMin = (e.start - prev.end) / 60_000;
+        expect(gapMin).toBeGreaterThanOrEqual(5);
+        expect(gapMin).toBeLessThanOrEqual(20);
+        prev = e;
+      }
     }
-    const perHour = n / hours;
-    expect(perHour).toBeGreaterThan(2.2);
-    expect(perHour).toBeLessThan(3);
   });
 
   it('a meteor shower drops Starshard rocks you can pick up', () => {
@@ -542,6 +545,26 @@ describe('dig spots', () => {
     expect(s.digSpots.some((d) => d.id === spot.id)).toBe(false);
     expect(s.gifts).toContain(r.gift);
     expect(workDigSpot(s, spot.id, walker.id).ok).toBe(false);
+  });
+});
+
+describe('inheritance', () => {
+  it('most babies hatch plain; only a few carry one parent mutation', () => {
+    const s = createGame(9, 0);
+    const mk = (sp: string, m: string[]) => ({ ...s.creatures[0], id: sp + Math.random(), species: sp, mutations: m as never[] });
+    const a = mk('mossfrog', ['lunar', 'storm']);
+    const b = mk('mossfrog', ['frost']);
+    let carried = 0;
+    let many = 0;
+    for (let i = 0; i < 2000; i++) {
+      s.rng = i * 7919;
+      const out = combine(a, b, new StateRng(s), null).mutations.filter((m) => m !== 'giant' && m !== 'prismatic');
+      if (out.length) carried++;
+      if (out.length > 1) many++;
+    }
+    expect(carried / 2000).toBeGreaterThan(0.07);
+    expect(carried / 2000).toBeLessThan(0.18);
+    expect(many).toBe(0);
   });
 });
 

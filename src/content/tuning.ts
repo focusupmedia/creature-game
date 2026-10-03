@@ -9,9 +9,13 @@ export const TUNING = {
   /** Day phase fraction [0..1) where 0 = midnight; a new sanctuary starts in the morning. */
   startPhase: 0.3,
 
-  /** Each window may host one sky event (windows are 1.5x as frequent as they used to be: 22 → 15 min). */
-  eventWindowMin: 15,
-  eventChancePerWindow: 0.65,
+  /**
+   * Every window hosts one sky event, placed with up to eventJitterMin of slack, so a
+   * new sky arrives 5-20 minutes after the last one ends (events last 2.5-5 min).
+   */
+  eventWindowMin: 16.25,
+  eventJitterMin: 6.25,
+  eventChancePerWindow: 1,
   /**
    * Natural frequencies. Storms are still the most common sky, but no longer hog
    * the windows: every other sky gets a real turn. Starry Night, Full Moon,
@@ -32,6 +36,8 @@ export const TUNING = {
   /** Combining two of the same species can awaken Giant. */
   purebredGiantChance: 0.12,
   tonicGiantChance: 0.6,
+  /** Chance a baby carries one of its parents' mutations (most hatch with none). */
+  inheritOneChance: 0.12,
   /** Chance a new mutation of the active sky event sparks during combining. */
   combineEventMutationChance: 0.15,
   /** Hybrid rule chance multiplier when a required trait only comes from the sky. */

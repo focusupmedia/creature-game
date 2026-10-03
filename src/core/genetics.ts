@@ -108,15 +108,15 @@ export function combine(a: Creature, b: Creature, rng: StateRng, sky: EventKind 
     }
   }
 
-  // 2. Inheritance: each parent mutation may pass on.
+  // 2. Inheritance: most babies hatch plain. Now and then one parent mutation passes on
+  //    (the hardier ones more often), so stacking mutations is a deliberate plan:
+  //    breed, then let a sky event touch the egg while it incubates.
   const muts: MutationId[] = [];
-  const consider = (c: Creature) => {
-    for (const m of c.mutations) {
-      if (!muts.includes(m) && rng.chance(MUTATIONS[m].inheritChance)) muts.push(m);
-    }
-  };
-  consider(a);
-  consider(b);
+  const pool = [...new Set([...a.mutations, ...b.mutations])].filter((m) => MUTATIONS[m]);
+  if (pool.length && rng.chance(TUNING.inheritOneChance)) {
+    const m = rng.weighted(pool.map((x): [MutationId, number] => [x, MUTATIONS[x].inheritChance]));
+    if (m) muts.push(m);
+  }
 
   // 3. New sparks: purebreds may grow Giant; the sky may leave its mark; prismatic is a lightning bolt of luck.
   if (purebred && rng.chance(TUNING.purebredGiantChance)) muts.push('giant');

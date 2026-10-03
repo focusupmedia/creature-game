@@ -167,3 +167,35 @@ function dedupe(ms: MutationId[]): MutationId[] {
 export function rollPrismatic(rng: StateRng): MutationId[] {
   return rng.chance(TUNING.prismaticChance) ? ['prismatic'] : [];
 }
+
+/**
+ * Typical grown weight (kg) of an average-sized adult. Roughly what a real
+ * animal of that kind would weigh, so a beetle is grams and a whale is tonnes.
+ */
+const BASE_KG: Partial<Record<SpeciesId, number>> = {
+  mossfrog: 0.4, pebbleback: 6, glowbeetle: 0.03, petalwing: 0.02, glimmerfin: 0.8, puffwren: 0.05,
+  vinecoil: 3, burrowbun: 2, capling: 0.6, fernkit: 4, duskmoth: 0.03, lumewisp: 0.01,
+  sunscale: 8, cinderskink: 1.2, emberdrake: 140, coralpuff: 1.5, driftjelly: 2, axolotl: 0.3,
+  lilyhop: 0.5, shellshroom: 1, moonmoth: 0.05, thunderwren: 0.1, starkoi: 4, nimbuwhale: 2400,
+  starwyrm: 300, mossmonkey: 9, lanternlemur: 3, cindermonk: 12, flamingle: 3.5, pouchbill: 7,
+  mistheron: 2.5, sandpincer: 1.2, dunecoil: 5, sunhood: 6, cloudserpent: 450, phoenix: 18,
+  kraken: 1800, qilin: 320, hedgehum: 0.8, magmole: 1.5, ashowl: 2, bubblecrab: 0.9,
+  glidemanta: 60, sandotter: 9, conchsnail: 0.7, dunefox: 2.5, aurorastag: 220, prismkoi: 5,
+  cloudlamb: 30, kitewing: 1.5, zephyrwisp: 0.01, breezedrake: 120, jackalope: 3, kitsune: 8,
+  flyingsnake: 1, pegasus: 480, griffin: 350, hippocampus: 260, thunderbird: 90, baku: 180,
+  sphinx: 260, unicorn: 450, moonrabbit: 2.5, tanuki: 7, shisa: 40, leviathan: 6000, worldturtle: 9000,
+};
+
+/** Weight in kg right now: grows with the creature, and with its size cubed (Giants are hefty). */
+export function weightKg(c: Pick<Creature, 'species' | 'size' | 'bornAt' | 'growMs' | 'mutations'>, t: number): number {
+  const scale = currentScale(c, t) * (c.mutations.includes('giant') ? 1.6 : 1);
+  return (BASE_KG[c.species] ?? 2) * scale ** 3;
+}
+
+/** "450 g", "3.2 kg", "38 kg", "2,400 kg". */
+export function fmtWeight(kg: number): string {
+  if (kg < 1) return `${Math.max(1, Math.round(kg * 1000))} g`;
+  if (kg < 10) return `${kg.toFixed(1)} kg`;
+  if (kg < 1000) return `${Math.round(kg)} kg`;
+  return `${Math.round(kg).toLocaleString('en-US')} kg`;
+}

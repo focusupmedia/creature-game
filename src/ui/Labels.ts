@@ -3,7 +3,7 @@ import { ISLANDS, ISLAND_ORDER } from '../content/islands';
 import type { IslandId } from '../core/types';
 import { LURES, SPOTS, spotOpen } from '../content/world';
 import { remainingMs, nestPrice } from '../core/actions';
-import { displayName, isOutlier, sizeLabel } from '../core/creatures';
+import { displayName, fmtWeight, isOutlier, sizeLabel, weightKg } from '../core/creatures';
 import { arrivalWeights } from '../core/lures';
 import { nestOccupant } from '../core/state';
 import { activeEvent, isDark } from '../core/world';
@@ -195,7 +195,7 @@ export class WorldLabels {
       const bx = Math.min(Math.max(sp.x, half + 8), window.innerWidth - half - 8);
       this.bubble.style.transform = `translate(-50%, -100%) translate(${bx.toFixed(1)}px, ${sp.y.toFixed(1)}px)`;
       const name = displayName(c);
-      const line = w.creatureActivity(c.id);
+      const line = [w.creatureActivity(c.id), fmtWeight(weightKg(c, this.game.now()))].filter(Boolean).join(' · ');
       const r = species(c.species).rarity;
       const odd = isOutlier(c.size) ? sizeLabel(c.size) : '';
       const icons = c.quirks.map((q) => QUIRKS[q].icon).join('');

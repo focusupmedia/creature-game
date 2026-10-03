@@ -696,3 +696,7 @@ input.rename { font-family: var(--display); font-size: 22px; border: var(--outli
 .splash-logo span:last-child { color: #7fe05a; }
 .splash-tag { max-width: 300px; font-weight: 800; color: var(--ink); font-size: 15px; }
 .splash-studio { position: absolute; bottom: calc(env(safe-area-inset-bottom, 0px) + 20px); left: 0; right: 0; font-weight: 800; color: rgba(27, 42, 74, .65); font-size: 12px; letter-spacing: 2px; text-transform: uppercase; }
+
+/* Feed + Store stacked at the end of a pet row */
+.row-btns { display: flex; flex-direction: column; gap: 4px; flex-shrink: 0; }
+.row-btns .btn { min-width: 84px; }

@@ -3,6 +3,7 @@ import type { Creature, Egg } from '../core/types';
 import { animateGlow, buildCreature, animatePrismatic, disposeCreature, type CreatureModel } from './creatureModels';
 import { buildEgg, disposeEgg, type EggModel } from './eggModel';
 import { glowSprite, toon } from './materials';
+import { species } from '../content/species';
 
 // The hatch reveal: the most important 6 seconds in the game.
 // "What is inside?" (tap to crack) → flash → "NEW DISCOVERY".
@@ -23,7 +24,11 @@ export class Reveal {
   private rays: THREE.Mesh;
   private confetti: THREE.Points;
   private confettiVel: Float32Array;
-  private crackMeshes: THREE.Mesh[] = [];
+  /** The egg's own shell texture: cracks are drawn right onto it. */
+  private crackShell?: HTMLCanvasElement;
+  private crackPath: [number, number][] = [];
+  private chipColor: THREE.Color;
+  private chips: { m: THREE.Mesh; v: THREE.Vector3; life: number }[] = [];
 
   constructor(egg: Egg, creature: Creature) {
     this.scene.background = new THREE.Color('#141a2e');
@@ -59,15 +64,9 @@ export class Reveal {
 
     this.egg = buildEgg(egg.species, egg.mutations, egg.seed, 1.1);
     this.scene.add(this.egg.root);
-    for (let i = 0; i < 4; i++) {
-      const crack = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.35, 0.03), new THREE.MeshBasicMaterial({ color: '#2a1a10' }));
-      const a = (i / 4) * Math.PI * 2 + 0.4;
-      crack.position.set(Math.sin(a) * 0.55, 0.75 + (i % 2) * 0.2, Math.cos(a) * 0.55);
-      crack.rotation.set(0.3, a, 0.5 * (i % 2 ? 1 : -1));
-      crack.visible = false;
-      this.egg.root.add(crack);
-      this.crackMeshes.push(crack);
-    }
+    this.crackShell = this.egg.mat.map?.image as HTMLCanvasElement | undefined;
+    this.crackPath = crackPath(egg.seed);
+    this.chipColor = new THREE.Color(species(egg.species).eggColors[0]);
 
     this.model = buildCreature(creature.species, creature.mutations, creature.seed, creature.shade);
     this.model.root.visible = false;
@@ -110,8 +109,54 @@ export class Reveal {
     if (this.phase !== 'egg') return;
     this.cracks += 1;
     this.shake = 0.6;
-    this.crackMeshes.slice(0, this.cracks + 1).forEach((c) => (c.visible = true));
+    this.drawCracks();
+    this.spawnChips(4 + this.cracks * 2);
     if (this.cracks >= 3) this.burst();
+  }
+
+  /** A zigzag crack that spreads around the egg's middle a little more with each tap, glowing inside. */
+  private drawCracks(): void {
+    const c = this.crackShell;
+    if (!c) return;
+    const g = c.getContext('2d')!;
+    g.setTransform(1, 0, 0, 1, 0, 0);
+    // the front of the egg (facing the camera) is u = 0; the crack grows out from there both ways
+    const reach = [0, 0.16, 0.34, 0.5][Math.min(3, this.cracks)];
+    const pts = this.crackPath.filter(([u]) => Math.abs(u) <= reach + 1e-6);
+    const k = c.height / 128;
+    const draw = (shift: number) => {
+      g.beginPath();
+      pts.forEach(([u, y], i) => (i ? g.lineTo((u + shift) * c.width, y * k) : g.moveTo((u + shift) * c.width, y * k)));
+      g.stroke();
+      // little side cracks branching off
+      for (let i = 2; i < pts.length - 1; i += 4) {
+        const [u, y] = pts[i];
+        g.beginPath();
+        g.moveTo((u + shift) * c.width, y * k);
+        g.lineTo((u + shift) * c.width + (i % 8 ? 5 : -5) * k, (y + (i % 3 ? 10 : -10)) * k);
+        g.stroke();
+      }
+    };
+    for (const [w, col] of [[4, '#2a1a10'], [1.4, '#fff6c0']] as [number, string][]) {
+      g.lineWidth = w * k;
+      g.strokeStyle = col;
+      g.lineJoin = 'round';
+      g.lineCap = 'round';
+      for (const shift of [0, 1]) draw(shift);
+    }
+    this.egg.mat.map!.needsUpdate = true;
+  }
+
+  /** Little bits of shell that pop off with each tap. */
+  private spawnChips(n: number): void {
+    const mat = new THREE.MeshBasicMaterial({ color: this.chipColor });
+    for (let i = 0; i < n; i++) {
+      const m = new THREE.Mesh(new THREE.TetrahedronGeometry(0.05 + Math.random() * 0.04), mat);
+      const a = (Math.random() - 0.5) * 2.2;
+      m.position.set(Math.sin(a) * 0.55, 0.65 + Math.random() * 0.2, Math.cos(a) * 0.55);
+      this.scene.add(m);
+      this.chips.push({ m, v: new THREE.Vector3(Math.sin(a) * 1.6, 1.5 + Math.random() * 1.5, Math.cos(a) * 1.6), life: 0.9 });
+    }
   }
 
   private burst(): void {
@@ -122,6 +167,14 @@ export class Reveal {
 
   update(dt: number): void {
     this.time += dt;
+    for (const ch of this.chips) {
+      ch.life -= dt;
+      ch.v.y -= dt * 7;
+      ch.m.position.addScaledVector(ch.v, dt);
+      ch.m.rotation.x += dt * 9;
+      ch.m.rotation.y += dt * 7;
+      ch.m.visible = ch.life > 0;
+    }
     if (this.phase === 'egg') {
       const urge = Math.min(1, this.time / 5);
       this.shake = Math.max(0, this.shake - dt * 2);
@@ -177,9 +230,20 @@ export class Reveal {
 
   dispose(): void {
     disposeEgg(this.egg);
+    for (const ch of this.chips) (ch.m.material as THREE.Material).dispose();
     disposeCreature(this.model);
     this.scene.traverse((o) => {
       if (o instanceof THREE.Mesh || o instanceof THREE.Points) o.geometry.dispose();
     });
   }
+}
+
+/** The crack's zigzag around the middle of the egg: [u (-0.5..0.5, 0 = front), canvas y]. */
+function crackPath(seed: number): [number, number][] {
+  let r = seed >>> 0 || 1;
+  const rnd = () => ((r = (r * 1664525 + 1013904223) >>> 0) / 4294967296);
+  const out: [number, number][] = [];
+  const mid = 58;
+  for (let u = -0.5, i = 0; u <= 0.5001; u += 0.04, i++) out.push([u, mid + (i % 2 ? -1 : 1) * (4 + rnd() * 5)]);
+  return out;
 }
