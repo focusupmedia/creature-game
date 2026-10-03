@@ -65,6 +65,7 @@ function step(state: GameState, t: number, dt: number, out: GameEvent[]): void {
       }
     }
     skyTouch(state, ev.kind, t, dt, ev.end - ev.start, rec, rng, out);
+    if (ev.kind === 'meteor') meteorRocks(state, t, dt, ev.end - ev.start, rng, out);
   }
   for (const [key, rec] of Object.entries(state.eventsApplied)) {
     if (rec.started && !rec.ended && (!ev || ev.key !== key)) {
@@ -106,6 +107,8 @@ function step(state: GameState, t: number, dt: number, out: GameEvent[]): void {
     const island = SPOTS[spotId].island;
     const c = makeCreature(state, sp, muts, t, story, { island, met: { how: 'lure', lure: active.lure, spot: spotId, sky: state.legendary?.kind ?? sky } });
     c.arrivingAt = spotId;
+    // a magic fog brings out the shy ones
+    if (sky === 'fog' && rng.chance(0.5)) c.personality = 'shy';
     active.visitors += 1;
     state.stats.arrivals += 1;
     const discovered = recordSpecies(state, sp, t);
@@ -222,7 +225,7 @@ function skyTouch(
   const rate = touch.perEvent / (durMs * 0.8);
   if (!rng.chance(1 - Math.exp(-rate * dt))) return;
   rec.touches += 1;
-  const target = rng.weighted(state.creatures.map((c) => [c, touch.favor && creatureTraits(c).includes(touch.favor) ? 4 : 1] as [typeof c, number]));
+  const target = rng.weighted(state.creatures.filter((c) => !c.stored).map((c) => [c, touch.favor && creatureTraits(c).includes(touch.favor) ? 4 : 1] as [typeof c, number]));
   if (!target) return;
   const trait = MUTATIONS[def.mutation].trait;
   const changed = !creatureTraits(target).includes(trait) && rng.chance(touch.chance);
@@ -236,6 +239,21 @@ function skyTouch(
   const discovered = recordMutation(state, def.mutation, t);
   out.push({ type: 'mutation', creature: target, mutation: def.mutation, cause: kind, t, discovered });
   note(state, out, t, `${kind}-hit`, touch.lesson);
+}
+
+/** A meteor shower drops a few glowing Starshard rocks on every world you own. */
+function meteorRocks(state: GameState, t: number, dt: number, durMs: number, rng: StateRng, out: GameEvent[]): void {
+  const [lo, hi] = TUNING.meteorRocks;
+  const rate = (lo + hi) / 2 / (durMs * 0.9);
+  for (const id of ISLAND_ORDER) {
+    if (!state.islands[id]?.owned || state.gifts.length >= TUNING.maxGiftsOnGround + 6) continue;
+    if (!rng.chance(1 - Math.exp(-rate * dt))) continue;
+    const g = islandGeo(id, state.islands[id]?.size ?? 0);
+    const p = randomLand(g, () => rng.next());
+    const gift: Gift = { id: newId(state, 'g'), x: p.x, z: p.z, glimmer: rng.int(2, 6), shards: rng.chance(0.25) ? 2 : 1, island: id, meteor: true };
+    state.gifts.push(gift);
+    out.push({ type: 'gift', gift, t });
+  }
 }
 
 export function islandPopulation(state: GameState, island: IslandId): number {

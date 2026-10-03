@@ -38,6 +38,14 @@ export const MUTATIONS: Record<MutationId, MutationDef> = {
     id: 'infernal', trait: 'Infernal', name: 'Infernal', inheritChance: 0.25, tier: 'legendary', glow: '#ff5a2a',
     blurb: 'Kissed by the heart of the volcano. Little horns and a tail of embers.',
   },
+  aurora: {
+    id: 'aurora', trait: 'Aurora', name: 'Aurora', inheritChance: 0.4, tier: 'epic', glow: '#5affc0',
+    blurb: 'Soaked up the northern lights. Ribbons of green and violet ripple over it.',
+  },
+  misty: {
+    id: 'misty', trait: 'Misty', name: 'Misty', inheritChance: 0.45, tier: 'rare', glow: '#dfe9f2',
+    blurb: 'Wandered out of a magic fog and kept a little of it. Soft wisps drift around it.',
+  },
   abyssal: {
     id: 'abyssal', trait: 'Abyssal', name: 'Abyssal', inheritChance: 0.25, tier: 'legendary', glow: '#3affe0',
     blurb: 'Came back from the deep tide glowing like the bottom of the sea.',
@@ -216,10 +224,68 @@ export const EVENTS: Record<EventKind, EventDef> = {
       bubble: 'Covered in snow ❄️',
     },
   },
+  rainbow: {
+    arrive: 'Sun and rain together… a rainbow arcs over the island!', leave: 'The rainbow fades away.', away: 'A rainbow arced over the island.',
+    kind: 'rainbow', name: 'Rainbow', icon: '🌈', mutation: 'prismatic', empowers: 'Bloom',
+    attracts: { Bloom: 2, Insect: 1.5, Bird: 1.5 },
+    arrivalMutationChance: 0.05, empoweredMutationChance: 0.12, eggMutationChance: 0.08,
+    teaser: 'A soft sunshower is falling. Keep an eye on the sky for colours.',
+    durationMin: [2.5, 4], dark: false,
+    touch: {
+      name: 'end of the rainbow', perEvent: 1, chance: 0.2, favor: 'Bloom',
+      story: 'Stood right at the end of a rainbow. Every colour stuck to it.',
+      lesson: 'A creature at the end of a rainbow can turn Prismatic. Rainbows make Prismatic far more likely.',
+      bubble: 'Standing at the end of the rainbow 🌈',
+    },
+  },
+  aurora: {
+    arrive: 'Ribbons of green and violet light are dancing in the sky. An aurora!', leave: 'The aurora flickers out.', away: 'The northern lights danced over the island.',
+    kind: 'aurora', name: 'Aurora', icon: '🌌', mutation: 'aurora', empowers: 'Reef',
+    attracts: { Bird: 2, Spirit: 2, Mammal: 1.2 },
+    arrivalMutationChance: 0.1, empoweredMutationChance: 0.3, eggMutationChance: 0.15,
+    teaser: 'The night is very clear and very cold. Something is shimmering at the edge of the sky.',
+    durationMin: [3, 4.5], dark: true,
+    touch: {
+      name: 'aurora light', perEvent: 2, chance: 0.4, favor: 'Spirit',
+      story: 'Soaked up the aurora until its coat rippled green and violet.',
+      lesson: 'Creatures that bathe in an aurora can come away Aurora-touched.',
+      bubble: 'Glowing under the aurora 🌌',
+    },
+  },
+  meteor: {
+    arrive: 'Shooting stars everywhere! A meteor shower. Watch for glowing rocks landing.', leave: 'The last shooting star fizzles out.', away: 'A meteor shower rained Starshard rocks on the island.',
+    kind: 'meteor', name: 'Meteor Shower', icon: '☄️', mutation: 'starlit', empowers: 'Ember',
+    attracts: { Dragon: 2, Reptile: 1.5, Spirit: 1.5 },
+    arrivalMutationChance: 0.1, empoweredMutationChance: 0.3, eggMutationChance: 0.15,
+    teaser: 'Little streaks of light keep flashing high above. More are coming.',
+    durationMin: [2.5, 4], dark: true,
+    touch: {
+      name: 'shooting star', perEvent: 1, chance: 0.4,
+      story: 'A shooting star whizzed right past it. A few sparks stayed.',
+      lesson: 'Meteor showers drop Starshard rocks you can pick up, and can leave a creature Starlit.',
+      bubble: 'A shooting star whizzed past ☄️',
+    },
+  },
+  fog: {
+    arrive: 'A soft, magic fog rolls in. Shy visitors love it.', leave: 'The fog lifts.', away: 'A magic fog drifted over the island.',
+    kind: 'fog', name: 'Misty Fog', icon: '🌫️', mutation: 'misty', empowers: 'Mystic',
+    attracts: { Spirit: 3, Mystic: 2, Fungus: 1.5 },
+    arrivalMutationChance: 0.15, empoweredMutationChance: 0.4, eggMutationChance: 0.2,
+    teaser: 'The air is getting damp and still. Something shy might come out of hiding.',
+    durationMin: [3, 5], dark: false,
+    touch: {
+      name: 'mist', perEvent: 2, chance: 0.35, favor: 'Spirit',
+      story: 'Wandered into the magic fog and came back Misty.',
+      lesson: 'Shy and magical creatures visit in a fog, and some come back Misty.',
+      bubble: 'Lost in the fog 🌫️',
+    },
+  },
 };
 
 /** Events an ad can summon, with weights. The rarer natural events are favored. */
-export const SUMMON_WEIGHTS: Record<EventKind, number> = { storm: 1, eclipse: 1, starry: 1.3, fullmoon: 1.3, blizzard: 1.3 };
+export const SUMMON_WEIGHTS: Record<EventKind, number> = {
+  storm: 1, eclipse: 1, starry: 1.3, fullmoon: 1.3, blizzard: 1.3, rainbow: 1.1, aurora: 1.3, meteor: 1.3, fog: 1,
+};
 
 // ---------------------------------------------------------------- resonances
 // Hybrids come from the *traits* both parents bring, not from fixed species pairs.

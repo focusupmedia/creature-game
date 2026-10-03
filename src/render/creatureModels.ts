@@ -797,6 +797,15 @@ function mutatePalette(P: Palette, muts: MutationId[], seed: number): Palette {
     out.main = mix(out.main, '#1e3a78', 0.45);
     out.second = mix(out.second, '#1a6a8a', 0.5);
   }
+  // aurora: green-to-violet ribbons; misty: soft and pale
+  if (muts.includes('aurora')) {
+    out.second = mix(out.second, '#3affb0', 0.55);
+    out.accent = '#b07aff';
+  }
+  if (muts.includes('misty')) {
+    out.main = mix(out.main, '#e8eef4', 0.35);
+    out.belly = mix(out.belly, '#ffffff', 0.4);
+  }
   return out;
 }
 
@@ -920,6 +929,30 @@ export function buildCreature(speciesId: SpeciesId, mutations: MutationId[], see
       dot.castShadow = false;
       dot.userData.noOutline = true;
       body.add(dot);
+    }
+  }
+
+  if (muts.includes('aurora')) {
+    // two thin glowing ribbons drape over its back
+    for (const [i, col] of (['#4affc8', '#b07aff'] as const).entries()) {
+      const band = k.mesh(new THREE.TorusGeometry(1, 0.06, 4, 20, Math.PI), col, [0.26 - i * 0.05, 0.26 - i * 0.05, 0.26], [0, m.height * 0.55, -0.02 - i * 0.06], col);
+      band.rotation.y = Math.PI / 2;
+      band.castShadow = false;
+      band.userData.noOutline = true;
+      body.add(band);
+    }
+    const glow = glowSprite('#5affc0', 1.5, 0.45);
+    glow.position.y = m.height * 0.5;
+    body.add(glow);
+    m.glows.push(glow);
+  }
+  if (muts.includes('misty')) {
+    // little wisps of fog hang round it
+    for (let i = 0; i < 5; i++) {
+      const a = i * 1.257;
+      const w = glowSprite('#f2f6fa', 0.5, 0.55);
+      w.position.set(Math.cos(a) * 0.32, m.height * (0.2 + (i % 3) * 0.2), Math.sin(a) * 0.32);
+      body.add(w);
     }
   }
 

@@ -34,7 +34,13 @@ const MOODS: Record<EventKind, { mood: Mood; strength: number; darkness: number 
   starry: { mood: M('#060828', '#1e2468', '#2a2f80', '#b8c4ff', 0.55, '#6a6ad0', '#20204a', 0.85), strength: 0.95, darkness: 0.85 },
   fullmoon: { mood: M('#0e1a40', '#3a5694', '#4a66a8', '#eef2ff', 1.1, '#a8bcff', '#2a3458', 1.0), strength: 0.95, darkness: 0.65 },
   blizzard: { mood: M('#9fb0c8', '#e4ecf6', '#d6e0ee', '#f4f8ff', 1.2, '#eef4ff', '#8494a8', 1.2), strength: 0.9, darkness: 0 },
+  rainbow: { mood: M('#48a6ff', '#cdeeff', '#a8e2ff', '#fff4d6', 2.4, '#f0faff', '#6a8a4a', 1.25), strength: 0.6, darkness: 0 },
+  aurora: { mood: M('#04122a', '#123c52', '#1a3a5a', '#b8ffe6', 0.6, '#6ad8b8', '#1a2a3a', 0.85), strength: 0.95, darkness: 0.8 },
+  meteor: { mood: M('#0a0a30', '#2a2060', '#33307a', '#ffd8b8', 0.55, '#8a70d0', '#22203a', 0.85), strength: 0.95, darkness: 0.85 },
+  fog: { mood: M('#b8c4cc', '#dde4ea', '#d0d8e0', '#f2f4f6', 1.1, '#e8eef2', '#8a9490', 1.1), strength: 0.85, darkness: 0.1 },
 };
+
+const RAINBOW = ['#ff4a4a', '#ff9a2a', '#ffe23a', '#5ad64a', '#3aa8ff', '#5a5aff', '#b05aff'];
 
 function lerpMood(a: Mood, b: Mood, t: number, out: Mood): Mood {
   out.top.copy(a.top).lerp(b.top, t);
@@ -77,7 +83,11 @@ export class Sky {
   private fx: Fx[] = [];
   private shootTimer = 0;
   /** 0..1 how much of each event is showing (eases in/out). */
-  private mix: Record<EventKind, number> = { storm: 0, eclipse: 0, starry: 0, fullmoon: 0, blizzard: 0 };
+  private mix: Record<EventKind, number> = { storm: 0, eclipse: 0, starry: 0, fullmoon: 0, blizzard: 0, rainbow: 0, aurora: 0, meteor: 0, fog: 0 };
+  private rainbow = new THREE.Group();
+  private rainbowMats: THREE.MeshBasicMaterial[] = [];
+  private aurora = new THREE.Group();
+  private auroraMats: THREE.MeshBasicMaterial[] = [];
   darkness = 0;
 
   constructor(private scene: THREE.Scene) {
@@ -191,6 +201,42 @@ export class Sky {
     }
     this.clouds.visible = false;
     this.group.add(this.clouds);
+
+    // rainbow: seven bands arcing behind the island
+    RAINBOW.forEach((col, i) => {
+      const mat = new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0, fog: false, depthWrite: false, side: THREE.DoubleSide });
+      this.rainbowMats.push(mat);
+      this.rainbow.add(new THREE.Mesh(new THREE.TorusGeometry(44 - i * 1.6, 0.85, 6, 64, Math.PI), mat));
+    });
+    this.rainbow.position.copy(SHOWCASE).setY(SHOWCASE.y - 22);
+    this.rainbow.lookAt(0, this.rainbow.position.y, 0);
+    this.rainbow.visible = false;
+    this.group.add(this.rainbow);
+
+    // aurora: rippling curtains of green and violet light
+    for (let i = 0; i < 4; i++) {
+      const geo = new THREE.PlaneGeometry(110, 14, 48, 1);
+      const cols: number[] = [];
+      const pos = geo.getAttribute('position');
+      for (let v = 0; v < pos.count; v++) {
+        const top = pos.getY(v) > 0;
+        const c = top ? C(i % 2 ? '#b07aff' : '#4affc8') : C('#1aff9a');
+        cols.push(c.r, c.g, c.b);
+      }
+      geo.setAttribute('color', new THREE.Float32BufferAttribute(cols, 3));
+      geo.userData.base = Float32Array.from(pos.array as Float32Array);
+      const mat = new THREE.MeshBasicMaterial({
+        vertexColors: true, transparent: true, opacity: 0, fog: false, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending,
+      });
+      this.auroraMats.push(mat);
+      const mesh = new THREE.Mesh(geo, mat);
+      // in the band of sky behind the island, where the camera can see it
+      mesh.position.copy(SHOWCASE).add(new THREE.Vector3((i - 1.5) * 16, 14 + i * 5, -i * 4));
+      mesh.lookAt(0, mesh.position.y, 0);
+      this.aurora.add(mesh);
+    }
+    this.aurora.visible = false;
+    this.group.add(this.aurora);
     scene.add(this.group);
   }
 
@@ -230,8 +276,9 @@ export class Sky {
     if (this.scene.fog instanceof THREE.Fog) {
       this.scene.fog.color.copy(m.horizon);
       // a blizzard pulls the fog in close
-      this.scene.fog.near = 45 - mx.blizzard * 22;
-      this.scene.fog.far = 110 - mx.blizzard * 55;
+      // ...and a magic fog pulls it in closer still
+      this.scene.fog.near = 45 - mx.blizzard * 22 - mx.fog * 24;
+      this.scene.fog.far = 110 - mx.blizzard * 55 - mx.fog * 60;
     }
     this.hemi.color.copy(m.hemiSky);
     this.hemi.groundColor.copy(m.hemiGround);
@@ -266,7 +313,7 @@ export class Sky {
 
     this.darkness = Math.max(1 - Math.min(1, (m.sunI - 0.55) / 1.1), eventDark);
     const sm = this.stars.material as THREE.PointsMaterial;
-    sm.opacity = Math.min(1, Math.max(0, this.darkness - 0.3) * (1 - mx.storm) * (1 - mx.blizzard) + mx.starry * 0.6);
+    sm.opacity = Math.min(1, Math.max(0, this.darkness - 0.3) * (1 - mx.storm) * (1 - mx.blizzard) * (1 - mx.fog) + mx.starry * 0.6 + mx.meteor * 0.4);
     sm.size = 1.6 + mx.starry * 1.2 + Math.sin(time * 3) * 0.15 * mx.starry;
     this.stars.rotation.y = time * 0.005;
 
@@ -275,6 +322,32 @@ export class Sky {
     if (mx.starry > 0.5 && this.shootTimer <= 0) {
       this.shootTimer = 0.6 + Math.random() * 1.6;
       this.shootingStar();
+    }
+    // a meteor shower: lots of them, warm and colourful
+    if (mx.meteor > 0.4 && this.shootTimer <= 0) {
+      this.shootTimer = 0.12 + Math.random() * 0.4;
+      this.shootingStar(Math.random() < 0.5 ? '#ffd28a' : Math.random() < 0.5 ? '#ff9ad8' : '#9ae6ff');
+    }
+
+    // rainbow
+    this.rainbow.visible = mx.rainbow > 0.01;
+    for (const mat of this.rainbowMats) mat.opacity = mx.rainbow * 0.55;
+
+    // aurora curtains ripple slowly
+    this.aurora.visible = mx.aurora > 0.01;
+    if (this.aurora.visible) {
+      this.aurora.children.forEach((ch, i) => {
+        const mesh = ch as THREE.Mesh;
+        const pos = mesh.geometry.getAttribute('position') as THREE.BufferAttribute;
+        const base = mesh.geometry.userData.base as Float32Array;
+        for (let v = 0; v < pos.count; v++) {
+          const x = base[v * 3];
+          pos.setZ(v, Math.sin(x * 0.08 + time * 0.6 + i) * 5 + Math.sin(x * 0.21 - time * 0.4) * 2);
+          pos.setY(v, base[v * 3 + 1] + Math.sin(x * 0.05 + time * 0.3 + i * 2) * 3);
+        }
+        pos.needsUpdate = true;
+        this.auroraMats[i].opacity = mx.aurora * (0.28 + Math.sin(time * 0.8 + i * 1.7) * 0.1);
+      });
     }
 
     // rain
@@ -312,10 +385,10 @@ export class Sky {
     }
 
     // horizon clouds: dark for storms, white for blizzards
-    const cloudAmt = Math.max(mx.storm, mx.blizzard);
+    const cloudAmt = Math.max(mx.storm, mx.blizzard, mx.fog * 0.8);
     this.clouds.visible = cloudAmt > 0.01;
     this.cloudMat.opacity = cloudAmt * 0.95;
-    this.cloudMat.color.set('#5a6272').lerp(C('#f2f6ff'), mx.blizzard / Math.max(0.001, cloudAmt));
+    this.cloudMat.color.set('#5a6272').lerp(C('#f2f6ff'), Math.max(mx.blizzard, mx.fog) / Math.max(0.001, cloudAmt));
     this.clouds.rotation.y = Math.sin(time * 0.02) * 0.15;
 
     for (const f of this.fx) {
@@ -337,11 +410,11 @@ export class Sky {
     this.fx.push({ obj, life, max: life, update });
   }
 
-  private shootingStar(): void {
+  private shootingStar(color = '#fff6c8'): void {
     const start = SHOWCASE.clone().add(new THREE.Vector3((Math.random() - 0.5) * 70, 10 + Math.random() * 18, (Math.random() - 0.5) * 10));
     const dir = new THREE.Vector3(-0.8 - Math.random() * 0.4, -0.5, 0).normalize();
     const geo = new THREE.BufferGeometry().setFromPoints([start, start.clone().addScaledVector(dir, 9)]);
-    const mat = new THREE.LineBasicMaterial({ color: '#fff6c8', transparent: true, opacity: 1, fog: false });
+    const mat = new THREE.LineBasicMaterial({ color, transparent: true, opacity: 1, fog: false });
     const line = new THREE.Line(geo, mat);
     this.add(line, 0.7, (k) => {
       line.position.copy(dir).multiplyScalar(k * 22);

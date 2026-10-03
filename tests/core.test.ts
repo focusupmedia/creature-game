@@ -70,9 +70,32 @@ describe('sky events', () => {
         if (e) counts[e.kind] = (counts[e.kind] ?? 0) + 1;
       }
     }
-    expect(Object.keys(counts).sort()).toEqual(['blizzard', 'eclipse', 'fullmoon', 'starry', 'storm']);
+    expect(Object.keys(counts).sort()).toEqual(['aurora', 'blizzard', 'eclipse', 'fog', 'fullmoon', 'meteor', 'rainbow', 'starry', 'storm']);
     expect(counts.storm).toBeGreaterThan(counts.starry * 4);
     expect(counts.blizzard).toBeLessThan(counts.eclipse);
+  });
+
+  it('sky events come about 1.5x as often as they used to (about 2.6 an hour)', () => {
+    let n = 0;
+    const hours = 20 * 24;
+    for (let seed = 1; seed <= 20; seed++) {
+      const s = fresh(seed);
+      for (let w = 1; w <= (24 * 60) / TUNING.eventWindowMin; w++) if (eventInWindow(s, w)) n++;
+    }
+    const perHour = n / hours;
+    expect(perHour).toBeGreaterThan(2.2);
+    expect(perHour).toBeLessThan(3);
+  });
+
+  it('a meteor shower drops Starshard rocks you can pick up', () => {
+    const s = fresh(3);
+    const t0 = T0 + 60_000;
+    s.summoned = { kind: 'meteor', start: t0, end: t0 + 3 * 60_000 };
+    s.gifts = [];
+    tick(s, t0 + 3 * 60_000, { maxStepMs: 1000 });
+    const rocks = s.gifts.filter((g) => g.meteor);
+    expect(rocks.length).toBeGreaterThan(0);
+    expect(rocks.every((g) => g.shards >= 1)).toBe(true);
   });
 
   it('an ad can summon a random event right now, within the daily ad cap', () => {

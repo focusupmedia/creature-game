@@ -353,7 +353,9 @@ export class Game {
 
   /** Pick up a find, by tapping it or because a Greedy creature fetched it. */
   collectGift(giftId: string, by?: string, dug = false): void {
-    const via = this.state.gifts.find((x) => x.id === giftId)?.via;
+    const found = this.state.gifts.find((x) => x.id === giftId);
+    const via = found?.via;
+    const meteor = !!found?.meteor;
     const r = A.collectGift(this.state, giftId, this.now());
     if (!r.ok) return;
     this.audio.play('coin');
@@ -361,7 +363,7 @@ export class Game {
       : r.item ? ` …and a ${ITEMS[r.item]?.name ?? 'curiosity'}!` : '';
     const who = by ? this.state.creatures.find((c) => c.id === by) : undefined;
     const verb = via ? DIG_KINDS[via].verb.toLowerCase() : 'dug up';
-    this.ui.toast(`${who ? `${displayName(who)} ${dug ? verb : 'grabbed'}` : via ? DIG_KINDS[via].verb : 'Dug up'}: {coin} ${r.glimmer}${r.shards ? ` and {gem} ${r.shards}` : ''}${extra}`, r.item ? 'discovery' : 'info', undefined, r.item ? 4000 : 1800);
+    this.ui.toast(`${who ? `${displayName(who)} ${dug ? verb : 'grabbed'}` : meteor ? 'Starshard rock' : via ? DIG_KINDS[via].verb : 'Dug up'}: {coin} ${r.glimmer}${r.shards ? ` and {gem} ${r.shards}` : ''}${extra}`, r.item ? 'discovery' : 'info', undefined, r.item ? 4000 : 1800);
     this.record({ kind: 'gift', glimmer: r.glimmer, shards: r.shards, byCreature: !!by && !dug });
     this.analytics.track('gift_collected', { glimmer: r.glimmer, shards: r.shards, item: r.item ?? '', by: by ? 'creature' : 'player' });
     this.saveSoon();

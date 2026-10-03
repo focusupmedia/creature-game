@@ -10,10 +10,10 @@ export type Trait =
   // Kinds — body plans
   | 'Amphibian' | 'Reptile' | 'Insect' | 'Bird' | 'Fish' | 'Mammal' | 'Fungus' | 'Spirit' | 'Dragon' | 'Primate' | 'Arachnid'
   // Mutation traits — acquired, never native
-  | 'Lunar' | 'Storm' | 'Giant' | 'Prismatic' | 'Starlit' | 'Frost' | 'Angelic' | 'Infernal' | 'Abyssal';
+  | 'Lunar' | 'Storm' | 'Giant' | 'Prismatic' | 'Starlit' | 'Frost' | 'Angelic' | 'Infernal' | 'Abyssal' | 'Aurora' | 'Misty';
 
 export type SpeciesId = string;
-export type MutationId = 'lunar' | 'storm' | 'giant' | 'prismatic' | 'starlit' | 'frost' | 'angelic' | 'infernal' | 'abyssal';
+export type MutationId = 'lunar' | 'storm' | 'giant' | 'prismatic' | 'starlit' | 'frost' | 'angelic' | 'infernal' | 'abyssal' | 'aurora' | 'misty';
 /** Very rare events that grant a gift and leave one creature with a legendary mutation. Never summoned by ads. */
 export type LegendaryKind = 'angel' | 'infernal' | 'abyssal';
 export type LureId = string;
@@ -22,7 +22,7 @@ export type DecorId = string;
 export type SpotId = string;
 export type IslandId = 'home' | 'volcano' | 'lagoon' | 'beach' | 'desert';
 export type Personality = 'energetic' | 'lazy' | 'shy' | 'curious' | 'grumpy' | 'friendly';
-export type EventKind = 'storm' | 'eclipse' | 'starry' | 'fullmoon' | 'blizzard';
+export type EventKind = 'storm' | 'eclipse' | 'starry' | 'fullmoon' | 'blizzard' | 'rainbow' | 'aurora' | 'meteor' | 'fog';
 
 export type Rarity = 'common' | 'uncommon' | 'rare' | 'legendary' | 'mythical';
 export type Activity = 'day' | 'night' | 'any';
@@ -275,6 +275,8 @@ export interface Gift {
   item?: string;
   /** Came from a dig spot you sent a creature to (changes the wording: dug, fished, foraged). */
   via?: DigKind;
+  /** A Starshard rock that fell in a meteor shower. */
+  meteor?: boolean;
 }
 
 export interface ShopOffer {

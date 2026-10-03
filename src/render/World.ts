@@ -331,7 +331,7 @@ export class World {
       if (this.gifts.has(g.id)) continue;
       const group = new THREE.Group();
       const rare = g.shards > 0 || !!g.item;
-      const gem = g.item === 'egg'
+      const gem = g.meteor ? meteorRock() : g.item === 'egg'
         ? (() => { const e = buildEgg('mossfrog', [], 3, 0.22); return e.root; })()
         : new THREE.Mesh(new THREE.OctahedronGeometry(0.13, 0), toon(rare ? '#c9b6ff' : '#ffe58a', rare ? '#9f7fff' : '#ffc94a', 0.6));
       gem.position.y = 0.3;
@@ -470,6 +470,17 @@ export class World {
         break;
       }
       case 'gift': {
+        // a Starshard rock falls from the meteor shower
+        if (ev.gift.meteor) {
+          if (ev.gift.island !== this.current) break;
+          const at = this.at(ev.gift.x, ev.gift.z, 0.3, ev.gift.island);
+          this.hiddenGifts.add(ev.gift.id);
+          this.sky.fallingStar(at, () => {
+            this.hiddenGifts.delete(ev.gift.id);
+            this.burst(at, '#ff9ad8', 22, 1.8);
+          });
+          break;
+        }
         // Watch it happen: the creature walks over and digs the find up.
         const a = ev.gift.from ? this.actors.get(ev.gift.from) : undefined;
         if (a && a.root.visible && a.state !== 'sleep' && a.state !== 'arrive' && !a.carried) {
@@ -960,4 +971,16 @@ export class World {
 
   /** Swiping hard past the island's edge hops toward the neighbouring island in that direction. */
 
+}
+
+/** A dark space rock with a pink Starshard crystal poking out. */
+function meteorRock(): THREE.Object3D {
+  const g = new THREE.Group();
+  const rock = new THREE.Mesh(new THREE.DodecahedronGeometry(0.2, 0), toon('#5a4a66', '#2a1a3a', 0.15));
+  rock.scale.y = 0.75;
+  const shard = new THREE.Mesh(new THREE.OctahedronGeometry(0.11, 0), toon('#ff8fd0', '#ff4fb0', 0.8));
+  shard.position.set(0.05, 0.14, 0);
+  shard.scale.y = 1.6;
+  g.add(rock, shard);
+  return g;
 }

@@ -9,11 +9,15 @@ export const TUNING = {
   /** Day phase fraction [0..1) where 0 = midnight; a new sanctuary starts in the morning. */
   startPhase: 0.3,
 
-  /** Each window may host one sky event. */
-  eventWindowMin: 22,
+  /** Each window may host one sky event (windows are 1.5x as frequent as they used to be: 22 → 15 min). */
+  eventWindowMin: 15,
   eventChancePerWindow: 0.65,
-  /** Natural frequencies. Starry Night, Full Moon and Blizzard are rare unless summoned. */
-  eventWeights: { storm: 0.55, eclipse: 0.25, starry: 0.08, fullmoon: 0.07, blizzard: 0.05 } as Record<string, number>,
+  /** Natural frequencies. Starry Night, Full Moon, Blizzard, Aurora and Meteor Shower are rare unless summoned. */
+  eventWeights: {
+    storm: 0.42, eclipse: 0.18, rainbow: 0.12, fog: 0.1, starry: 0.06, fullmoon: 0.05, blizzard: 0.04, aurora: 0.04, meteor: 0.04,
+  } as Record<string, number>,
+  /** Starshard rocks a meteor shower drops on each world you own. */
+  meteorRocks: [2, 4] as [number, number],
   /** The very first window always brings a storm so new keepers see the world change. */
   firstStormAtMin: 7,
   forecastLeadMin: 1.5,
