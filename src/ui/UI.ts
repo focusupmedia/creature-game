@@ -33,6 +33,21 @@ import { type AwayFind, canSell, collectorHere, findVisitor, isHungry, visitorTh
 import { rarityTag } from './rarity';
 
 type PetsSort = 'newest' | 'rarity' | 'name' | 'size' | 'hunger';
+type ShopTab = 'lure' | 'egg' | 'item' | 'decor' | 'shards' | 'food';
+interface QueuedToast { text: string; kind: 'info' | 'discovery'; image?: string; ms: number; pri: number; at: number; action?: { label: string; run: () => void } }
+
+/** Which shop tab fixes "you're out of…" (null when the shop isn't the answer). */
+export function shopTabFor(text: string): ShopTab | null {
+  const t = text.toLowerCase();
+  if (/not enough (coins|starshards)|need more (coins|starshards)|can't afford/.test(t)) return 'shards';
+  if (!/mango|shop|out of|you need|you have no|empty/.test(t)) return null;
+  if (/lure/.test(t)) return 'lure';
+  if (/pantry|food|snack|feast|feedbag|berr/.test(t)) return 'food';
+  if (/spray|tonic|deleter|wiper|stone|mist|tracker|summon|item/.test(t)) return 'item';
+  if (/decor/.test(t)) return 'decor';
+  if (/egg/.test(t)) return 'egg';
+  return null;
+}
 
 const fmtClock = (ms: number) => `${Math.floor(Math.max(0, ms) / 60000)}:${String(Math.floor(Math.max(0, ms) / 1000) % 60).padStart(2, '0')}`;
 
@@ -46,7 +61,7 @@ const MANGO_LINES: Record<'lure' | 'egg' | 'item' | 'decor' | 'shards' | 'food',
   egg: ['Ooh-ooh! Fresh eggs, still warm!', 'Who knows what is inside? Not me!', 'Shake it gently... I hear wings!'],
   lure: ['A good smell brings good friends.', 'This one makes my nose twitch!', 'Lures! Tastier than bananas. Almost.'],
   item: ['Curious things from far islands.', 'Do not ask where I found these.', 'Handle with care, keeper!'],
-  decor: ['Make your island cozy!', 'Pretty things for pretty places.', 'Finest decor this side of the sea!'],
+  decor: ['Make your world cozy!', 'Pretty things for pretty places.', 'Finest decor this side of the sea!'],
   food: ['Hungry tummies make grumpy friends!', 'Bananas are not on the menu. Sadly.', 'Plant a Berry Tree and never run out!'],
   shards: ['Starshards! Shiny, shiny!', 'Sparkly stones from fallen stars.', 'They twinkle in my paws!'],
 };
@@ -79,6 +94,8 @@ export class UI {
   private widgetKey = '';
   private banner = h('div', { class: 'banner hidden' });
   private toasts = h('div', { class: 'toasts' });
+  private toastQueue: QueuedToast[] = [];
+  private toastBusy = false;
   private coachEl = h('div', { class: 'coach hidden' });
   private sheetHost = h('div');
   private modalHost = h('div');
@@ -98,7 +115,7 @@ export class UI {
   private decorCat = 'all';
   private feedWorld: IslandId = 'home';
   private decorSort: 'level' | 'price' | 'name' = 'level';
-  private shopTab: 'lure' | 'egg' | 'item' | 'decor' | 'shards' | 'food' = 'egg';
+  private shopTab: ShopTab = 'egg';
   private coachDismissed = -1;
   private coachShownAt = 0;
   seenShopRotation = 0;
@@ -123,8 +140,8 @@ export class UI {
           h('div', { class: 'hud-col right' },
             h('button', { class: 'hud-tile', 'aria-label': 'Watch an ad to summon a sky event', onClick: () => this.showSummon() },
               I.icon(I.SUMMON), h('span', { class: 'lbl' }, 'EVENT'), this.adsBadge),
-            h('button', { class: 'hud-tile islands', 'aria-label': 'Islands', onClick: () => { this.game.audio.play('tap'); this.showIslands(this.firstAlert()); } },
-              I.icon(I.ISLANDS), h('span', { class: 'lbl' }, 'ISLANDS'), this.islandsBadge),
+            h('button', { class: 'hud-tile islands', 'aria-label': 'Worlds', onClick: () => { this.game.audio.play('tap'); this.showIslands(this.firstAlert()); } },
+              I.icon(I.ISLANDS), h('span', { class: 'lbl' }, 'WORLDS'), this.islandsBadge),
             this.questTile,
             this.collectorTile,
             this.giftTile,
@@ -240,13 +257,69 @@ export class UI {
     el.classList.add('bump');
   }
 
-  toast(text: string, kind: 'info' | 'discovery' = 'info', image?: string, ms = 3200): void {
+  /**
+   * News pop-ups wait their turn: the most important shows first, one at a time,
+   * and the next only appears once it fades. Replies to something you just did
+   * (priority 3) show straight away. Old small news is dropped rather than piling up.
+   */
+  toast(text: string, kind: 'info' | 'discovery' = 'info', image?: string, ms = 3200, opts: { priority?: number; action?: { label: string; run: () => void } } = {}): void {
+    const item: QueuedToast = { text, kind, image, ms, pri: opts.priority ?? (kind === 'discovery' ? 2 : 1), at: performance.now(), action: opts.action };
+    if (item.pri >= 3) {
+      this.showToast(item);
+      return;
+    }
+    // the same message twice in a row is just noise
+    if (this.toastQueue.some((q) => q.text === text)) return;
+    let i = this.toastQueue.findIndex((q) => q.pri < item.pri);
+    if (i < 0) i = this.toastQueue.length;
+    this.toastQueue.splice(i, 0, item);
+    // keep the line short: drop the oldest small news first
+    while (this.toastQueue.length > 5) {
+      const low = Math.min(...this.toastQueue.map((q) => q.pri));
+      this.toastQueue.splice(this.toastQueue.findIndex((q) => q.pri === low), 1);
+    }
+    this.pumpToasts();
+  }
+
+  /** Something you tried didn't work: say why right away, with a shortcut to the shop when that's the fix. */
+  fail(text: string): void {
+    const tab = shopTabFor(text);
+    this.toast(text, 'info', undefined, tab ? 4200 : 3200, { priority: 3, action: tab ? { label: 'Shop', run: () => this.openShopFor(tab) } : undefined });
+  }
+
+  /** Open Mango's shop on the tab you need. */
+  openShopFor(tab: ShopTab): void {
+    this.shopTab = tab;
+    this.showShop();
+  }
+
+  private pumpToasts(): void {
+    if (this.toastBusy) return;
+    const now = performance.now();
+    // small news that waited too long is no longer news
+    this.toastQueue = this.toastQueue.filter((q) => q.pri >= 2 || now - q.at < 15_000);
+    const next = this.toastQueue.shift();
+    if (!next) return;
+    this.toastBusy = true;
+    // a longer line moves along a little faster
+    const ms = this.toastQueue.length >= 2 ? Math.max(1800, next.ms * 0.7) : next.ms;
+    this.showToast({ ...next, ms }, () => {
+      this.toastBusy = false;
+      setTimeout(() => this.pumpToasts(), 250);
+    });
+  }
+
+  private showToast(t: QueuedToast, done?: () => void): void {
     // The axolotl mascot delivers any news that doesn't come with its own picture.
-    const el = h('div', { class: `toast ${kind}` }, image ? img(image) : I.icon(I.AXOLOTL, 'icon toast-mascot'), h('span', null, rich(text)));
-    this.toasts.append(el);
-    while (this.toasts.children.length > 3) this.toasts.firstElementChild!.remove();
-    setTimeout(() => el.classList.add('out'), ms);
-    setTimeout(() => el.remove(), ms + 450);
+    const el = h('div', { class: `toast ${t.kind} ${t.pri >= 3 ? 'urgent' : ''}` }, t.image ? img(t.image) : I.icon(I.AXOLOTL, 'icon toast-mascot'), h('span', null, rich(t.text)),
+      t.action ? h('button', { class: 'btn small toast-btn', onClick: () => { el.remove(); t.action!.run(); } }, t.action.label) : null);
+    if (t.pri >= 3) {
+      // only one reply at a time
+      this.toasts.querySelectorAll('.toast.urgent').forEach((e) => e.remove());
+      this.toasts.prepend(el);
+    } else this.toasts.append(el);
+    setTimeout(() => el.classList.add('out'), t.ms);
+    setTimeout(() => { el.remove(); done?.(); }, t.ms + 450);
   }
 
   // ------------------------------------------------------------------ sheets
@@ -373,7 +446,7 @@ export class UI {
     const owned = Object.entries(s.lures).filter(([, n]) => n > 0);
     if (!owned.length) {
       wrap.append(h('div', { class: 'item' }, h('div', { class: 'grow desc' }, 'Your satchel is out of lures.'),
-        h('button', { class: 'btn small', onClick: () => this.showShop() }, 'Visit shop')));
+        h('button', { class: 'btn small', onClick: () => this.openShopFor('lure') }, 'Get lures')));
       return wrap;
     }
     const list = h('div', { class: 'list' });
@@ -401,7 +474,7 @@ export class UI {
     const s2 = this.game.state;
     this.openSheet(displayName(c), speciesTitle(c) !== displayName(c) ? speciesTitle(c) : species(c.species).origin === 'hybrid' ? 'Hybrid' : '', (b) => {
       const sp = species(c.species);
-      const head = h('div', { class: 'row', style: 'align-items:flex-start' }, this.portrait(c, 'portrait big'),
+      const head = h('div', { class: 'row', style: 'align-items:flex-start' }, h('div', { class: 'portrait-wrap' }, this.portrait(c, 'portrait big'), this.heartToggle(c)),
         h('div', { class: 'col', style: 'flex:1' },
           renaming
             ? (() => {
@@ -424,26 +497,26 @@ export class UI {
       b.append(head);
       const t = this.game.now();
       const grown = growth(c, t);
-      b.append(this.friendBlock(c));
-      b.append(this.metBlock(c));
       const tools = this.game.state.tools;
       const g = this.game;
       const full = Math.round(c.fullness * 100);
       const here = collectorHere(g.state, g.now());
       const price = sellPrice(g.state, c, here);
       const noSell = canSell(g.state, c);
+      const foodLeft = (g.state.food.fruit ?? 0) + (g.state.food.snack ?? 0);
       b.append(h('div', { class: 'care' },
-        h('div', { class: 'row', style: 'gap:8px;align-items:center' },
-          h('span', null, isHungry(c) ? '🍖' : '🍓'),
-          h('div', { class: 'grow' }, h('div', { class: `progress small ${isHungry(c) ? 'hungry' : ''}` }, h('i', { style: `width:${full}%` })),
+        h('div', { class: 'hunger-row' },
+          h('span', { class: 'hunger-ico' }, isHungry(c) ? '🍖' : '🍓'),
+          h('div', { class: 'hunger-bar' }, h('div', { class: `progress small ${isHungry(c) ? 'hungry' : ''}` }, h('i', { style: `width:${full}%` })),
             h('span', { class: 'muted' }, isHungry(c) ? 'Hungry! It won\'t dig or breed until it eats.' : c.fullness >= 0.7 ? 'Well fed and happy' : 'Peckish')),
-          h('button', { class: 'btn small', onClick: () => g.feed(c.id) }, `Feed (${(g.state.food.fruit ?? 0) + (g.state.food.snack ?? 0)})`)),
-        h('div', { class: 'btns', style: 'margin-top:8px' },
-          this.heartToggle(c),
+          h('button', { class: `btn small feed-btn ${isHungry(c) ? '' : 'secondary'}`, disabled: c.fullness > 0.97, onClick: () => (foodLeft ? g.feed(c.id) : this.openShopFor('food')) }, foodLeft ? `🍓 Feed (${foodLeft})` : '🍓 Get food')),
+        h('div', { class: 'care-actions' },
           h('button', { class: 'btn small secondary', onClick: () => g.store(c.id) }, '📦 Store'),
           h('button', { class: 'btn small secondary', onClick: () => this.showExpeditionPicker(c) }, '🧭 Explore'),
-          h('button', { class: 'btn small secondary', disabled: !!noSell, title: noSell ?? '', onClick: () => this.confirmSell(c) }, rich(here ? `🎩 Sell · {coin} ${price}` : `Sell · {coin} ${price}`))),
+          h('button', { class: 'btn small secondary', disabled: !!noSell, title: noSell ?? '', onClick: () => this.confirmSell(c) }, rich(`${here ? '🎩 ' : ''}Sell {coin} ${price.toLocaleString()}`))),
         noSell ? h('div', { class: 'muted' }, noSell) : null));
+      b.append(this.friendBlock(c));
+      b.append(this.metBlock(c));
       b.append(h('div', { class: 'stats' },
         h('div', { class: 'stat' }, h('span', { class: 'k' }, `Traits (${c.quirks.length})`),
           ...c.quirks.map((q) => h('div', { class: 'quirk-line' }, h('b', null, `${QUIRKS[q].icon} ${QUIRKS[q].name}`), h('span', { class: 'muted' }, ` ${QUIRKS[q].blurb}`))),
@@ -482,7 +555,7 @@ export class UI {
     this.modal((m, close) => {
       m.append(h('h2', null, TOOLS[id].name), h('p', { class: 'muted' }, TOOLS[id].blurb),
         h('div', { class: 'btns' }, h('button', { class: 'btn secondary', onClick: close }, 'Later'),
-          h('button', { class: 'btn', onClick: () => { close(); this.shopTab = 'item'; this.showShop(); } }, 'Visit Mango\'s shop')));
+          h('button', { class: 'btn', onClick: () => { close(); this.openShopFor('item'); } }, 'Visit Mango\'s shop')));
     });
   }
 
@@ -890,21 +963,26 @@ export class UI {
     const s = this.game.state;
     const comp = compatibility(a, b);
     const free = Array.from({ length: s.nests }, (_, i) => i).filter((i) => !nestOccupant(s, i)).length;
+    const hungry = [a, b].find((c) => isHungry(c));
+    const ready = comp.ok && free > 0 && !hungry;
+    const parent = (c: Creature) => h('div', { class: 'breed-parent' },
+      this.portrait(c, 'breed-pic'), h('b', null, displayName(c)), rarityTag(species(c.species).rarity));
+    const note = !comp.ok ? (comp.reason ?? 'They need at least one type in common.')
+      : hungry ? `${displayName(hungry)} is too hungry to breed. Feed it first.`
+        : !free ? 'Every nest is full. Hatch an egg first, or add a nest.'
+          : `Both stay with you · ${free} free nest${free === 1 ? '' : 's'}`;
     this.modal((m, close) => {
+      m.classList.add('breed-modal');
       m.append(
-        h('h2', null, 'Breed these two?'),
-        h('div', { class: 'slots', style: 'margin:10px 0' },
-          h('div', { class: 'slot filled' }, this.portrait(a, ''), displayName(a)),
-          h('span', { style: 'font-size:26px' }, '💞'),
-          h('div', { class: 'slot filled' }, this.portrait(b, ''), displayName(b))),
-        h('div', { class: `verdict ${comp.ok ? 'ok' : 'no'}` },
-          comp.ok ? h('div', null, 'They feel kindred. They share ', this.traitChips(comp.shared, comp.shared)) : comp.reason ?? ''),
-        h('p', { class: 'muted' }, comp.ok
-          ? (free ? 'They will make an egg together and both stay with you. Who knows what hatches?' : 'Every nest is full. Hatch an egg first, or add a nest.')
-          : 'Creatures must share at least one trait to make an egg.'),
-        h('div', { class: 'btns' },
-          h('button', { class: 'btn secondary', onClick: close }, comp.ok && free ? 'Not now' : 'OK'),
-          comp.ok && free ? h('button', { class: 'btn', onClick: () => { close(); this.game.combine(a.id, b.id); } }, 'Breed!') : null),
+        h('h2', null, 'Make an egg?'),
+        h('div', { class: 'breed-parents' }, parent(a), h('div', { class: `breed-link ${comp.ok ? '' : 'no'}` }, comp.ok ? '💞' : I.icon(I.CLOSE)), parent(b)),
+        ...(comp.ok ? [h('div', { class: 'breed-egg' }, I.icon(I.CREATE), h('span', null, '?')),
+          h('div', { class: 'breed-shared' }, h('span', { class: 'muted' }, 'Shared:'), this.traitChips(comp.shared, comp.shared))] : []),
+        h('p', { class: `breed-note ${ready ? '' : 'warn'}` }, note),
+        h('div', { class: 'breed-btns' },
+          ready ? h('button', { class: 'btn wide', onClick: () => { close(); this.game.combine(a.id, b.id); } }, '💞 Breed!') : null,
+          hungry && comp.ok ? h('button', { class: 'btn wide', onClick: () => { this.game.feed(hungry.id); close(); this.confirmBreed(a, b); } }, `🍓 Feed ${displayName(hungry)}`) : null,
+          h('button', { class: 'btn secondary wide', onClick: close }, ready ? 'Not now' : 'OK')),
       );
     });
   }
@@ -915,7 +993,7 @@ export class UI {
       const row = (svg: string, title: string, text: string) =>
         h('div', { class: 'ctl-row' }, h('span', { class: 'ctl-ico' }, I.icon(svg)), h('div', null, h('b', null, title), h('div', { class: 'muted' }, text)));
       m.append(h('h2', null, 'Getting around'),
-        row(I.GESTURE_DRAG, 'Drag', 'Roll your island globe any way to look all around it.'),
+        row(I.GESTURE_DRAG, 'Drag', 'Roll your world any way to look all around it.'),
         row(I.GESTURE_PINCH, 'Pinch (or mouse wheel)', 'Zoom in close or pull back.'),
         row(I.GESTURE_TWIST, 'Two-finger twist', 'Spin the globe.'),
         row(I.GESTURE_HOLD, 'Press and hold a creature', 'Pick it up and carry it. Drop it on another creature to breed, or on a dig spot.'),
@@ -1154,7 +1232,7 @@ export class UI {
         else if (price !== null) {
           b.append(h('button', { class: 'btn shard wide', disabled: s.shards < price, onClick: () => {
             const r = A.buyNest(s);
-            if (!r.ok) return this.toast(r.error);
+            if (!r.ok) return this.fail(r.error);
             this.game.audio.play('place');
             this.game.analytics.track('nest_bought', { nests: s.nests });
             this.toast('A new nest, warm and ready.');
@@ -1204,7 +1282,7 @@ export class UI {
         const price = A.skipPrice(live);
         btns.append(h('button', { class: 'btn shard', disabled: s.shards < price, onClick: () => {
           const r = A.finishEggWithShards(s, live.id);
-          if (!r.ok) return this.toast(r.error);
+          if (!r.ok) return this.fail(r.error);
           this.game.analytics.track('egg_skip_shards', { price });
           this.game.saveSoon();
           this.rerender();
@@ -1218,7 +1296,7 @@ export class UI {
           if (used) continue;
           btns.append(h('button', { class: 'btn secondary', onClick: () => {
             const r = A.useItem(s, id, live.id);
-            if (!r.ok) return this.toast(r.error);
+            if (!r.ok) return this.fail(r.error);
             this.toast(r.message);
             this.game.saveSoon();
             this.rerender();
@@ -1300,7 +1378,7 @@ export class UI {
       b.append(h('div', { class: 'btns' },
         h('button', { class: 'btn shard small', disabled: s.shards < TUNING.shopRefreshShards, onClick: () => {
           const r = A.paidShopRefresh(s, t);
-          if (!r.ok) return this.toast(r.error);
+          if (!r.ok) return this.fail(r.error);
           this.seenShopRotation = s.shop.rotation;
           this.game.analytics.track('shop_refresh', { via: 'shards' });
           this.game.saveSoon();
@@ -1527,7 +1605,7 @@ export class UI {
       const p = w.ghostPosition();
       if (!p || !w.validPlacement(p.x, p.z)) return this.toast('It needs open ground. Drag it somewhere clear.');
       const r = A.placeDecor(this.game.state, decorId, p.x, p.z, p.rot, w.current);
-      if (!r.ok) return this.toast(r.error);
+      if (!r.ok) return this.fail(r.error);
       this.game.audio.play('place');
       this.game.analytics.track('decor_placed', { decor: decorId, island: w.current });
       this.endPlacement();
@@ -1573,10 +1651,18 @@ export class UI {
   showSettings(): void {
     const g = this.game;
     this.openSheet('Settings', 'Kindred Grove · prototype', (b) => {
-      b.append(h('div', { class: 'item' }, h('div', { class: 'grow name' }, 'Sound'),
-        h('button', { class: 'btn small secondary', onClick: () => { g.setSound(!g.audio.enabled); this.rerender(); } }, g.audio.enabled ? 'On' : 'Off')));
-      b.append(h('div', { class: 'item' }, h('div', { class: 'grow name' }, 'Music'),
-        h('button', { class: 'btn small secondary', onClick: () => { g.setMusic(!g.audio.musicEnabled); this.rerender(); } }, g.audio.musicEnabled ? 'On' : 'Off')));
+      const volumeRow = (label: string, which: 'sound' | 'music', on: boolean, vol: number, toggle: () => void) => {
+        const slider = h('input', { type: 'range', min: '0', max: '100', step: '5', value: String(Math.round(vol * 100)), class: 'vol-slider', disabled: !on, 'aria-label': `${label} volume` }) as HTMLInputElement;
+        const pct = h('span', { class: 'vol-pct' }, `${Math.round(vol * 100)}%`);
+        slider.addEventListener('input', () => { pct.textContent = `${slider.value}%`; g.setVolume(which, Number(slider.value) / 100); });
+        // a little test blip when you let go, so you can hear the level
+        slider.addEventListener('change', () => { if (which === 'sound') g.audio.play('tap'); });
+        return h('div', { class: 'item vol-item' },
+          h('div', { class: 'grow' }, h('div', { class: 'name' }, label), h('div', { class: 'vol-row' }, slider, pct)),
+          h('button', { class: `btn small ${on ? '' : 'secondary'}`, onClick: () => { toggle(); this.rerender(); } }, on ? 'On' : 'Off'));
+      };
+      b.append(volumeRow('Sound', 'sound', g.audio.enabled, g.audio.soundVolume, () => g.setSound(!g.audio.enabled)));
+      b.append(volumeRow('Music', 'music', g.audio.musicEnabled, g.audio.musicVolume, () => g.setMusic(!g.audio.musicEnabled)));
       b.append(h('div', { class: 'item' }, h('div', { class: 'grow' }, h('div', { class: 'name' }, 'Reminders'),
         h('div', { class: 'desc' }, 'At most two gentle notifications while you\'re away (egg ready, rare visitor, pet home, the Collector). Never at night.')),
         h('button', { class: 'btn small secondary', onClick: () => { g.setReminders(!g.remindersOn); this.rerender(); } }, g.remindersOn ? 'On' : 'Off')));
@@ -1813,7 +1899,7 @@ export class UI {
     const s = this.game.state;
     // centre the highlighted world once, not on every refresh (that fought your scrolling)
     let scrolled = false;
-    this.openSheet('Islands', 'Tap an island to visit it. Roll each globe to explore it.', (b) => {
+    this.openSheet('Worlds', 'Tap a world to visit it. Roll each globe to explore it.', (b) => {
       b.append(h('button', { class: 'btn secondary wide', style: 'margin-bottom:10px', onClick: () => this.showPets('storage') }, `Pets & storage (${storedCount(s)} / ${s.storageSlots} stored)`));
       const alerts = this.worldAlerts();
       for (const id of ISLAND_ORDER) {

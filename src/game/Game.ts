@@ -119,9 +119,11 @@ export class Game {
   /** Device settings (sound, music) live outside the save so "Start over" keeps them. */
   private loadSettings(): void {
     try {
-      const s = JSON.parse(this.storage.load(SETTINGS_KEY) ?? '{}') as { sound?: boolean; music?: boolean };
+      const s = JSON.parse(this.storage.load(SETTINGS_KEY) ?? '{}') as { sound?: boolean; music?: boolean; soundVol?: number; musicVol?: number };
       if (s.sound === false) this.audio.enabled = false;
       if (s.music === false) this.audio.musicEnabled = false;
+      if (typeof s.soundVol === 'number') this.audio.soundVolume = s.soundVol;
+      if (typeof s.musicVol === 'number') this.audio.musicVolume = s.musicVol;
     } catch { /* ignore bad settings */ }
   }
 
@@ -137,8 +139,15 @@ export class Game {
     this.saveSettings();
   }
 
+  setVolume(which: 'sound' | 'music', v: number): void {
+    this.audio.unlock();
+    if (which === 'sound') this.audio.setSoundVolume(v);
+    else this.audio.setMusicVolume(v);
+    this.saveSettings();
+  }
+
   private saveSettings(): void {
-    this.storage.save(SETTINGS_KEY, JSON.stringify({ sound: this.audio.enabled, music: this.audio.musicEnabled }));
+    this.storage.save(SETTINGS_KEY, JSON.stringify({ sound: this.audio.enabled, music: this.audio.musicEnabled, soundVol: this.audio.soundVolume, musicVol: this.audio.musicVolume }));
   }
 
   private load(): GameState {
@@ -195,7 +204,7 @@ export class Game {
 
   claimCollection(id: string): void {
     const r = claimCollection(this.state, id, this.now());
-    if (!r.ok) return this.ui.toast(r.error);
+    if (!r.ok) return this.ui.fail(r.error);
     this.audio.play('fanfare');
     this.ui.toast(`🏅 ${r.def.name} complete! {coin} +${r.def.reward.coins.toLocaleString()}  {gem} +${r.def.reward.shards}`, 'discovery', undefined, 5000);
     this.analytics.track('collection_claimed', { id });
@@ -211,7 +220,7 @@ export class Game {
 
   claimContest(): void {
     const r = claimContest(this.state, this.now());
-    if (!r.ok) return this.ui.toast(r.error);
+    if (!r.ok) return this.ui.fail(r.error);
     this.audio.play(r.place <= 3 ? 'fanfare' : 'coin');
     this.ui.toast(`${r.place === 1 ? '🏆 First place!' : r.place <= 3 ? `🏅 Place ${r.place}!` : `Thanks for entering!`} {coin} +${r.coins}  {gem} +${r.shards}`, 'discovery', undefined, 5000);
     this.analytics.track('contest_claimed', { place: r.place });
@@ -221,7 +230,7 @@ export class Game {
 
   claimLogin(): void {
     const r = claimLogin(this.state, this.now());
-    if (!r.ok) return this.ui.toast(r.error);
+    if (!r.ok) return this.ui.fail(r.error);
     this.audio.play(r.reward.day === 7 ? 'fanfare' : 'coin');
     this.ui.toast(`Day ${r.reward.day} gift: ${r.reward.text}!`, 'discovery', undefined, 4000);
     this.analytics.track('login_claimed', { day: r.reward.day });
@@ -487,7 +496,7 @@ export class Game {
     const r = A.workDigSpot(this.state, target.id, id);
     if (!r.ok) {
       this.audio.play('error');
-      return this.ui.toast(r.error);
+      return this.ui.fail(r.error);
     }
     this.world.handle({ type: 'gift', gift: r.gift, t: this.now() }, true);
     this.record({ kind: 'digSpot' });
@@ -521,7 +530,7 @@ export class Game {
     const r = A.buyIsland(this.state, id);
     if (!r.ok) {
       this.audio.play('error');
-      return this.ui.toast(r.error);
+      return this.ui.fail(r.error);
     }
     this.audio.play('discover');
     this.analytics.track('island_bought', { island: id });
@@ -541,7 +550,7 @@ export class Game {
     const r = A.upgradeIsland(this.state, id, currency);
     if (!r.ok) {
       this.audio.play('error');
-      return this.ui.toast(r.error);
+      return this.ui.fail(r.error);
     }
     this.audio.play('discover');
     this.analytics.track('island_upgraded', { island: id, size: this.state.islands[id].size, currency });
@@ -554,7 +563,7 @@ export class Game {
     const r = A.moveCreature(this.state, creatureId, to, this.now());
     if (!r.ok) {
       this.audio.play('error');
-      return this.ui.toast(r.error);
+      return this.ui.fail(r.error);
     }
     this.audio.play('place');
     this.ui.closeSheet();
@@ -573,7 +582,7 @@ export class Game {
     const r = A.placeLure(this.state, spot, lure, this.now());
     if (!r.ok) {
       this.audio.play('error');
-      return this.ui.toast(r.error);
+      return this.ui.fail(r.error);
     }
     this.audio.play('place');
     this.analytics.track('lure_placed', { lure, spot, sky: activeEvent(this.state, this.now())?.kind ?? 'none' });
@@ -589,7 +598,7 @@ export class Game {
     const r = A.startCombine(this.state, aId, bId, this.now());
     if (!r.ok) {
       this.audio.play('error');
-      return this.ui.toast(r.error);
+      return this.ui.fail(r.error);
     }
     this.audio.play('egg');
     this.record({ kind: 'breed' });
@@ -614,7 +623,7 @@ export class Game {
       this.audio.play('error');
       // a full home: offer to make space, then hatch straight away
       if (r.error.includes('is full')) return this.ui.showMakeSpace('home', () => this.hatch(eggId));
-      return this.ui.toast(r.error);
+      return this.ui.fail(r.error);
     }
     this.ui.closeSheet();
     this.ui.hideHud(true);
@@ -651,7 +660,7 @@ export class Game {
     const ok = await this.ads.showRewarded('egg_hatch');
     if (!ok) return;
     const r = A.adHatch(this.state, eggId, this.now());
-    if (!r.ok) return this.ui.toast(r.error);
+    if (!r.ok) return this.ui.fail(r.error);
     this.analytics.track('ad_rewarded', { placement: 'egg_hatch' });
     this.ui.rerender();
     this.saveSoon();
@@ -668,7 +677,7 @@ export class Game {
     if (!ok) return false;
     const r = A.summonEvent(this.state, this.now());
     if (!r.ok) {
-      this.ui.toast(r.error);
+      this.ui.fail(r.error);
       return false;
     }
     this.analytics.track('ad_rewarded', { placement: 'summon_event', kind: r.kind });
@@ -694,7 +703,7 @@ export class Game {
     const ok = await this.ads.showRewarded('free_coins');
     if (!ok) return;
     const r = A.claimCoinAd(this.state, this.now());
-    if (!r.ok) return this.ui.toast(r.error);
+    if (!r.ok) return this.ui.fail(r.error);
     this.audio.play('coin');
     this.ui.toast(`{coin} +${r.coins} free coins. Thanks for watching!`, 'discovery');
     this.analytics.track('ad_rewarded', { placement: 'free_coins', coins: r.coins });
@@ -706,7 +715,7 @@ export class Game {
     const r = A.buyDecor(this.state, id);
     if (!r.ok) {
       this.audio.play('error');
-      return this.ui.toast(r.error);
+      return this.ui.fail(r.error);
     }
     this.audio.play('coin');
     this.analytics.track('decor_bought', { decor: id });
@@ -720,7 +729,7 @@ export class Game {
     const r = A.buyOffer(this.state, offerId, this.now());
     if (!r.ok) {
       this.audio.play('error');
-      return this.ui.toast(r.error);
+      return this.ui.fail(r.error);
     }
     this.audio.play('coin');
     if (offer?.kind === 'egg') this.record({ kind: 'shopEgg' });
@@ -767,7 +776,7 @@ export class Game {
   /** Chop down a scenery tree to make room for decorations. */
   chop(island: IslandId, index: number): void {
     const r = A.chopTree(this.state, island, index);
-    if (!r.ok) return this.ui.toast(r.error);
+    if (!r.ok) return this.ui.fail(r.error);
     this.audio.play('place');
     this.ui.toast(`Timber! The tree came down and you sold the wood for {coin} ${r.coins}.`);
     this.analytics.track('tree_chopped', { island });
@@ -779,7 +788,7 @@ export class Game {
     const w = this.state.wanderer;
     if (!w) return;
     const r = meetWanderer(this.state, this.now(), new StateRng(this.state));
-    if (!r.ok) return this.ui.toast(r.error);
+    if (!r.ok) return this.ui.fail(r.error);
     this.world.wandererLeaves(w, r.kind === 'goblin');
     this.audio.play(r.kind === 'goblin' ? 'coin' : 'chime');
     this.ui.toast(r.kind === 'goblin' ? `{coin} ${r.message}` : `${WANDERERS[r.kind].name}: ${r.message}`, 'discovery', undefined, 5500);
@@ -802,7 +811,7 @@ export class Game {
   private careResult(r: { ok: true; message: string } | { ok: false; error: string }, sfx: 'coin' | 'place' | 'chime' = 'place'): boolean {
     if (!r.ok) {
       this.audio.play('error');
-      this.ui.toast(r.error);
+      this.ui.fail(r.error);
       return false;
     }
     this.audio.play(sfx);
@@ -822,7 +831,7 @@ export class Game {
   /** A pet is back from exploring: collect what it found. */
   welcomeHome(id: string): void {
     const r = claimExpedition(this.state, id, this.now());
-    if (!r.ok) return this.ui.toast(r.error);
+    if (!r.ok) return this.ui.fail(r.error);
     this.audio.play('discover');
     const c = this.state.creatures.find((x) => x.id === id);
     this.ui.showExpeditionHaul(c ?? null, r);
@@ -834,7 +843,7 @@ export class Game {
   /** Pet or play with a creature to grow your friendship. */
   befriend(id: string, how: 'pet' | 'play'): void {
     const r = how === 'pet' ? petCreature(this.state, id, this.now()) : playWith(this.state, id, this.now());
-    if (!r.ok) return this.ui.toast(r.error);
+    if (!r.ok) return this.ui.fail(r.error);
     this.audio.play(r.newHeart ? 'chime' : 'tap');
     const pet = this.state.creatures.find((x) => x.id === id);
     if (pet) this.audio.voice(voiceOf(pet), pet.size, 'happy');
@@ -890,7 +899,7 @@ export class Game {
 
   claimQuest(kind: 'daily' | 'lasting', id: string): void {
     const r = kind === 'daily' ? claimDaily(this.state, id) : claimLasting(this.state, id);
-    if (!r.ok) return this.ui.toast(r.error);
+    if (!r.ok) return this.ui.fail(r.error);
     this.audio.play('chime');
     this.analytics.track('quest_claimed', { kind, id });
     this.ui.toast(`✅ ${r.text}: {coin} +${r.reward.coins}  {gem} +${r.reward.shards}  ★ +${r.reward.xp} XP`, 'discovery');
@@ -935,7 +944,7 @@ export class Game {
     const r = claimBlessing(this.state, creatureId, m, this.now());
     if (!r.ok) {
       this.audio.play('error');
-      return this.ui.toast(r.error);
+      return this.ui.fail(r.error);
     }
     this.audio.play('chime');
     this.analytics.track('blessing_claimed', { mutation: m });

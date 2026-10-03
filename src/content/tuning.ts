@@ -12,9 +12,13 @@ export const TUNING = {
   /** Each window may host one sky event (windows are 1.5x as frequent as they used to be: 22 → 15 min). */
   eventWindowMin: 15,
   eventChancePerWindow: 0.65,
-  /** Natural frequencies. Starry Night, Full Moon, Blizzard, Aurora and Meteor Shower are rare unless summoned. */
+  /**
+   * Natural frequencies. Storms are still the most common sky, but no longer hog
+   * the windows: every other sky gets a real turn. Starry Night, Full Moon,
+   * Blizzard, Aurora and Meteor Shower stay rarer unless summoned.
+   */
   eventWeights: {
-    storm: 0.42, eclipse: 0.18, rainbow: 0.12, fog: 0.1, starry: 0.06, fullmoon: 0.05, blizzard: 0.04, aurora: 0.04, meteor: 0.04,
+    storm: 0.22, eclipse: 0.15, rainbow: 0.15, fog: 0.13, starry: 0.08, fullmoon: 0.07, blizzard: 0.07, aurora: 0.07, meteor: 0.06,
   } as Record<string, number>,
   /** Starshard rocks a meteor shower drops on each world you own. */
   meteorRocks: [2, 4] as [number, number],

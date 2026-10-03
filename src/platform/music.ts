@@ -16,6 +16,8 @@ export class Music {
   private echoSend: GainNode;
   private nextTime = 0;
   private enabled = true;
+  /** The player's music slider, 0..1. */
+  volume = 1;
 
   constructor(private ctx: AudioContext, out: AudioNode) {
     this.bus = ctx.createGain();
@@ -70,7 +72,7 @@ export class Music {
 
   private fadeTo(v: number, secs: number): void {
     this.bus.gain.cancelScheduledValues(this.ctx.currentTime);
-    this.bus.gain.setTargetAtTime(v, this.ctx.currentTime, secs / 3);
+    this.bus.gain.setTargetAtTime(v * this.volume, this.ctx.currentTime, secs / 3);
   }
 
   private voice(n: Note, t: number): void {

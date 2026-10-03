@@ -386,28 +386,28 @@ export const TOOLS: Record<string, { id: string; name: string; icon: string; blu
 export const ITEMS: Record<string, ItemDef> = {
   rootswell: {
     id: 'rootswell', name: 'Rootswell Tonic', target: 'egg', effect: 'giantChance', price: 90,
-    blurb: 'A thick, earthy draught. Eggs that drink it tend to hatch... big.',
+    blurb: 'Give it to an egg in a nest: a thick, earthy draught. Eggs that drink it tend to hatch... big.',
   },
   warmstone: {
     id: 'warmstone', name: 'Warm Stone', target: 'egg', effect: 'warmth', price: 45,
-    blurb: 'Holds the heat of a summer afternoon. Halves the remaining time of one egg.',
+    blurb: 'Set it by an egg in a nest: it holds the heat of a summer afternoon and halves the time left to hatch.',
   },
   // egg sprays: each kind works once per egg
   growmist: {
     id: 'growmist', name: 'Grow Mist', target: 'egg', effect: 'grow', price: 70, spray: true,
-    blurb: 'A spritz of green mist. The creature inside hatches big, and sometimes enormous.',
+    blurb: 'Spray it on an egg in a nest: the creature inside hatches big, and sometimes enormous.',
   },
   shrinkmist: {
     id: 'shrinkmist', name: 'Shrink Mist', target: 'egg', effect: 'shrink', price: 70, spray: true,
-    blurb: 'A cool blue mist. The creature inside hatches small, and sometimes teeny.',
+    blurb: 'Spray it on an egg in a nest: the creature inside hatches small, and sometimes teeny.',
   },
   glitter: {
     id: 'glitter', name: 'Glitter Spray', target: 'egg', effect: 'glitter', price: 160, spray: true,
-    blurb: 'Sparkly stuff. Half the time the egg soaks it up and hatches with a mutation.',
+    blurb: 'Spray it on an egg in a nest: half the time the egg soaks it up and hatches with a mutation.',
   },
   speedy: {
     id: 'speedy', name: 'Speedy Spritz', target: 'egg', effect: 'speedy', price: 60, spray: true,
-    blurb: 'Fizzy and warm. The egg hatches 30% faster.',
+    blurb: 'Spray it on an egg in a nest: it hatches 30% faster.',
   },
 };
 

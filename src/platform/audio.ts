@@ -13,6 +13,9 @@ type Sfx = 'tap' | 'place' | 'arrive' | 'discover' | 'crack' | 'hatch' | 'coin' 
 
 export class Audio {
   private ctx: AudioContext | null = null;
+  /** Everything goes out through here (always on). */
+  private out: GainNode | null = null;
+  /** Sound effects and ambience. */
   private master: GainNode | null = null;
   private rain: GainNode | null = null;
   private wind: GainNode | null = null;
@@ -21,6 +24,9 @@ export class Audio {
   private mood: MoodId = 'day';
   enabled = true;
   musicEnabled = true;
+  /** Volume sliders, 0..1. */
+  soundVolume = 1;
+  musicVolume = 1;
 
   /** Must be called from a user gesture (browser autoplay rules). */
   unlock(): void {
@@ -33,19 +39,39 @@ export class Audio {
     } catch {
       return;
     }
+    this.out = this.ctx.createGain();
+    this.out.connect(this.ctx.destination);
     this.master = this.ctx.createGain();
-    this.master.gain.value = this.enabled ? 0.6 : 0;
-    this.master.connect(this.ctx.destination);
+    this.master.gain.value = this.enabled ? 0.6 * this.soundVolume : 0;
+    this.master.connect(this.out);
     this.wind = this.noiseBed(400, 0.05);
     this.rain = this.noiseBed(2400, 0);
-    this.music = new Music(this.ctx, this.master);
+    // music has its own level, so the Sound switch and slider don't touch it
+    const musicBus = this.ctx.createGain();
+    musicBus.gain.value = 0.6;
+    musicBus.connect(this.out);
+    this.music = new Music(this.ctx, musicBus);
+    this.music.volume = this.musicVolume;
     this.music.setMood(this.mood);
     this.music.setEnabled(this.musicEnabled);
   }
 
   setEnabled(on: boolean): void {
     this.enabled = on;
-    if (this.master && this.ctx) this.master.gain.setTargetAtTime(on ? 0.6 : 0, this.ctx.currentTime, 0.1);
+    if (this.master && this.ctx) this.master.gain.setTargetAtTime(on ? 0.6 * this.soundVolume : 0, this.ctx.currentTime, 0.1);
+  }
+
+  setSoundVolume(v: number): void {
+    this.soundVolume = Math.max(0, Math.min(1, v));
+    this.setEnabled(this.enabled);
+  }
+
+  setMusicVolume(v: number): void {
+    this.musicVolume = Math.max(0, Math.min(1, v));
+    if (this.music) {
+      this.music.volume = this.musicVolume;
+      this.music.setEnabled(this.musicEnabled);
+    }
   }
 
   setMusicEnabled(on: boolean): void {

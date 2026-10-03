@@ -71,7 +71,10 @@ describe('sky events', () => {
       }
     }
     expect(Object.keys(counts).sort()).toEqual(['aurora', 'blizzard', 'eclipse', 'fog', 'fullmoon', 'meteor', 'rainbow', 'starry', 'storm']);
-    expect(counts.storm).toBeGreaterThan(counts.starry * 4);
+    // storms are still the most common sky, but every other sky gets a real turn
+    for (const k of Object.keys(counts)) if (k !== 'storm') expect(counts.storm).toBeGreaterThan(counts[k]);
+    expect(counts.storm).toBeGreaterThan(counts.starry * 2);
+    expect(counts.storm / Object.values(counts).reduce((a, b) => a + b, 0)).toBeLessThan(0.3);
     expect(counts.blizzard).toBeLessThan(counts.eclipse);
   });
 
@@ -303,7 +306,8 @@ describe('economy', () => {
   it('gifts accumulate while away but are capped', () => {
     const s = fresh();
     tick(s, T0 + 6 * 60 * MIN, { maxStepMs: 10_000 });
-    expect(s.gifts.length).toBe(TUNING.maxGiftsOnGround);
+    // (a meteor shower may drop a few Starshard rocks on top)
+    expect(s.gifts.filter((g) => !g.meteor).length).toBe(TUNING.maxGiftsOnGround);
     const before = s.glimmer;
     const r = collectGift(s, s.gifts[0].id);
     expect(r.ok).toBe(true);

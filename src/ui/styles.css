@@ -133,6 +133,8 @@ button:focus-visible { outline: 3px solid var(--white); outline-offset: 2px; }
   box-shadow: 0 4px 0 var(--ink); max-width: 420px; display: flex; gap: 8px; align-items: center; animation: toast-in .3s cubic-bezier(.2,1.5,.4,1);
 }
 .toast.discovery { background: linear-gradient(180deg, #fff6b8, var(--orange-1)); }
+.toast .toast-btn { pointer-events: auto; flex: none; margin-left: 4px; }
+.toast.urgent { border-color: var(--ink); }
 .toast.out { opacity: 0; transform: translateY(-8px); transition: all .4s; }
 .toast img { width: 34px; height: 34px; }
 @keyframes toast-in { from { opacity: 0; transform: translateY(-10px) scale(.9); } }
@@ -510,6 +512,16 @@ input.rename { font-family: var(--display); font-size: 22px; border: var(--outli
 
 /* ---- care: food bar, pantry, storage, collector */
 .care { background: var(--white); border: 3px solid var(--sky-3); border-radius: 16px; padding: 10px; margin: 10px 0; }
+.hunger-row { display: flex; align-items: center; gap: 8px; }
+.hunger-ico { flex: none; width: 24px; display: grid; place-items: center; }
+.hunger-bar { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.hunger-bar .progress { width: 100%; }
+.feed-btn { flex: none; white-space: nowrap; }
+.care-actions { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 10px; }
+.care-actions .btn { width: 100%; padding-left: 4px; padding-right: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.portrait-wrap { position: relative; flex: none; }
+.portrait-wrap .fav-heart { position: absolute; top: -8px; right: -8px; width: 38px; height: 38px; }
+.portrait-wrap .fav-heart .icon { width: 30px; height: 30px; }
 .progress.hungry i { background: linear-gradient(90deg, #ff6a4a, #ffb02a); }
 .pantry { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 0 0 8px; }
 .swatch-img { width: 52px; height: 52px; flex: none; }
@@ -609,3 +621,25 @@ input.rename { font-family: var(--display); font-size: 22px; border: var(--outli
 .contest-ico .icon { width: 36px; height: 36px; }
 .contest-result { display: flex; gap: 8px; align-items: center; justify-content: space-between; background: linear-gradient(90deg, #fff3a0, #ffe08a); border: 3px solid var(--ink); border-radius: 14px; padding: 10px; margin-bottom: 8px; }
 .lb-place { width: 26px; height: 26px; border-radius: 13px; display: grid; place-items: center; background: #ffd21a; border: 2px solid var(--ink); flex: none; font-family: var(--display); }
+
+/* ---- settings volume */
+.vol-row { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
+.vol-slider { flex: 1; min-width: 0; accent-color: var(--orange-2, #ffb02a); height: 28px; }
+.vol-slider:disabled { opacity: .4; }
+.vol-pct { width: 40px; text-align: right; font-weight: 800; color: var(--ink); font-size: 13px; }
+
+/* ---- breed prompt */
+.modal.breed-modal { text-align: center; }
+.breed-parents { display: flex; align-items: center; justify-content: center; gap: 6px; margin: 12px 0 4px; }
+.breed-parent { display: flex; flex-direction: column; align-items: center; gap: 4px; width: 120px; min-width: 0; }
+.breed-parent b { font-size: 14px; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.breed-pic { width: 92px; height: 92px; border-radius: 50%; background: radial-gradient(circle at 50% 40%, #fff, var(--sky-2)); border: 3px solid var(--sky-3); }
+.breed-link { width: 40px; height: 40px; border-radius: 50%; background: #fff0f6; border: 3px solid #ff9ec4; display: grid; place-items: center; font-size: 18px; flex: none; margin-bottom: 34px; }
+.breed-link.no { background: #f2f2f6; border-color: #c8c8d4; color: #8a8aa0; }
+.breed-egg { position: relative; width: 52px; height: 52px; margin: 0 auto; display: grid; place-items: center; }
+.breed-egg .icon { width: 48px; height: 48px; }
+.breed-egg span { position: absolute; font-family: var(--display); font-size: 18px; color: #fff; -webkit-text-stroke: 1.5px var(--ink); bottom: 8px; }
+.breed-shared { display: flex; align-items: center; justify-content: center; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+.breed-note { margin: 8px 0 12px; font-size: 13px; color: var(--ink-2, #5a6a8a); }
+.breed-note.warn { color: #c0392b; font-weight: 700; }
+.breed-btns { display: flex; flex-direction: column; gap: 8px; }
