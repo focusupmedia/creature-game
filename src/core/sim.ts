@@ -157,15 +157,16 @@ function step(state: GameState, t: number, dt: number, out: GameEvent[], live = 
   }
 
   // ---- digging: residents dig things up, more or less often depending on personality
-  if (state.gifts.length < TUNING.maxGiftsOnGround && state.creatures.length) {
+  if (state.creatures.length) {
     // hungry creatures don't dig; stored ones are away
     const diggers = state.creatures.filter((c) => !c.stored && growth(c, t) >= 0.5 && c.fullness >= TUNING.hungry);
     const rate1 = (c: (typeof diggers)[number]) => (TUNING.digRate[temperOf(c) ?? ''] ?? 1) * (hasQuirk(c, 'digger') ? 2 : 1) * (c.fullness >= TUNING.wellFed ? 1.25 : 1);
     const total = diggers.reduce((s, c) => s + rate1(c), 0);
     // Capped so hoarding creatures isn't an income strategy.
     const rate = Math.min(total, TUNING.giftResidentsCap) / (TUNING.giftEveryMin * MIN);
-    if (diggers.length && rng.chance(1 - Math.exp(-rate * dt))) {
-      const from = rng.weighted(diggers.map((c) => [c, rate1(c)] as [typeof c, number]))!;
+    const from = diggers.length && rng.chance(1 - Math.exp(-rate * dt)) ? rng.weighted(diggers.map((c) => [c, rate1(c)] as [typeof c, number])) : null;
+    // each world has its own limit, so finds left lying on one world don't stop digging on the others
+    if (from && state.gifts.filter((x) => x.island === from.island).length < TUNING.maxGiftsOnGround) {
       const g = islandGeo(from.island, state.islands[from.island]?.size ?? 0);
       const p = randomLand(g, () => rng.next());
       const [g0, g1] = TUNING.giftGlimmer;

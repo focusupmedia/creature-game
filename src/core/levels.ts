@@ -6,7 +6,8 @@
 import { TUNING } from '../content/tuning';
 import { makeCreature } from './creatures';
 import { recordSpecies } from './journal';
-import type { GameState, SpeciesId } from './types';
+import { ISLANDS, ISLAND_ORDER, SIZE_CAPACITY } from '../content/islands';
+import type { GameState, IslandId, SpeciesId } from './types';
 
 export const MAX_LEVEL = 50;
 
@@ -63,6 +64,34 @@ export interface LevelUp extends LevelReward {
 }
 
 /** Add XP; applies the rewards of any levels reached and returns them. */
+/** A level-only creature joins: on the first world with room, or resting in storage if every world is full. */
+function giveLevelCreature(state: GameState, sp: SpeciesId, level: number, t: number): string {
+  const owned = ISLAND_ORDER.filter((id) => state.islands[id]?.owned);
+  const room = (id: IslandId) => state.creatures.filter((c) => c.island === id && !c.stored).length
+    < (SIZE_CAPACITY[state.islands[id]?.size ?? 0] ?? 10) + (ISLANDS[id]?.capacityBonus ?? 0);
+  const island = owned.find(room);
+  const c = makeCreature(state, sp, [], t, `A gift for reaching keeper level ${level}.`, { island: island ?? 'home', met: { how: 'level', level } });
+  if (!island) {
+    c.stored = true;
+    c.storedAt = t;
+  }
+  state.creatures.push(c);
+  recordSpecies(state, sp, t);
+  return c.id;
+}
+
+/** Older saves could pass a level without getting its creature: hand over any that are missing. */
+export function grantMissingLevelCreatures(state: GameState, t: number): string[] {
+  const out: string[] = [];
+  const level = levelOf(state.xp);
+  for (const [l, sp] of Object.entries(LEVEL_CREATURES)) {
+    if (Number(l) > level) continue;
+    if (state.creatures.some((c) => c.species === sp) || state.journal.species[sp]) continue;
+    out.push(giveLevelCreature(state, sp, Number(l), t));
+  }
+  return out;
+}
+
 export function addXp(state: GameState, amount: number, t: number): LevelUp[] {
   if (amount <= 0) return [];
   const before = levelOf(state.xp);
@@ -73,12 +102,7 @@ export function addXp(state: GameState, amount: number, t: number): LevelUp[] {
     const r: LevelUp = levelReward(l);
     state.glimmer += r.coins;
     state.shards += r.shards;
-    if (r.creature) {
-      const c = makeCreature(state, r.creature, [], t, `A gift for reaching keeper level ${l}.`, { island: 'home', met: { how: 'level', level: l } });
-      state.creatures.push(c);
-      recordSpecies(state, r.creature, t);
-      r.creatureId = c.id;
-    }
+    if (r.creature) r.creatureId = giveLevelCreature(state, r.creature, l, t);
     ups.push(r);
   }
   return ups;

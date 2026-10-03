@@ -171,7 +171,12 @@ export function collectGift(state: GameState, giftId: string, t = Date.now()): R
   state.glimmer += g.glimmer;
   state.shards += g.shards;
   if (g.item === 'egg') {
-    layEgg(state, rollEggTier(state, 'wild'), 'dug', t);
+    // a full basket turns the egg into a little extra treasure instead
+    if (state.eggs.filter((e) => e.nest === null).length < TUNING.basketSize) layEgg(state, rollEggTier(state, 'wild'), 'dug', t);
+    else {
+      state.glimmer += 40;
+      return { ok: true, glimmer: g.glimmer + 40, shards: g.shards };
+    }
   } else if (g.item) {
     state.items[g.item] = (state.items[g.item] ?? 0) + 1;
   }

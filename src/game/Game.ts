@@ -1,7 +1,7 @@
 import { species } from '../content/species';
 import { DIG_KINDS, EVENTS, ITEMS, LEGENDARY, LURES, MUTATIONS, SPOTS } from '../content/world';
 import { claimBlessing, startLegendary } from '../core/legendary';
-import { addXp } from '../core/levels';
+import { addXp, grantMissingLevelCreatures } from '../core/levels';
 import { claimDaily, claimLasting, questEvent, refreshDailies } from '../core/quests';
 import { awayFinds, buyStorageSlot, findVisitor, keepVisitor, releaseCreature, sendAwayVisitor, feastIsland, feedCreature, hangFeedbag, harvestTree, nextHungryAt, retrieveCreature, sellCreature, storeCreature } from '../core/care';
 import { islandCapacity } from '../core/sim';
@@ -83,6 +83,8 @@ export class Game {
     const events = tick(this.state, this.now(), { maxStepMs: TUNING.offlineStepSec * 1000 });
     this.world.sync(this.state, this.now(), activeEvent(this.state, this.now())?.kind ?? null);
     this.dispatch(events, false);
+    // older saves: hand over any level-only creatures the keeper already earned
+    if (grantMissingLevelCreatures(this.state, this.now()).length) this.saveSoon();
     if (away > AWAY_REPORT_MS) this.ui.showAwayReport(events, away, awayFinds(this.state, away));
     this.analytics.track('session_start', { creatures: this.state.creatures.length, away_min: Math.round(away / 60000) });
     this.world.start();
@@ -608,6 +610,7 @@ export class Game {
     if (!ok) return;
     A.consumeAd(this.state, this.now());
     A.paidShopRefresh(this.state, this.now(), true);
+    this.ui.seenShopRotation = this.state.shop.rotation;
     this.analytics.track('ad_rewarded', { placement: 'shop_refresh' });
     this.ui.rerender();
     this.saveSoon();
@@ -744,12 +747,12 @@ export class Game {
     }
   }
 
-  feast(): void {
-    if (this.careResult(feastIsland(this.state, this.world.current), 'chime')) this.analytics.track('fed', { how: 'feast' });
+  feast(island: IslandId = this.world.current): void {
+    if (this.careResult(feastIsland(this.state, island), 'chime')) this.analytics.track('fed', { how: 'feast' });
   }
 
-  hangBag(): void {
-    this.careResult(hangFeedbag(this.state, this.world.current));
+  hangBag(island: IslandId = this.world.current): void {
+    this.careResult(hangFeedbag(this.state, island));
   }
 
   harvest(decorId: string): void {

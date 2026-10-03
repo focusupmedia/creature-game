@@ -135,6 +135,15 @@ const B: Record<string, (k: Kit) => void> = {
       k.ball(0.03 * s, '#ffffff', [x + 0.06 * s, 0.33 * s, z + 0.05 * s]);
     });
   },
+  mushroomRing(k) {
+    for (let i = 0; i < 9; i++) {
+      const a = (i / 9) * Math.PI * 2;
+      const s = 0.7 + (i % 3) * 0.2;
+      k.cyl(0.04 * s, 0.05 * s, 0.22 * s, '#fff3e2', [Math.cos(a) * 0.8, 0.11 * s, Math.sin(a) * 0.8]);
+      k.add(new THREE.SphereGeometry(0.12 * s, 8, 5, 0, Math.PI * 2, 0, Math.PI / 2), i % 2 ? '#e2483e' : '#c98bd6', [Math.cos(a) * 0.8, 0.2 * s, Math.sin(a) * 0.8], '#3a1f3a');
+    }
+    k.glow('#e7b6ff', 2.6, 0.3);
+  },
   cactuspot(k) {
     k.cyl(0.2, 0.15, 0.25, '#d0703a', [0, 0.12, 0]);
     k.cyl(0.11, 0.12, 0.5, '#5fbf4a', [0, 0.45, 0], undefined, undefined, 8);

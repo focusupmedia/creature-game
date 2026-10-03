@@ -37,7 +37,7 @@ export const DAILY_POOL: DailyDef[] = [
   { id: 'd-egg', stat: 'shopEgg', target: 2, text: 'Buy 2 eggs from Mango', reward: { coins: 400, shards: 10, xp: 100 } },
   {
     id: 'd-fetch', stat: 'creatureCoins', target: 120, text: 'Have your creatures fetch 120 coins', reward: { coins: 550, shards: 8, xp: 130 },
-    when: (s) => s.creatures.some((c) => hasQuirk(c, 'greedy')),
+    when: (s) => s.creatures.some((c) => !c.stored && hasQuirk(c, 'greedy')),
   },
 ];
 

@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { DRAWN } from '../src/ui/emoji';
 
 // Every emoji the game shows must have a drawn icon, so it looks the same on every phone.
-const EMOJI = /[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{2B50}\u{2300}-\u{23FF}★☆✦✓]/gu;
+const EMOJI = /[\u{1F100}-\u{1F2FF}\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{2B50}\u{2300}-\u{23FF}★☆✦✓]/gu;
 
 function files(dir: string): string[] {
   return readdirSync(dir).flatMap((f) => {

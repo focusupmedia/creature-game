@@ -87,11 +87,12 @@ export class UI {
   private journalTab: 'creatures' | 'mutations' | 'notes' = 'creatures';
   private journalWorld: IslandId | 'all' = 'all';
   private decorCat = 'all';
+  private feedWorld: IslandId = 'home';
   private decorSort: 'level' | 'price' | 'name' = 'level';
   private shopTab: 'lure' | 'egg' | 'item' | 'decor' | 'shards' | 'food' = 'egg';
   private coachDismissed = -1;
   private coachShownAt = 0;
-  private seenShopRotation = 0;
+  seenShopRotation = 0;
   private seenNotes = 0;
   readonly labels: WorldLabels;
 
@@ -1071,6 +1072,8 @@ export class UI {
 
   showShop(toShards = false): void {
     const s = this.game.state;
+    // the shop is on Home; food bought here is for the world you came from (you can switch)
+    if (this.game.world.current !== 'home' || !this.sheetOpen) this.feedWorld = this.game.world.current;
     this.seenShopRotation = s.shop.rotation;
     if (toShards) this.shopTab = 'shards';
     this.ensureHome();
@@ -1125,12 +1128,18 @@ export class UI {
       const list = h('div', { class: 'list' });
       if (this.shopTab === 'food') {
         const g = this.game;
-        const here = g.world.current;
+        const owned = ISLAND_ORDER.filter((id) => s.islands[id]?.owned);
+        if (!owned.includes(this.feedWorld)) this.feedWorld = 'home';
+        const here = this.feedWorld;
+        if (owned.length > 1) {
+          b.append(h('div', { class: 'world-filter' }, ...owned.map((id) =>
+            h('button', { class: `chip-btn ${here === id ? 'on' : ''}`, onClick: () => { this.feedWorld = id; this.rerender(); } }, `${ISLANDS[id].icon} ${ISLANDS[id].name}`))));
+        }
         b.append(h('div', { class: 'pantry' },
           h('b', null, 'Your pantry: '), ...['fruit', 'snack', 'feast', 'feedbag'].map((f) => h('span', { class: 'quirk' }, `${FOODS[f].icon} ${s.food[f] ?? 0}`))));
         b.append(h('div', { class: 'btns' },
-          h('button', { class: 'btn small', disabled: !(s.food.feast ?? 0), onClick: () => g.feast() }, `🧺 Feast for ${ISLANDS[here].name}`),
-          h('button', { class: 'btn small secondary', disabled: !(s.food.feedbag ?? 0), onClick: () => g.hangBag() }, `🎒 Hang a feedbag here (${s.feedbags[here] ?? 0} left)`)));
+          h('button', { class: 'btn small', disabled: !(s.food.feast ?? 0), onClick: () => g.feast(here) }, `🧺 Feast for ${ISLANDS[here].name}`),
+          h('button', { class: 'btn small secondary', disabled: !(s.food.feedbag ?? 0), onClick: () => g.hangBag(here) }, `🎒 Hang a feedbag on ${ISLANDS[here].name} (${s.feedbags[here] ?? 0} left)`)));
         b.append(h('p', { class: 'muted' }, 'Feed a creature from its card. Berry Trees grow free berries: plant one from the list below.'));
       }
       const offers = s.shop.offers.filter((x) => x.kind === this.shopTab || (this.shopTab === 'item' && x.kind === 'tool')
@@ -1424,12 +1433,13 @@ export class UI {
     }
     for (const a of arrivals) {
       const stayed = s.creatures.some((c) => c.id === a.creature.id);
+      const waits = s.visitors.some((v) => v.creature.id === a.creature.id);
       lines.push(h('div', { class: 'happen' }, this.portrait(a.creature, ''),
-        h('span', null, `${a.discovered ? '🆕 ' : ''}A ${speciesTitle(a.creature)} came to the ${SPOTS[a.spot].name}${stayed ? '' : ', looked around, and left'}.`)));
+        h('span', null, `${a.discovered ? '✨ New! ' : ''}A ${speciesTitle(a.creature)} came to the ${SPOTS[a.spot].name}${stayed ? '' : waits ? ' and is waiting for you with a ❗' : ', looked around, and left'}.`)));
     }
     for (const m of muts) lines.push(h('div', { class: 'happen' }, this.portrait(m.creature, ''),
       h('span', null, `${displayName(m.creature)} met the ${EVENTS[m.cause].touch.name} during a ${EVENTS[m.cause].name.toLowerCase()} and became ${MUTATIONS[m.mutation].name}!`)));
-    if (touched.length) lines.push(h('div', { class: 'happen' }, h('span', { class: 'e' }, '🥚'), h('span', null, `${touched.length === 1 ? 'An egg' : `${touched.length} eggs`} glowed strangely during the storm.`)));
+    if (touched.length) lines.push(h('div', { class: 'happen' }, h('span', { class: 'e' }, '🥚'), h('span', null, `${touched.length === 1 ? 'An egg' : `${touched.length} eggs`} glowed strangely as the sky changed.`)));
     if (ready.length) lines.push(h('div', { class: 'happen' }, h('span', { class: 'e' }, '🐣'), h('span', null, `${ready.length === 1 ? 'An egg is' : `${ready.length} eggs are`} ready to hatch!`)));
     if (gifts) lines.push(h('div', { class: 'happen' }, h('span', { class: 'e' }, I.icon(I.COIN)), h('span', null, `Your creatures dug up ${gifts} thing${gifts === 1 ? '' : 's'}. Go find them!`)));
     if (!lines.length) return;
@@ -1657,7 +1667,7 @@ export class UI {
     const egg = nestEggs[0];
     const pinned = this.game.pinned ? s.creatures.find((c) => c.id === this.game.pinned) : undefined;
     const eggLine = egg ? (A.remainingMs(egg) <= 0 ? 'Ready to hatch!' : fmtClock(A.remainingMs(egg))) : '';
-    const act = pinned ? this.game.world.creatureActivity(pinned.id) || `On ${ISLANDS[pinned.island].name}` : '';
+    const act = pinned ? (pinned.stored ? 'Resting in storage' : this.game.world.creatureActivity(pinned.id) || `On ${ISLANDS[pinned.island].name}`) : '';
     const key = `${egg?.id}|${eggLine}|${pinned?.id}|${pinned ? displayName(pinned) : ''}|${act}|${pinned?.mutations.join()}`;
     if (key === this.widgetKey) return;
     this.widgetKey = key;
@@ -1665,7 +1675,7 @@ export class UI {
     this.widget.replaceChildren(
       egg ? h('button', { class: `w-row ${A.remainingMs(egg) <= 0 ? 'ready' : ''}`, onClick: () => this.showNest(egg.nest!) },
         h('span', { class: 'w-ico' }, '🥚'), h('span', { class: 'col' }, h('b', null, eggLine), h('small', null, nestEggs.length > 1 ? `+${nestEggs.length - 1} more` : 'Next egg'))) : '',
-      pinned ? h('button', { class: 'w-row', onClick: () => this.focusCreature(pinned.id) },
+      pinned ? h('button', { class: 'w-row', onClick: () => (pinned.stored ? this.showPets('storage') : this.focusCreature(pinned.id)) },
         img(this.game.world.portraits.get(pinned.species, pinned.mutations), 'w-pic'),
         h('span', { class: 'col' }, h('b', null, displayName(pinned)), h('small', null, act))) : '',
     );

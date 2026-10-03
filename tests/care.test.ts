@@ -209,3 +209,24 @@ describe('saving', () => {
     expect(Object.keys(s.eventsApplied).filter((k) => k.startsWith('s')).length).toBeLessThanOrEqual(5);
   });
 });
+
+describe('scan fixes', () => {
+  it('a level gift goes to a world with room, or storage when every world is full', async () => {
+    const { addXp, xpForLevel } = await import('../src/core/levels');
+    const s = createGame(31, 0);
+    const c0 = s.creatures[0];
+    while (s.creatures.filter((c) => c.island === 'home' && !c.stored).length < 10) s.creatures.push({ ...c0, id: `x${s.creatures.length}` });
+    const ups = addXp(s, xpForLevel(5), 1000);
+    const gift = s.creatures.find((c) => c.id === ups.find((u) => u.creatureId)?.creatureId);
+    expect(gift?.stored).toBe(true);
+    expect(s.creatures.filter((c) => c.island === 'home' && !c.stored).length).toBe(10);
+  });
+
+  it('finds left lying on one world do not stop digging on another', () => {
+    const s = createGame(32, 0);
+    s.islands.volcano = { owned: true, size: 0 };
+    for (let i = 0; i < 14; i++) s.gifts.push({ id: `v${i}`, x: -48, z: -34, glimmer: 1, shards: 0, island: 'volcano' });
+    tick(s, 3 * HOUR, { maxStepMs: 10_000 });
+    expect(s.gifts.some((g) => g.island === 'home')).toBe(true);
+  });
+});

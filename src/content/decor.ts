@@ -28,6 +28,7 @@ const COIN_ROWS: Row[] = [
   ['sunflowers', 'Sunflower Trio', 'nature', 70, 2, 0.6, 'They turn to follow the sun. And you.'],
   ['cattails', 'Cattail Clump', 'nature', 45, 2, 0.4, 'Fluffy brown tops that sway in the breeze.'],
   ['mushrooms', 'Toadstool Cluster', 'nature', 55, 2, 0.5, 'Do not lick. Probably.'],
+  ['mushroomRing', 'Fairy Ring', 'nature', 110, 4, 1.0, 'Some say things dance here at night.'],
   ['cactuspot', 'Potted Cactus', 'nature', 50, 2, 0.4, 'Prickly outside, soft inside.'],
   ['logpile', 'Log Pile', 'nature', 55, 2, 0.6, 'Neatly stacked. Beetles approve.'],
   ['rosebush', 'Rose Bush', 'nature', 90, 3, 0.6, 'Smells like a summer afternoon.'],
