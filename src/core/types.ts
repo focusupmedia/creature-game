@@ -383,6 +383,8 @@ export interface GameState {
   storageSlots: number;
   /** Lure visitors waiting for you to Keep them or Send them away. */
   visitors: Visitor[];
+  /** Daily login calendar: the last day claimed (UTC date) and how many days claimed in all. */
+  login?: { day: string; claimed: number };
   /** Pets away exploring. */
   expeditions: Expedition[];
   /** A traveller visiting one of your worlds right now (only while you're playing). */

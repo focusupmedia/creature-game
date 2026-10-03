@@ -290,3 +290,19 @@ describe('expeditions', () => {
     expect(s.expeditions).toHaveLength(0);
   });
 });
+
+describe('login calendar', () => {
+  it('pays once a day, grows through the week, and never resets for a missed day', async () => {
+    const { claimLogin, loginDay } = await import('../src/core/login');
+    const s = createGame(61, 0);
+    const day = 24 * HOUR;
+    expect(claimLogin(s, 1000).ok).toBe(true);
+    expect(claimLogin(s, 2000).ok).toBe(false);
+    expect(loginDay(s)).toBe(2);
+    expect(claimLogin(s, 5 * day).ok).toBe(true); // skipped days: still day 2
+    expect(loginDay(s)).toBe(3);
+    for (let d = 6; d <= 10; d++) claimLogin(s, d * day);
+    expect(loginDay(s)).toBe(1);
+    expect(s.eggs.some((e) => e.tier === 'starry')).toBe(true);
+  });
+});

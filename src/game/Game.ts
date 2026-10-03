@@ -4,6 +4,7 @@ import { claimBlessing, startLegendary } from '../core/legendary';
 import { addXp, grantMissingLevelCreatures } from '../core/levels';
 import { petCreature, playWith } from '../core/friendship';
 import { claimExpedition, sendOnExpedition } from '../core/expeditions';
+import { canClaimLogin, claimLogin } from '../core/login';
 import { EXPEDITIONS, type ExpeditionId } from '../content/expeditions';
 import { claimDaily, claimLasting, questEvent, refreshDailies } from '../core/quests';
 import { awayFinds, buyStorageSlot, findVisitor, keepVisitor, releaseCreature, sendAwayVisitor, feastIsland, feedCreature, hangFeedbag, harvestTree, nextHungryAt, retrieveCreature, sellCreature, storeCreature } from '../core/care';
@@ -86,6 +87,7 @@ export class Game {
     const events = tick(this.state, this.now(), { maxStepMs: TUNING.offlineStepSec * 1000 });
     this.world.sync(this.state, this.now(), activeEvent(this.state, this.now())?.kind ?? null);
     this.dispatch(events, false);
+    this.offerLogin();
     // older saves: hand over any level-only creatures the keeper already earned
     if (grantMissingLevelCreatures(this.state, this.now()).length) this.saveSoon();
     if (away > AWAY_REPORT_MS) this.ui.showAwayReport(events, away, awayFinds(this.state, away));
@@ -170,7 +172,23 @@ export class Game {
       const events = tick(this.state, this.now(), { maxStepMs: TUNING.offlineStepSec * 1000 });
       this.dispatch(events, false);
       if (away > AWAY_REPORT_MS) this.ui.showAwayReport(events, away, awayFinds(this.state, away));
+      this.offerLogin();
     }
+  }
+
+  /** The day's login gift pops up the first time you open the game each day (after the tutorial). */
+  offerLogin(): void {
+    if (this.state.tutorial < 5 || !canClaimLogin(this.state, this.now())) return;
+    setTimeout(() => this.ui.showLoginCalendar(), 900);
+  }
+
+  claimLogin(): void {
+    const r = claimLogin(this.state, this.now());
+    if (!r.ok) return this.ui.toast(r.error);
+    this.audio.play(r.reward.day === 7 ? 'fanfare' : 'coin');
+    this.ui.toast(`Day ${r.reward.day} gift: ${r.reward.text}!`, 'discovery', undefined, 4000);
+    this.analytics.track('login_claimed', { day: r.reward.day });
+    this.saveSoon();
   }
 
   private scheduleNotifications(): void {

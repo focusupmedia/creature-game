@@ -579,3 +579,14 @@ input.rename { font-family: var(--display); font-size: 22px; border: var(--outli
 .wl-bubble-hearts .hr .icon { width: 13px; height: 13px; }
 .wl-pet { background: linear-gradient(180deg, #ffd0e6, #ff9fcf) !important; }
 .haul { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin: 8px 0; }
+
+/* daily login calendar */
+.cal { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin: 10px 0; }
+.cal-day { position: relative; background: #fff; border: 3px solid var(--sky-3); border-radius: 14px; padding: 6px 4px; display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 12px; }
+.cal-day b { font-family: var(--display); font-size: 13px; }
+.cal-day .cal-ico .icon { width: 28px; height: 28px; }
+.cal-day.big { grid-column: span 2; background: linear-gradient(180deg, #fff6c8, #ffe08a); border-color: #e8a800; }
+.cal-day.big .cal-ico .icon { width: 40px; height: 40px; }
+.cal-day.today { border-color: var(--ink); box-shadow: 0 0 0 3px #ffd21a; animation: bump .6s ease infinite alternate; }
+.cal-day.done { opacity: .55; }
+.cal-check { position: absolute; top: 2px; right: 4px; width: 18px; height: 18px; }

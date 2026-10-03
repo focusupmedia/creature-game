@@ -20,6 +20,7 @@ import { SHADES, type ShadeId } from '../content/shades';
 import { PET_COOLDOWN_MIN, PLAY_COOLDOWN_MIN, hearts } from '../core/friendship';
 import { EXPEDITIONS, EXPEDITION_ORDER, expeditionSlots, type ExpeditionId } from '../content/expeditions';
 import type { ExpeditionHaul } from '../core/expeditions';
+import { LOGIN_REWARDS, canClaimLogin, loginDay } from '../core/login';
 import { DECOR_CATS, DECOR_LIST } from '../content/decor';
 import { WANDERERS } from '../content/wanderers';
 import { deleteQuirk, wipeQuirks } from '../core/quirks';
@@ -550,6 +551,36 @@ export class UI {
 
   // ---- storage and the Collector
 
+  // ---- daily login calendar
+
+  showLoginCalendar(): void {
+    const g = this.game;
+    const s = g.state;
+    const next = loginDay(s);
+    const can = canClaimLogin(s, g.now());
+    this.modal((m, close) => {
+      m.classList.add('login-cal');
+      m.append(h('h2', null, can ? 'Your daily gift!' : 'Daily gifts'),
+        h('p', { class: 'muted' }, 'A gift for every day you visit. It grows all week, with a big one on day 7. Missing a day never resets it.'));
+      const grid = h('div', { class: 'cal' });
+      // days already claimed this week (all 7 if today's claim finished the week)
+      const total = s.login?.claimed ?? 0;
+      const done = !can && total > 0 && total % 7 === 0 ? 7 : total % 7;
+      for (const r of LOGIN_REWARDS) {
+        const claimed = r.day <= done;
+        const today = can && r.day === next;
+        grid.append(h('div', { class: `cal-day ${today ? 'today' : ''} ${claimed ? 'done' : ''} ${r.day === 7 ? 'big' : ''}` },
+          h('b', null, `Day ${r.day}`),
+          h('div', { class: 'cal-ico' }, I.icon(r.day === 7 ? I.CREATE : r.shards >= 5 ? I.GEM : I.COIN)),
+          h('small', null, rich(`{coin} ${r.coins.toLocaleString()}`)), h('small', null, rich(`{gem} ${r.shards}`)),
+          claimed ? h('span', { class: 'cal-check' }, '✓') : ''));
+      }
+      m.append(grid, h('div', { class: 'btns' },
+        can ? h('button', { class: 'btn wide', onClick: () => { close(); g.claimLogin(); } }, `Claim day ${next}!`)
+          : h('button', { class: 'btn secondary wide', onClick: close }, 'Come back tomorrow')));
+    });
+  }
+
   // ---- expeditions
 
   /** Where should this pet go exploring? */
@@ -850,7 +881,8 @@ export class UI {
     this.openSheet('Quests', 'Finish them for coins, Starshards and XP.', (b) => {
       const tab = (id: typeof this.questTab, label: string) =>
         h('button', { class: this.questTab === id ? 'on' : '', onClick: () => { this.questTab = id; this.rerender(); } }, label);
-      b.append(h('div', { class: 'tabs' }, tab('daily', '☀️ Daily'), tab('lasting', '🏆 Lasting')));
+      b.append(h('div', { class: 'tabs' }, tab('daily', '☀️ Daily'), tab('lasting', '🏆 Lasting'),
+        h('button', { class: canClaimLogin(s, this.game.now()) ? 'on' : '', onClick: () => this.showLoginCalendar() }, `📅 Gifts${canClaimLogin(s, this.game.now()) ? ' ❗' : ''}`)));
       const list = h('div', { class: 'list' });
       const reward = (r: { coins: number; shards: number; xp: number }) => rich(`{coin} ${r.coins}  ·  {gem} ${r.shards}  ·  ★ ${r.xp} XP`);
       if (this.questTab === 'daily') {
