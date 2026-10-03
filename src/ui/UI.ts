@@ -27,6 +27,7 @@ type PetsSort = 'newest' | 'rarity' | 'name' | 'size' | 'hunger';
 const fmtClock = (ms: number) => `${Math.floor(Math.max(0, ms) / 60000)}:${String(Math.floor(Math.max(0, ms) / 1000) % 60).padStart(2, '0')}`;
 
 const MUT_ICON: Record<MutationId, string> = { lunar: '🌙', storm: '⚡', giant: '⛰️', prismatic: '🌈', starlit: '🌟', frost: '❄️', angelic: '😇', infernal: '😈', abyssal: '🫧', aurora: '🌌', misty: '🌫️' };
+const ITEM_ICON: Record<string, string> = { warmth: '🔥', giantChance: '🧪', grow: '🌱', shrink: '💧', glitter: '✨', speedy: '⚡' };
 const HABITAT_ICON: Partial<Record<Trait, string>> = { Grove: '🌳', Tide: '💧', Bloom: '🌸', Mystic: '🔮' };
 const MUTATION_TRAITS: Trait[] = ['Lunar', 'Storm', 'Giant', 'Prismatic', 'Starlit', 'Frost', 'Angelic', 'Infernal', 'Abyssal', 'Aurora', 'Misty'];
 
@@ -967,7 +968,9 @@ export class UI {
         for (const [id, n] of Object.entries(s.items)) {
           if (!n) continue;
           const item = ITEMS[id];
-          const used = (item.effect === 'giantChance' && live.tonic) || (item.effect === 'warmth' && live.warmed);
+          const sprayed = live.sprays ?? [];
+          const used = (item.effect === 'giantChance' && live.tonic) || (item.effect === 'warmth' && live.warmed)
+            || sprayed.includes(item.effect) || (item.effect === 'grow' && sprayed.includes('shrink')) || (item.effect === 'shrink' && sprayed.includes('grow'));
           if (used) continue;
           btns.append(h('button', { class: 'btn secondary', onClick: () => {
             const r = A.useItem(s, id, live.id);
@@ -979,6 +982,12 @@ export class UI {
         }
       }
       b.append(btns);
+      if (live.sprays?.length) {
+        const names = live.sprays.map((e) => Object.values(ITEMS).find((i) => i.effect === e)?.name ?? e);
+        b.append(h('p', { class: 'muted' }, `Sprayed with ${names.join(', ')}.`));
+      } else if (!ready && !Object.entries(s.items).some(([id, n]) => n && ITEMS[id]?.spray)) {
+        b.append(h('p', { class: 'muted' }, 'Tip: Mango sells egg sprays to make an egg hatch bigger, smaller, faster or sparklier.'));
+      }
       if (live.witnessed.length) {
         b.append(h('p', { class: 'muted' }, `This egg felt a ${EVENTS[live.witnessed[live.witnessed.length - 1]].name.toLowerCase()} pass overhead.`));
       }
@@ -1063,7 +1072,7 @@ export class UI {
         let icon = '🫙';
         let style = '';
         if (o.kind === 'lure') { const l = LURES[o.ref]; name = l.name; desc = l.scent; icon = HABITAT_ICON[l.attracts] ?? '🫙'; style = `background:${l.color}33`; }
-        if (o.kind === 'item') { const it = ITEMS[o.ref]; name = it.name; desc = it.blurb; icon = it.effect === 'warmth' ? '🔥' : '🧪'; }
+        if (o.kind === 'item') { const it = ITEMS[o.ref]; name = it.name; desc = it.blurb; icon = ITEM_ICON[it.effect] ?? '🧪'; }
         if (o.kind === 'food') { const f = FOODS[o.ref]; name = `${f.name} (have ${s.food[o.ref] ?? 0})`; desc = f.blurb; icon = f.icon; }
         if (o.kind === 'tool') { const tl = TOOLS[o.ref]; name = `${tl.name} (have ${s.tools[o.ref] ?? 0})`; desc = tl.blurb; icon = tl.icon; }
         if (o.kind === 'egg') {

@@ -75,6 +75,8 @@ export interface CreatureOpts {
   /** Parents' traits; some pass on. */
   parentQuirks?: QuirkId[][];
   met?: CreatureOrigin;
+  /** An egg spray nudged its size: Grow Mist or Shrink Mist. */
+  sizeSpray?: 'grow' | 'shrink';
 }
 
 /** Grown-up size, mostly in the normal range with rare tiny or huge outliers. */
@@ -83,6 +85,13 @@ export function rollSize(rng: StateRng): number {
   // Outliers are unmistakable: a teeny one at a third of normal, or a colossal one twice as big or more.
   if (rng.chance(TUNING.sizeOutlierChance)) return rng.chance(0.5) ? rng.range(0.32, 0.5) : rng.range(1.9, 2.7);
   return lo + (hi - lo) * ((rng.next() + rng.next()) / 2);
+}
+
+/** Grow Mist makes a big one (sometimes huge); Shrink Mist a small one (sometimes teeny). */
+export function spraySize(rng: StateRng, size: number, spray?: 'grow' | 'shrink'): number {
+  if (spray === 'grow') return rng.chance(0.25) ? rng.range(1.9, 2.5) : Math.max(size, rng.range(1.15, 1.5));
+  if (spray === 'shrink') return rng.chance(0.25) ? rng.range(0.35, 0.5) : Math.min(size, rng.range(0.62, 0.85));
+  return size;
 }
 
 /** Tiny or huge beyond the normal range: worth showing off. */
@@ -103,7 +112,7 @@ export function makeCreature(
     seed: opts.seed ?? rng.seed(),
     history: [{ t, text: story }],
     island: opts.island ?? 'home',
-    size: rollSize(rng),
+    size: spraySize(rng, rollSize(rng), opts.sizeSpray),
     growMs: opts.hatchling ? TUNING.growMin * 60_000 : 0,
     personality,
     quirks: rollQuirks(rng, opts.parentQuirks, personality),

@@ -31,8 +31,15 @@ export function generateShop(seed: number, rotation: number, t: number, owned: I
   // trait tools are always stocked, for Starshards
   for (const t of Object.values(TOOLS)) add({ kind: 'tool', ref: t.id, price: t.price, currency: 'shards', qty: 1, stock: 99 });
 
-  const item = pick(Object.values(ITEMS));
+  // one egg tonic and two of Mango's egg sprays each restock
+  const tonics = Object.values(ITEMS).filter((i) => !i.spray);
+  const item = pick(tonics);
   add({ kind: 'item', ref: item.id, price: item.price, currency: 'glimmer', qty: 1, stock: 2 });
+  const sprays = Object.values(ITEMS).filter((i) => i.spray);
+  const s1 = pick(sprays);
+  add({ kind: 'item', ref: s1.id, price: s1.price, currency: 'glimmer', qty: 1, stock: 3 });
+  const s2 = pick(sprays.filter((x) => x !== s1));
+  add({ kind: 'item', ref: s2.id, price: s2.price, currency: 'glimmer', qty: 1, stock: 3 });
 
   // Egg shop: a staple meadow egg, one rotating coin egg, and the premium Starry Egg.
   // Wild species only: hybrids must always be made.

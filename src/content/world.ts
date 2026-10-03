@@ -363,7 +363,27 @@ export const ITEMS: Record<string, ItemDef> = {
     id: 'warmstone', name: 'Warm Stone', target: 'egg', effect: 'warmth', price: 45,
     blurb: 'Holds the heat of a summer afternoon. Halves the remaining time of one egg.',
   },
+  // egg sprays: each kind works once per egg
+  growmist: {
+    id: 'growmist', name: 'Grow Mist', target: 'egg', effect: 'grow', price: 70, spray: true,
+    blurb: 'A spritz of green mist. The creature inside hatches big, and sometimes enormous.',
+  },
+  shrinkmist: {
+    id: 'shrinkmist', name: 'Shrink Mist', target: 'egg', effect: 'shrink', price: 70, spray: true,
+    blurb: 'A cool blue mist. The creature inside hatches small, and sometimes teeny.',
+  },
+  glitter: {
+    id: 'glitter', name: 'Glitter Spray', target: 'egg', effect: 'glitter', price: 160, spray: true,
+    blurb: 'Sparkly stuff. Half the time the egg soaks it up and hatches with a mutation.',
+  },
+  speedy: {
+    id: 'speedy', name: 'Speedy Spritz', target: 'egg', effect: 'speedy', price: 60, spray: true,
+    blurb: 'Fizzy and warm. The egg hatches 30% faster.',
+  },
 };
+
+/** Mutations Glitter Spray can give. */
+export const GLITTER_MUTATIONS: MutationId[] = ['lunar', 'storm', 'frost', 'starlit', 'misty', 'aurora'];
 
 // ---------------------------------------------------------------- cosmetics
 export const DECOR: Record<string, DecorDef> = {

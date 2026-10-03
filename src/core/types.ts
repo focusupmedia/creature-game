@@ -147,7 +147,9 @@ export interface ItemDef {
   blurb: string;
   price: number;
   target: 'egg';
-  effect: 'giantChance' | 'warmth';
+  effect: 'giantChance' | 'warmth' | 'grow' | 'shrink' | 'glitter' | 'speedy';
+  /** Egg sprays are sold by Mango and each kind works once per egg. */
+  spray?: boolean;
 }
 
 export interface DecorDef {
@@ -234,6 +236,8 @@ export interface Egg {
   adUsed?: boolean;
   tonic?: boolean;
   warmed?: boolean;
+  /** Egg sprays used on it (each kind once). */
+  sprays?: string[];
   /** Events that touched the egg during incubation. */
   witnessed: EventKind[];
   /** A different species than either parent. */

@@ -95,3 +95,23 @@ describe('lure visitors', () => {
     if (!r.ok) expect(r.error).toBe('full');
   });
 });
+
+describe('egg sprays', () => {
+  it('Speedy Spritz speeds an egg up, Grow Mist makes it hatch big, and each works once', async () => {
+    const { useItem, hatch } = await import('../src/core/actions');
+    const s = createGame(7, 1_000_000);
+    const egg = { id: 'e1', species: 'mossfrog', mutations: [], seed: 5, source: 'shop' as const, laidAt: 0, incubationMs: 100_000, progressMs: 0, nest: 0, witnessed: [] };
+    s.eggs.push(egg);
+    s.items.speedy = 1;
+    s.items.growmist = 2;
+    s.items.shrinkmist = 1;
+    expect(useItem(s, 'speedy', 'e1').ok).toBe(true);
+    expect(egg.progressMs).toBeCloseTo(30_000);
+    expect(useItem(s, 'growmist', 'e1').ok).toBe(true);
+    expect(useItem(s, 'growmist', 'e1').ok).toBe(false);
+    expect(useItem(s, 'shrinkmist', 'e1').ok).toBe(false);
+    egg.progressMs = egg.incubationMs;
+    const r = hatch(s, 'e1', 1_000_000);
+    expect(r.ok && r.creature.size).toBeGreaterThan(1.1);
+  });
+});

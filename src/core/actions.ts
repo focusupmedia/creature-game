@@ -2,7 +2,7 @@
 // show. Keeping these pure makes them testable and server-verifiable later.
 
 import { species } from '../content/species';
-import { DECOR, DIG_KINDS, FOODS, TOOLS, EGG_TIERS, EVENTS, ITEMS, LURES, MUTATIONS, RESONANCES, SPOTS, SUMMON_WEIGHTS } from '../content/world';
+import { DECOR, DIG_KINDS, FOODS, TOOLS, EGG_TIERS, EVENTS, GLITTER_MUTATIONS, ITEMS, LURES, MUTATIONS, RESONANCES, SPOTS, SUMMON_WEIGHTS } from '../content/world';
 import { ISLANDS, SIZE_PRICE } from '../content/islands';
 import { WILD_SPECIES } from '../content/species';
 import { islandCapacity, islandPopulation } from './sim';
@@ -106,6 +106,7 @@ export function hatch(state: GameState, eggId: string, t: number): Result<HatchR
       : egg.source === 'dug' ? 'Hatched from an egg a creature dug up.' : 'Hatched from a mysterious egg.';
   const c = makeCreature(state, egg.species, egg.mutations, t, story, {
     seed: egg.seed, island: 'home', hatchling: true, parents: egg.parentPersonalities, parentQuirks: egg.parentQuirks,
+    sizeSpray: egg.sprays?.includes('grow') ? 'grow' : egg.sprays?.includes('shrink') ? 'shrink' : undefined,
     met: {
       how: egg.source === 'combine' ? 'bred' : egg.source === 'shop' ? 'shop' : egg.source === 'dug' ? 'dug' : 'other',
       sky: state.legendary?.kind ?? activeEvent(state, t)?.kind ?? null,
@@ -386,6 +387,7 @@ export function useItem(state: GameState, itemId: string, eggId: string): Result
   if (!egg) return fail('No egg.');
   if (!state.items[itemId]) return fail('You have none.');
   const item = ITEMS[itemId];
+  if (item.spray) return useSpray(state, item, egg);
   if (item.effect === 'giantChance') {
     if (egg.tonic) return fail('This egg has already had a tonic.');
     state.items[itemId] -= 1;
@@ -404,6 +406,34 @@ export function useItem(state: GameState, itemId: string, eggId: string): Result
   egg.warmed = true;
   egg.progressMs += (egg.incubationMs - egg.progressMs) / 2;
   return { ok: true, message: 'The egg wriggles happily in the warmth.' };
+}
+
+/** Egg sprays: each kind once per egg; Grow and Shrink cancel each other out, so only one of them. */
+function useSpray(state: GameState, item: (typeof ITEMS)[string], egg: Egg): Result<{ message: string }> {
+  const used = (egg.sprays ??= []);
+  if (used.includes(item.effect)) return fail(`This egg has already had ${item.name}.`);
+  if ((item.effect === 'grow' && used.includes('shrink')) || (item.effect === 'shrink' && used.includes('grow'))) {
+    return fail('Grow Mist and Shrink Mist would cancel out. Only one per egg.');
+  }
+  if (item.effect === 'speedy' && egg.nest === null) return fail('Place the egg in a nest first.');
+  state.items[item.id] -= 1;
+  used.push(item.effect);
+  switch (item.effect) {
+    case 'grow': return { ok: true, message: 'The egg soaks up the green mist and stretches a little.' };
+    case 'shrink': return { ok: true, message: 'The egg shivers in the blue mist and tucks itself in.' };
+    case 'speedy':
+      egg.progressMs += (egg.incubationMs - egg.progressMs) * 0.3;
+      return { ok: true, message: 'The egg fizzes and starts wiggling faster!' };
+    default: {
+      const rng = new StateRng(state);
+      const options = GLITTER_MUTATIONS.filter((m) => !egg.mutations.includes(m));
+      if (options.length && rng.chance(0.5)) {
+        egg.mutations.push(rng.pick(options));
+        return { ok: true, message: 'The glitter sinks right into the shell. Something has changed inside!' };
+      }
+      return { ok: true, message: 'The glitter sparkles… and slides off. Nothing changed this time.' };
+    }
+  }
 }
 
 export function placeDecor(state: GameState, decor: string, x: number, z: number, rot: number): Result {
