@@ -1,4 +1,4 @@
-import { COIN, GEM } from './icons';
+import { emojify, hasEmoji } from './emoji';
 
 type Child = Node | string | number | null | undefined | false;
 type Props = Record<string, unknown> & { class?: string; style?: string; onClick?: (e: MouseEvent) => void };
@@ -18,7 +18,12 @@ export function h<K extends keyof HTMLElementTagNameMap>(tag: K, props: Props | 
   }
   for (const c of children) {
     if (c === null || c === undefined || c === false) continue;
-    el.append(c instanceof Node ? c : String(c));
+    if (c instanceof Node) el.append(c);
+    else {
+      // emoji in text become the game's own drawn icons
+      const text = String(c);
+      el.append(hasEmoji(text) ? emojify(text) : text);
+    }
   }
   return el;
 }
@@ -32,18 +37,17 @@ export function fmtDuration(ms: number): string {
   return `${hr}h ${m % 60}m`;
 }
 
-/** Text with inline currency icons: "{coin}" and "{gem}" become the 8-bit coin and the gem. */
+/** Text with inline icons: "{coin}" and "{gem}" become the 8-bit coin and the gem, and emoji become drawn icons. */
 export function rich(text: string): DocumentFragment {
-  const frag = document.createDocumentFragment();
-  for (const part of text.split(/(\{coin\}|\{gem\})/)) {
-    if (part === '{coin}' || part === '{gem}') {
-      const s = document.createElement('span');
-      s.className = 'icon';
-      s.innerHTML = part === '{coin}' ? COIN : GEM;
-      frag.append(s);
-    } else if (part) frag.append(part);
-  }
-  return frag;
+  return emojify(text);
+}
+
+/** Set an element's text, with drawn icons for emoji. */
+export function setText(el: HTMLElement, text: string): void {
+  if (el.dataset.txt === text) return;
+  el.dataset.txt = text;
+  if (hasEmoji(text)) el.replaceChildren(emojify(text));
+  else el.textContent = text;
 }
 
 export function img(src: string, cls = ''): HTMLImageElement {

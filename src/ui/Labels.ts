@@ -8,7 +8,7 @@ import { arrivalWeights } from '../core/lures';
 import { nestOccupant } from '../core/state';
 import { activeEvent, isDark } from '../core/world';
 import type { Game } from '../game/Game';
-import { h } from './dom';
+import { h, setText } from './dom';
 import { rarityTag } from './rarity';
 import { QUIRKS } from '../content/quirks';
 import { species } from '../content/species';
@@ -166,7 +166,7 @@ export class WorldLabels {
       const txt = farText ?? p.render();
       if (txt !== p.last) {
         p.last = txt;
-        p.text.textContent = txt;
+        setText(p.text, txt);
         p.el.classList.toggle('ready', txt.startsWith('🐣'));
         p.el.classList.toggle('empty', txt.startsWith('＋'));
       }
@@ -192,7 +192,7 @@ export class WorldLabels {
         this.lastName = key;
         this.bubbleName.replaceChildren(document.createTextNode(name + ' '), rarityTag(r), odd ? h('span', { class: 'rarity r-outlier' }, odd) : '', h('span', { class: 'quirk-icons' }, icons));
       }
-      if (line !== this.lastLine) this.bubbleLine.textContent = this.lastLine = line;
+      if (line !== this.lastLine) setText(this.bubbleLine, (this.lastLine = line));
     }
   }
 }

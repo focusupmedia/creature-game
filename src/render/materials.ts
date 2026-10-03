@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { emojiSvg } from '../ui/emoji';
 import { mergeVertices } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 
 // A shared 3-band toon ramp gives everything the same soft, illustrated look
@@ -73,7 +74,7 @@ export function glowSprite(color: string, size: number, opacity = 0.8): THREE.Sp
   return s;
 }
 
-/** Emoji/text sprite for emotes (hearts, notes, Zzz, "!"). */
+/** Emote sprites (hearts, notes, Zzz, "!"): the game's own drawn icons, or plain text as a fallback. */
 const emoteCache = new Map<string, THREE.Texture>();
 export function emoteTexture(text: string): THREE.Texture {
   const hit = emoteCache.get(text);
@@ -81,12 +82,22 @@ export function emoteTexture(text: string): THREE.Texture {
   const c = document.createElement('canvas');
   c.width = c.height = 128;
   const g = c.getContext('2d')!;
-  g.font = '92px system-ui, "Apple Color Emoji", "Segoe UI Emoji", sans-serif';
-  g.textAlign = 'center';
-  g.textBaseline = 'middle';
-  g.fillText(text, 64, 70);
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;
+  const markup = emojiSvg(text);
+  if (markup) {
+    const pic = new Image();
+    pic.onload = () => {
+      g.drawImage(pic, 10, 10, 108, 108);
+      tex.needsUpdate = true;
+    };
+    pic.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(markup.replace('<svg ', '<svg width="128" height="128" '))}`;
+  } else {
+    g.font = '92px system-ui, sans-serif';
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    g.fillText(text, 64, 70);
+  }
   emoteCache.set(text, tex);
   return tex;
 }

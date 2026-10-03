@@ -12,7 +12,7 @@ import type { Creature, Egg, GameEvent, IslandId, LegendaryKind, MutationId, Spo
 import { islandCapacity } from '../core/sim';
 import { activeEvent, dayPhase, daylight, isDark, nextEvent } from '../core/world';
 import type { Game } from '../game/Game';
-import { fmtDuration, h, img, rich } from './dom';
+import { fmtDuration, h, img, rich, setText } from './dom';
 import * as I from './icons';
 import { WorldLabels } from './Labels';
 import { QUIRKS } from '../content/quirks';
@@ -183,7 +183,7 @@ export class UI {
     const light = daylight(phase);
     const icon = ev ? EVENTS[ev.kind].icon : light > 0.6 ? '☀️' : light > 0.1 ? (phase < 0.5 ? '🌅' : '🌇') : '🌙';
     const label = ev ? `${EVENTS[ev.kind].name} · ${fmtClock(ev.end - t)}` : light > 0.6 ? (phase < 0.5 ? 'Morning' : 'Afternoon') : light > 0.1 ? (phase < 0.5 ? 'Dawn' : 'Dusk') : 'Night';
-    this.skyChip.textContent = `${icon} ${label}`;
+    setText(this.skyChip, `${icon} ${label}`);
 
     // event banner / forecast teaser
     const next = nextEvent(s, t);
@@ -193,7 +193,7 @@ export class UI {
     if (!ev && next && next.start - t < TUNING.forecastLeadMin * 60_000) {
       text = EVENTS[next.kind].teaser;
     }
-    this.banner.textContent = text;
+    setText(this.banner, text);
     this.banner.className = `banner ${cls} ${text ? '' : 'hidden'}`;
 
     this.shopDot.classList.toggle('hidden', s.shop.rotation === this.seenShopRotation);
