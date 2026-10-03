@@ -27,6 +27,6 @@ describe('globe wrap', () => {
       const b = globePoint(g, x + dx * k, z + dz * k);
       expect(Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z)).toBeCloseTo(0.01, 3);
     }
-    expect(R).toBeCloseTo(4.75 * 1.4);
+    expect(R).toBeCloseTo(4.75 * 2);
   });
 });

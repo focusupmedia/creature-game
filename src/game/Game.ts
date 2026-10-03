@@ -66,6 +66,7 @@ export class Game {
     this.world.onRevealTap = () => this.audio.play('crack');
     this.world.onCarryStart = () => this.audio.play('egg');
     this.world.onCreatureCollect = (giftId, by) => this.collectGift(giftId, by);
+    this.world.onDigFound = (giftId, by) => this.collectGift(giftId, by, true);
     this.world.onCarryDrop = (id, target) => this.onCarryDrop(id, target);
     window.addEventListener('pointerdown', () => this.audio.unlock(), { once: false });
     document.addEventListener('visibilitychange', () => this.onVisibility());
@@ -346,7 +347,7 @@ export class Game {
   }
 
   /** Pick up a find, by tapping it or because a Greedy creature fetched it. */
-  collectGift(giftId: string, by?: string): void {
+  collectGift(giftId: string, by?: string, dug = false): void {
     const via = this.state.gifts.find((x) => x.id === giftId)?.via;
     const r = A.collectGift(this.state, giftId, this.now());
     if (!r.ok) return;
@@ -354,8 +355,9 @@ export class Game {
     const extra = r.item === 'egg' ? ' …and a whole egg! It\'s in your basket.'
       : r.item ? ` …and a ${ITEMS[r.item]?.name ?? 'curiosity'}!` : '';
     const who = by ? this.state.creatures.find((c) => c.id === by) : undefined;
-    this.ui.toast(`${who ? `${displayName(who)} grabbed` : via ? DIG_KINDS[via].verb : 'Dug up'}: {coin} ${r.glimmer}${r.shards ? ` and {gem} ${r.shards}` : ''}${extra}`, r.item ? 'discovery' : 'info', undefined, r.item ? 4000 : 1800);
-    this.record({ kind: 'gift', glimmer: r.glimmer, shards: r.shards, byCreature: !!by });
+    const verb = via ? DIG_KINDS[via].verb.toLowerCase() : 'dug up';
+    this.ui.toast(`${who ? `${displayName(who)} ${dug ? verb : 'grabbed'}` : via ? DIG_KINDS[via].verb : 'Dug up'}: {coin} ${r.glimmer}${r.shards ? ` and {gem} ${r.shards}` : ''}${extra}`, r.item ? 'discovery' : 'info', undefined, r.item ? 4000 : 1800);
+    this.record({ kind: 'gift', glimmer: r.glimmer, shards: r.shards, byCreature: !!by && !dug });
     this.analytics.track('gift_collected', { glimmer: r.glimmer, shards: r.shards, item: r.item ?? '', by: by ? 'creature' : 'player' });
     this.saveSoon();
   }
@@ -404,14 +406,14 @@ export class Game {
     this.analytics.track('island_travel', { island: id });
   }
 
-  buyIsland(id: IslandId, currency: 'glimmer' | 'shards'): void {
-    const r = A.buyIsland(this.state, id, currency);
+  buyIsland(id: IslandId): void {
+    const r = A.buyIsland(this.state, id);
     if (!r.ok) {
       this.audio.play('error');
       return this.ui.toast(r.error);
     }
     this.audio.play('discover');
-    this.analytics.track('island_bought', { island: id, currency });
+    this.analytics.track('island_bought', { island: id });
     // the shop starts stocking the island's lure right away
     refreshShop(this.state, this.now());
     const lure = Object.values(LURES).find((l) => l.attracts === ISLANDS[id].habitat)?.id;

@@ -12,6 +12,7 @@ import { compatibility, combine, incubationMs } from './genetics';
 import { addNote, recordMutation, recordResonance, recordSpecies } from './journal';
 import { StateRng } from './rng';
 import { hasQuirk } from './quirks';
+import { levelOf } from './levels';
 import { refreshShop } from './shop';
 import { freeNest } from './state';
 import type { Creature, Egg, EventKind, GameState, Gift, IslandId, MutationId, SpeciesId, SpotId } from './types';
@@ -215,14 +216,13 @@ function layEgg(state: GameState, sp: SpeciesId, source: Egg['source'], t: numbe
 
 // ---------------------------------------------------------------- islands
 
-export function buyIsland(state: GameState, id: IslandId, currency: 'glimmer' | 'shards'): Result {
+export function buyIsland(state: GameState, id: IslandId): Result {
   const def = ISLANDS[id];
-  if (!def || def.status !== 'buyable') return fail('That island isn\'t available yet.');
-  if (state.islands[id]?.owned) return fail('You already own this island.');
-  const price = currency === 'glimmer' ? def.price.coins : def.price.gems;
-  const wallet = currency === 'glimmer' ? state.glimmer : state.shards;
-  if (wallet < price) return fail(currency === 'glimmer' ? 'Not enough coins.' : 'Not enough Starshards.');
-  if (currency === 'glimmer') state.glimmer -= price; else state.shards -= price;
+  if (!def || def.status !== 'buyable') return fail('That world isn\'t available yet.');
+  if (state.islands[id]?.owned) return fail('You already own this world.');
+  if (levelOf(state.xp) < def.price.level) return fail(`Reach keeper level ${def.price.level} first.`);
+  if (state.glimmer < def.price.coins) return fail('Not enough coins.');
+  state.glimmer -= def.price.coins;
   state.islands[id] = { owned: true, size: 0 };
   // A starter pair to breed from; the rest of the island's creatures come from lures and breeding.
   const t = state.lastTick;

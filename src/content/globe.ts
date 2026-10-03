@@ -16,7 +16,7 @@ export interface V3 { x: number; y: number; z: number }
  * a bit bigger reads better (buildings and creatures look small on a big
  * world), so the map is scaled up by GLOBE_SCALE as it wraps.
  */
-export const GLOBE_SCALE = 1.4;
+export const GLOBE_SCALE = 2;
 
 export function globeRadius(g: Pick<Geo, 'r'>): number {
   return (g.r / 2) * GLOBE_SCALE;

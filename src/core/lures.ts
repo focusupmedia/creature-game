@@ -7,7 +7,35 @@ import { TUNING } from '../content/tuning';
 import { StateRng } from './rng';
 import type { EventKind, MutationId, SpeciesDef, SpotId } from './types';
 
+/**
+ * Rarity decides how often something turns up, whatever else answers the
+ * scent: about 62% commons, 28% uncommons, 8% rares, 1.5% legendaries.
+ * A lone legendary answering a scent is never a sure thing.
+ */
+export const RARITY_SHARE: Record<string, number> = { common: 0.62, uncommon: 0.28, rare: 0.08, legendary: 0.015, mythical: 0.005 };
+
+/** Visitor weights; they add up to at most 1 (the rest is "nobody came this time"). */
 export function arrivalWeights(lureId: string, spotId: SpotId, dark: boolean, sky: EventKind | null): [SpeciesDef, number][] {
+  const raw = rawWeights(lureId, spotId, dark, sky);
+  const byTier = new Map<string, number>();
+  for (const [sp, w] of raw) byTier.set(sp.rarity, (byTier.get(sp.rarity) ?? 0) + w);
+  // sky events make rare-and-up visitors a little more likely
+  const boost = (r: string) => (sky && (r === 'rare' || r === 'legendary') ? 1.5 : 1);
+  // A rarity nobody answers passes its share down to the next commoner rarity that does
+  // (never up), so lures stay busy but legendaries stay rare.
+  const share: Record<string, number> = {};
+  let carry = 0;
+  for (const r of ['mythical', 'legendary', 'rare', 'uncommon', 'common']) {
+    const mass = (RARITY_SHARE[r] ?? 0) * boost(r) + carry;
+    if (byTier.has(r)) {
+      share[r] = mass;
+      carry = 0;
+    } else carry = mass;
+  }
+  return raw.map(([sp, w]) => [sp, (share[sp.rarity] ?? 0) * (w / byTier.get(sp.rarity)!)]);
+}
+
+function rawWeights(lureId: string, spotId: SpotId, dark: boolean, sky: EventKind | null): [SpeciesDef, number][] {
   const lure = LURES[lureId];
   const spot = SPOTS[spotId];
   const out: [SpeciesDef, number][] = [];
@@ -18,7 +46,7 @@ export function arrivalWeights(lureId: string, spotId: SpotId, dark: boolean, sk
     if (sp.onlyAt && !sp.onlyAt.includes(spotId)) continue;
     if (sp.activity === 'day' && dark) continue;
     if (sp.activity === 'night' && !dark) continue;
-    let w = TUNING.rarityWeight[sp.rarity] ?? 1;
+    let w = 1;
     for (const t of sp.traits) w *= spot.affinity[t] ?? 1;
     if (sky) for (const t of sp.traits) w *= EVENTS[sky].attracts[t] ?? 1;
     out.push([sp, w]);

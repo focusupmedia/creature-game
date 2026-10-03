@@ -83,6 +83,8 @@ export class World {
   onCarryStart: (creatureId: string) => void = () => {};
   /** A Greedy creature picked up a gift for the player. */
   onCreatureCollect: (giftId: string, creatureId: string) => void = () => {};
+  /** A creature you dropped on a dig spot found something (auto-collected). */
+  onDigFound: (giftId: string, creatureId: string) => void = () => {};
   onCarryDrop: (creatureId: string, target: CarryTarget | null) => void = () => {};
   private carry: { actor: CreatureActor; hover: CarryTarget | null } | null = null;
   private hoverRing: THREE.Mesh;
@@ -461,6 +463,8 @@ export class World {
           a.digAt(ev.gift.x, ev.gift.z, () => {
             this.hiddenGifts.delete(ev.gift.id);
             this.burst(this.at(ev.gift.x, ev.gift.z, 0.3, ev.gift.island), ev.gift.shards || ev.gift.item ? '#d9c6ff' : '#ffe58a', 16, 1.4);
+            // finds from a dig spot you sent it to go straight into your pocket
+            if (ev.gift.via) this.onDigFound(ev.gift.id, a.id);
           }, ev.gift.via === 'puddle' ? 'splash' : ev.gift.via === 'bush' ? 'leaf' : 'dirt');
         }
         break;

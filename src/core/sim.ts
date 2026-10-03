@@ -6,7 +6,7 @@
 import { species } from '../content/species';
 import { DIG_KINDS, EVENTS, LURES, MUTATIONS, SPOTS } from '../content/world';
 import { TUNING } from '../content/tuning';
-import { ISLAND_ORDER, SIZE_CAPACITY, islandGeo, randomLand } from '../content/islands';
+import { ISLAND_ORDER, ISLANDS, SIZE_CAPACITY, islandGeo, randomLand } from '../content/islands';
 import { addMutation, creatureTraits, displayName, growth, makeCreature, newId } from './creatures';
 import { addNote, recordMutation, recordSpecies } from './journal';
 import { arrivalChance, arrivalMutations, arrivalWeights } from './lures';
@@ -93,6 +93,9 @@ function step(state: GameState, t: number, dt: number, out: GameEvent[]): void {
     // First-ever lure: guarantee a quick first discovery.
     if (state.stats.arrivals === 0 && t - active.placedAt > 6000) p = Math.max(p, 0.25 * (dt / 1000));
     if (!rng.chance(p)) continue;
+    // weights add up to at most 1: the rest of the time, nobody answers
+    const total = weights.reduce((a, [, w]) => a + w, 0);
+    if (rng.next() > total) continue;
     const sp = rng.weighted(weights.map(([s, w]) => [s.id, w] as [string, number]));
     if (!sp) continue;
     const muts = arrivalMutations(active.lure, sky, rng);
@@ -235,7 +238,7 @@ export function islandPopulation(state: GameState, island: IslandId): number {
 }
 
 export function islandCapacity(state: GameState, island: IslandId): number {
-  return SIZE_CAPACITY[state.islands[island]?.size ?? 0] ?? TUNING.capacity;
+  return (SIZE_CAPACITY[state.islands[island]?.size ?? 0] ?? TUNING.capacity) + (ISLANDS[island]?.capacityBonus ?? 0);
 }
 
 function note(state: GameState, out: GameEvent[], t: number, key: string, text: string): void {

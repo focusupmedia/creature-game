@@ -16,7 +16,7 @@ import * as I from './icons';
 import { WorldLabels } from './Labels';
 import { QUIRKS } from '../content/quirks';
 import { deleteQuirk, wipeQuirks } from '../core/quirks';
-import { MAX_LEVEL, levelProgress, levelReward, type LevelUp } from '../core/levels';
+import { MAX_LEVEL, levelOf, levelProgress, levelReward, type LevelUp } from '../core/levels';
 import { DAILY_POOL, LASTING, claimable, lastingReward, refreshDailies } from '../core/quests';
 import { canSell, collectorHere, isHungry, nextSlotPrice, ripeFruit, sellPrice, storedCount } from '../core/care';
 import { rarityTag } from './rarity';
@@ -612,6 +612,7 @@ export class UI {
   showLevels(): void {
     const s = this.game.state;
     const lp = levelProgress(s.xp);
+    let scrolled = false;
     this.openSheet(`Keeper level ${lp.level}`, lp.level >= MAX_LEVEL ? 'You reached the top. Legendary keeper!' : `${lp.into.toLocaleString()} / ${lp.need.toLocaleString()} XP to level ${lp.level + 1}`, (b) => {
       b.append(h('div', { class: 'progress', style: 'margin:4px 0 8px' }, h('i', { style: `width:${Math.round(lp.pct * 100)}%` })));
       b.append(h('p', { class: 'muted' }, 'Earn XP by hatching, breeding, setting lures, digging, discovering and finishing quests. Every level gives coins and Starshards, and every 5th level brings a creature you can only get here.'));
@@ -632,7 +633,10 @@ export class UI {
         list.append(row);
       }
       b.append(list);
-      if (current) setTimeout(() => current!.scrollIntoView({ block: 'center' }), 60);
+      if (current && !scrolled) {
+        scrolled = true;
+        setTimeout(() => current!.scrollIntoView({ block: 'center' }), 60);
+      }
     }, '★');
   }
 
@@ -1295,6 +1299,8 @@ export class UI {
 
   showIslands(highlight?: IslandId): void {
     const s = this.game.state;
+    // centre the highlighted world once, not on every refresh (that fought your scrolling)
+    let scrolled = false;
     this.openSheet('Islands', 'Tap an island to visit it. Roll each globe to explore it.', (b) => {
       b.append(h('button', { class: 'btn secondary wide', style: 'margin-bottom:10px', onClick: () => this.showStorage() }, `📦 Storage (${storedCount(s)} / ${s.storageSlots})`));
       for (const id of ISLAND_ORDER) {
@@ -1324,12 +1330,11 @@ export class UI {
             );
           } else btns.append(h('span', { class: 'muted' }, 'Fully grown island.'));
         } else if (def.status === 'buyable') {
-          btns.append(
-            h('button', { class: 'btn small', disabled: s.glimmer < def.price.coins, onClick: () => this.game.buyIsland(id, 'glimmer') },
-              rich(`Unlock · {coin} ${def.price.coins}`)),
-            h('button', { class: 'btn shard small', disabled: s.shards < def.price.gems, onClick: () => this.game.buyIsland(id, 'shards') },
-              rich(`Skip ahead · {gem} ${def.price.gems}`)),
-          );
+          const lvl = levelOf(s.xp);
+          btns.append(lvl < def.price.level
+            ? h('span', { class: 'chip locked' }, rich(`🔒 Reach level ${def.price.level} (you're ${lvl}), then {coin} ${def.price.coins.toLocaleString()}`))
+            : h('button', { class: 'btn small', disabled: s.glimmer < def.price.coins, onClick: () => this.game.buyIsland(id) },
+              rich(`Unlock · {coin} ${def.price.coins.toLocaleString()}`)));
           const natives = SPECIES.filter((sp) => sp.traits.includes(def.habitat)).length;
           btns.append(h('div', { class: 'muted', style: 'width:100%' }, `${natives} kinds of creature call this habitat home. Comes with its own lure spots.`));
         } else {
@@ -1337,7 +1342,10 @@ export class UI {
         }
         card.append(btns);
         b.append(card);
-        if (highlight === id) setTimeout(() => card.scrollIntoView({ block: 'center' }), 60);
+        if (highlight === id && !scrolled) {
+          scrolled = true;
+          setTimeout(() => card.scrollIntoView({ block: 'center' }), 60);
+        }
       }
     }, I.ISLANDS);
   }

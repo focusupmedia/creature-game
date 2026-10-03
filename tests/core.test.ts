@@ -15,6 +15,8 @@ import { deserialize, serialize } from '../src/core/save';
 import { addMutation, creatureTraits, makeCreature, speciesTitle } from '../src/core/creatures';
 import { arrivalWeights } from '../src/core/lures';
 import { TUNING } from '../src/content/tuning';
+import { xpForLevel } from '../src/core/levels';
+import { LURES, SPOTS } from '../src/content/world';
 import type { Creature, GameState } from '../src/core/types';
 
 const T0 = Date.UTC(2026, 0, 1, 12);
@@ -389,15 +391,17 @@ describe('growth, personalities and first eggs', () => {
 });
 
 describe('islands', () => {
-  it('can be bought with coins or gems, and upgraded in size', () => {
+  it('needs the keeper level first, then coins; and can be upgraded in size', () => {
     const s = fresh();
-    expect(buyIsland(s, 'volcano', 'glimmer').ok).toBe(false);
-    s.glimmer = 5000;
-    expect(buyIsland(s, 'volcano', 'glimmer').ok).toBe(true);
+    s.glimmer = 50_000;
+    expect(buyIsland(s, 'volcano').ok).toBe(false); // level 1
+    s.xp = xpForLevel(4);
+    expect(buyIsland(s, 'volcano').ok).toBe(true);
     expect(s.islands.volcano.owned).toBe(true);
-    s.shards = 500;
-    expect(buyIsland(s, 'lagoon', 'shards').ok).toBe(true);
-    expect(buyIsland(s, 'beach', 'glimmer').ok).toBe(true);
+    expect(buyIsland(s, 'lagoon').ok).toBe(false); // needs level 8
+    s.xp = xpForLevel(20);
+    expect(buyIsland(s, 'lagoon').ok).toBe(true);
+    expect(buyIsland(s, 'beach').ok).toBe(true);
     // a starter pair to breed from, living on the new island
     const starters = s.creatures.filter((c) => c.island === 'beach').map((c) => c.species).sort();
     expect(starters).toEqual(['flamingle', 'pouchbill']);
@@ -410,7 +414,8 @@ describe('islands', () => {
   it('island lures bring island creatures, who live on that island', () => {
     const s = fresh(9);
     s.glimmer = 5000;
-    buyIsland(s, 'volcano', 'glimmer');
+    s.xp = xpForLevel(20);
+    buyIsland(s, 'volcano');
     s.lures.emberpepper = 2;
     expect(placeLure(s, 'vent', 'emberpepper', T0).ok).toBe(true);
     s.stats.arrivals = 5;
@@ -428,8 +433,9 @@ describe('islands', () => {
     const s = fresh();
     s.lures.saltkelp = 1;
     expect(placeLure(s, 'reef', 'saltkelp', T0).ok).toBe(false);
-    s.shards = 999;
-    buyIsland(s, 'lagoon', 'shards');
+    s.glimmer = 99_999;
+    s.xp = xpForLevel(20);
+    buyIsland(s, 'lagoon');
     expect(placeLure(s, 'reef', 'saltkelp', T0).ok).toBe(true);
     expect(moveCreature(s, s.creatures[0].id, 'lagoon', T0).ok).toBe(true);
     expect(s.creatures[0].island).toBe('lagoon');
@@ -604,3 +610,15 @@ describe('behaviour traits', () => {
 function makeCreatureForTest(s: GameState): Creature {
   return makeCreature(s, 'mossfrog', [], T0, 'test');
 }
+
+describe('rarity odds', () => {
+  it('a legendary is never more than a small share of lure visitors, wherever and whenever', () => {
+    for (const spot of Object.keys(SPOTS)) for (const lure of Object.keys(LURES)) for (const dark of [false, true]) {
+      for (const sky of [null, 'storm', 'eclipse', 'starry', 'fullmoon', 'blizzard'] as const) {
+        const w = arrivalWeights(lure, spot, dark, sky);
+        for (const [sp, x] of w) if (sp.rarity === 'legendary') expect(x).toBeLessThan(0.03);
+        expect(w.reduce((a, [, x]) => a + x, 0)).toBeLessThanOrEqual(1.0001 + 0.05);
+      }
+    }
+  });
+});

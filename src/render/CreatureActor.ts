@@ -48,6 +48,8 @@ const FWD = new THREE.Vector3();
 const RIGHT = new THREE.Vector3();
 const BASIS = new THREE.Matrix4();
 const SHADOW_GEO = new THREE.CircleGeometry(1, 20).rotateX(-Math.PI / 2);
+const RING_GEO = new THREE.RingGeometry(1.05, 1.3, 32).rotateX(-Math.PI / 2);
+const RARITY_RING: Record<string, string> = { uncommon: '#4fdf5a', rare: '#3a9aff', legendary: '#ffc02a', mythical: '#ff6fd8' };
 const SHADOW_MAT = new THREE.MeshBasicMaterial({ color: '#1b2a4a', transparent: true, opacity: 0.22, depthWrite: false });
 
 const SPEED: Record<string, number> = { hop: 1.1, walk: 0.7, scuttle: 1.0, fly: 1.3, swim: 0.8, slither: 0.6, waddle: 0.45, float: 0.55 };
@@ -145,6 +147,13 @@ export class CreatureActor {
     this.shadow.scale.setScalar(Math.max(0.35, h * 0.45));
     this.shadow.renderOrder = -1;
     this.root.add(this.shadow);
+    // a coloured ring on the ground shows rarity at a glance (uncommon and up)
+    const rc = RARITY_RING[sp.rarity];
+    if (rc) {
+      const ring = new THREE.Mesh(RING_GEO, new THREE.MeshBasicMaterial({ color: rc, transparent: true, opacity: 0.75, depthWrite: false }));
+      ring.renderOrder = -1;
+      this.shadow.add(ring);
+    }
     const start = this.isSwimmer ? randomWater(geo, Math.random) : randomLand(geo, Math.random);
     this.p.set(start.x, 0, start.z);
     this.place();
@@ -162,7 +171,16 @@ export class CreatureActor {
 
   setSelected(on: boolean): void {
     this.ring.visible = on;
+    // a wandering creature stops and waits while you look at it
+    this.held = on;
+    if (on && (this.state === 'wander' || this.state === 'idle')) {
+      this.state = 'idle';
+      this.timer = 1;
+      this.emote('❓', 1.2);
+    }
   }
+
+  private held = false;
 
   /** Something notable just happened; it shows in the name bubble for a while. */
   note(text: string): void {
@@ -560,6 +578,11 @@ export class CreatureActor {
 
   private decide(ctx: ActorContext, asleepTime: boolean): void {
     const T = this.temper;
+    if (this.held && !asleepTime) {
+      this.state = 'idle';
+      this.timer = 1;
+      return;
+    }
     if (asleepTime) {
       this.state = 'sleep';
       this.emote('💤', 2.5);
