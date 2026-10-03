@@ -9,12 +9,13 @@ import { TUNING } from '../content/tuning';
 import { ISLAND_ORDER, ISLANDS, SIZE_CAPACITY, islandGeo, randomLand } from '../content/islands';
 import { addMutation, creatureTraits, displayName, growth, makeCreature, newId } from './creatures';
 import { addNote, recordMutation, recordSpecies } from './journal';
-import { arrivalChance, arrivalMutations, arrivalWeights } from './lures';
+import { arrivalChance, arrivalMutations, arrivalWeights, totemBoost, TOTEMS } from './lures';
 import { StateRng } from './rng';
 import { refreshShop } from './shop';
 import { stepLegendary } from './legendary';
 import { hasQuirk, temperOf } from './quirks';
 import { stepCare } from './care';
+import { startCombine } from './actions';
 import { stepWanderer } from './wanderers';
 import { findBonus } from './friendship';
 import { stepExpeditions } from './expeditions';
@@ -81,12 +82,35 @@ function step(state: GameState, t: number, dt: number, out: GameEvent[], live = 
     }
   }
 
+  // ---- Nurseries make eggs from the pairs left in them (while you're away too)
+  for (const d of state.placedDecor) {
+    if (d.decor !== 'nursery' || !d.pair || (d.nextAt ?? Infinity) > t) continue;
+    const island = d.island ?? 'home';
+    const ok = d.pair.every((id) => state.creatures.some((c) => c.id === id && !c.stored && !c.trip && c.island === island));
+    if (!ok) {
+      d.pair = undefined;
+      d.nextAt = undefined;
+      continue;
+    }
+    const r = startCombine(state, d.pair[0], d.pair[1], t, island, true);
+    if (r.ok) {
+      d.nextAt = t + TUNING.nurseryHours * 3_600_000;
+      out.push({ type: 'nurseryEgg', egg: r.egg, island, t });
+    } else d.nextAt = t + 10 * MIN; // every nest busy: try again in a little while
+  }
+
+  // ---- rarity totems crumble away when their magic runs out
+  if (state.placedDecor.some((d) => TOTEMS[d.decor] && (d.expiresAt ?? 0) <= t)) {
+    for (const d of state.placedDecor.filter((x) => TOTEMS[x.decor] && (x.expiresAt ?? 0) <= t)) out.push({ type: 'totemDone', decor: d.decor, island: d.island ?? 'home', t });
+    state.placedDecor = state.placedDecor.filter((d) => !(TOTEMS[d.decor] && (d.expiresAt ?? 0) <= t));
+  }
+
   // ---- lures
   for (const spotId of Object.keys(SPOTS)) {
     const active = state.spots[spotId];
     if (!active) continue;
     if (!spotOpen(state.islands, spotId)) continue;
-    const weights = arrivalWeights(active.lure, spotId, dark, sky);
+    const weights = arrivalWeights(active.lure, spotId, dark, sky, totemBoost(state, SPOTS[spotId].island, t));
     if (weights.length === 0) {
       // Nothing that answers this scent is about: the lure waits instead of wasting.
       active.expiresAt += dt;

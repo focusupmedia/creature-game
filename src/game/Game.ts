@@ -1,5 +1,5 @@
 import { species } from '../content/species';
-import { DIG_KINDS, EVENTS, ITEMS, LEGENDARY, LURES, MUTATIONS, SPOTS } from '../content/world';
+import { DECOR, DIG_KINDS, EVENTS, ITEMS, LEGENDARY, LURES, MUTATIONS, SPOTS } from '../content/world';
 import { claimBlessing, startLegendary } from '../core/legendary';
 import { addXp, grantMissingLevelCreatures, payOwedLevels } from '../core/levels';
 import { petCreature, playWith } from '../core/friendship';
@@ -543,6 +543,12 @@ export class Game {
           break;
         case 'eggTouched':
           if (live) this.ui.toast(`An egg glows strangely as the ${EVENTS[ev.event].name.toLowerCase()} passes…`);
+          break;
+        case 'nurseryEgg':
+          if (live) this.ui.toast(`🪺 The Nursery on ${ISLANDS[ev.island].name} made a new egg! What could be inside?`, 'discovery');
+          break;
+        case 'totemDone':
+          if (live) this.ui.toast(`✨ Your ${DECOR[ev.decor]?.name ?? 'totem'} on ${ISLANDS[ev.island].name} has used up its magic and crumbled away.`);
           break;
         case 'eggReady':
           if (live) {

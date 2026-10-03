@@ -1993,10 +1993,54 @@ export class UI {
     this.game.placing = null;
   }
 
+  /** The Nursery: pick a kindred pair from this world; they make an egg every few hours, even while you're away. */
+  private nurseryBlock(b: HTMLElement, id: string): void {
+    const g = this.game;
+    const s = g.state;
+    const d = s.placedDecor.find((x) => x.id === id);
+    if (!d) return;
+    const island = d.island ?? 'home';
+    const pair = d.pair?.map((pid) => s.creatures.find((c) => c.id === pid)).filter((c): c is Creature => !!c) ?? [];
+    if (pair.length === 2) {
+      b.append(h('div', { class: 'slots' }, ...pair.map((c) => h('div', { class: 'slot filled' }, this.portrait(c, ''), displayName(c)))));
+      b.append(h('p', { class: 'muted' }, `Next egg in ${fmtDuration(Math.max(0, (d.nextAt ?? 0) - g.now()))}, if a nest is free. They never go hungry in here.`));
+      b.append(h('button', { class: 'btn secondary wide', style: 'margin-bottom:8px', onClick: () => { A.setNurseryPair(s, id, null, g.now()); g.saveSoon(); this.rerender(); } }, 'Take them out'));
+      return;
+    }
+    b.append(h('p', null, `Pick two pets on ${ISLANDS[island].name} that share a type. They'll make an egg every ${TUNING.nurseryHours} hours, even while you're away.`));
+    const pick = this.nurseryPick.filter((pid) => s.creatures.some((c) => c.id === pid));
+    const grid = h('div', { class: 'grid' });
+    const busy = new Set(s.placedDecor.flatMap((x) => (x.id !== id && x.pair) || []));
+    for (const c of s.creatures.filter((x) => x.island === island && !x.stored && !x.trip && !busy.has(x.id))) {
+      const first = pick[0] ? s.creatures.find((x) => x.id === pick[0]) : undefined;
+      const ok = !first || first.id === c.id || compatibility(first, c).ok;
+      grid.append(h('button', { class: `tile ${ok ? '' : 'dim'} ${pick.includes(c.id) ? 'sel' : ''}`, onClick: () => {
+        if (pick.includes(c.id)) this.nurseryPick = pick.filter((x) => x !== c.id);
+        else if (pick.length < 2) this.nurseryPick = [...pick, c.id];
+        if (this.nurseryPick.length === 2) {
+          const r = A.setNurseryPair(s, id, [this.nurseryPick[0], this.nurseryPick[1]], g.now());
+          this.nurseryPick = [];
+          if (!r.ok) return this.fail(r.error);
+          g.audio.play('egg');
+          this.toast('They\'ve settled into the Nursery. 💕');
+          g.saveSoon();
+        }
+        this.rerender();
+      } }, this.portrait(c, ''), displayName(c), first && ok && first.id !== c.id ? h('span', { class: 'badge' }, '💚') : null));
+    }
+    b.append(grid);
+  }
+
+  private nurseryPick: string[] = [];
+
   showPlacedDecor(id: string): void {
     const d = this.game.state.placedDecor.find((x) => x.id === id);
     if (!d) return;
     this.openSheet(DECOR[d.decor].name, DECOR[d.decor].blurb, (b) => {
+      if (d.decor === 'nursery') this.nurseryBlock(b, d.id);
+      if (d.expiresAt) {
+        b.append(h('p', { class: 'market-hint', style: 'cursor:default' }, `✨ Working its magic on ${ISLANDS[d.island ?? 'home'].name}'s lures: ${fmtDuration(Math.max(0, d.expiresAt - this.game.now()))} left. It crumbles away when it runs out.`));
+      }
       if (d.decor === 'fruittree') {
         const ripe = ripeFruit(d.harvestedAt, this.game.now());
         b.append(h('button', { class: 'btn wide', style: 'margin-bottom:8px', disabled: !ripe, onClick: () => this.game.harvest(id) }, ripe ? `🫐 Pick ${ripe} ${ripe === 1 ? 'berry' : 'berries'}` : 'No berries yet'));

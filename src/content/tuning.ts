@@ -60,6 +60,8 @@ export const TUNING = {
   /** ...and take this long to grow up (times the rarity factor below). Growing carries on while you're away. */
   growMin: 40,
   growRarity: { common: 1, uncommon: 1.3, rare: 1.8, legendary: 2.5, mythical: 3 } as Record<string, number>,
+  /** Nursery: hours between eggs from the pair left there. */
+  nurseryHours: 3,
   /** A Sprout Snack skips this share of a pet's growing time. */
   sproutShare: 0.2,
   /** Grown size range (before Giant). */

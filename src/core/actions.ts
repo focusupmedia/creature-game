@@ -17,6 +17,7 @@ import { levelOf } from './levels';
 import { addBond, findBonus } from './friendship';
 import { refreshShop } from './shop';
 import { addWorldNest, freeNest } from './state';
+import { TOTEMS } from './lures';
 import type { Creature, Egg, EventKind, GameState, Gift, IslandId, MutationId, SpeciesId, SpotId } from './types';
 import { activeEvent, eventInWindow, windowAt, type SkyEvent } from './world';
 
@@ -42,13 +43,14 @@ export function removeLure(state: GameState, spot: SpotId): Result {
   return { ok: true };
 }
 
-export function startCombine(state: GameState, aId: string, bId: string, t: number, island?: IslandId): Result<{ egg: Egg; notes: string[] }> {
+export function startCombine(state: GameState, aId: string, bId: string, t: number, island?: IslandId, nursery = false): Result<{ egg: Egg; notes: string[] }> {
   const a = state.creatures.find((c) => c.id === aId);
   const b = state.creatures.find((c) => c.id === bId);
   if (!a || !b) return fail('Choose two creatures.');
   const compat = compatibility(a, b);
   if (!compat.ok) return fail(compat.reason ?? 'Not kindred.');
-  for (const c of [a, b]) if (c.fullness < TUNING.hungry) return fail(`${displayName(c)} is too hungry to breed. Feed it first!`);
+  // the Nursery looks after its pair, so they never go hungry there
+  if (!nursery) for (const c of [a, b]) if (c.fullness < TUNING.hungry) return fail(`${displayName(c)} is too hungry to breed. Feed it first!`);
   for (const c of [a, b]) if (c.stored) return fail(`${displayName(c)} is in storage.`);
   for (const c of [a, b]) if (c.trip) return fail(`${displayName(c)} is away exploring.`);
   const nest = freeNest(state, island ?? a.island);
@@ -102,9 +104,9 @@ export function startCombine(state: GameState, aId: string, bId: string, t: numb
   if (state.tutorial < 4) egg.incubationMs = Math.min(egg.incubationMs, 40_000);
   state.eggs.push(egg);
   state.stats.combines += 1;
-  const story = `Shared a moment at the Kindred Font with ${displayName(b)}.`;
-  a.history.push({ t, text: story });
-  b.history.push({ t, text: `Shared a moment at the Kindred Font with ${displayName(a)}.` });
+  const where = nursery ? 'in the Nursery' : 'at the Kindred Font';
+  a.history.push({ t, text: `Shared a moment ${where} with ${displayName(b)}.` });
+  b.history.push({ t, text: `Shared a moment ${where} with ${displayName(a)}.` });
   const notes: string[] = [];
   if (addNote(state, 'kindred', 'Creatures must share at least one trait to make an egg together.', t)) {
     notes.push('Creatures must share at least one trait to make an egg together.');
@@ -551,7 +553,11 @@ export function placeDecor(state: GameState, decor: string, x: number, z: number
   if (!state.decorOwned[decor]) return fail('You have none to place.');
   if (!state.islands[island]?.owned) return fail('You don\'t own that world.');
   state.decorOwned[decor] -= 1;
-  state.placedDecor.push({ id: newId(state, 'd'), decor, x, z, rot, island, harvestedAt: decor === 'fruittree' ? state.lastTick : undefined });
+  const totem = TOTEMS[decor];
+  state.placedDecor.push({
+    id: newId(state, 'd'), decor, x, z, rot, island, harvestedAt: decor === 'fruittree' ? state.lastTick : undefined,
+    expiresAt: totem ? state.lastTick + totem.hours * 3_600_000 : undefined,
+  });
   return { ok: true };
 }
 
@@ -579,6 +585,28 @@ export function chopTree(state: GameState, island: IslandId, index: number): Res
   return { ok: true, coins };
 }
 
+/** Leave a pair of pets in a Nursery (or take them out with null). */
+export function setNurseryPair(state: GameState, nurseryId: string, pair: [string, string] | null, t: number): Result {
+  const d = state.placedDecor.find((p) => p.id === nurseryId && p.decor === 'nursery');
+  if (!d) return fail('Not found.');
+  if (!pair) {
+    d.pair = undefined;
+    d.nextAt = undefined;
+    return { ok: true };
+  }
+  const [a, b] = pair.map((id) => state.creatures.find((c) => c.id === id));
+  if (!a || !b || a === b) return fail('Choose two pets.');
+  for (const c of [a, b]) {
+    if (c.stored || c.trip || c.island !== (d.island ?? 'home')) return fail(`${displayName(c)} needs to be out on this world.`);
+    if (state.placedDecor.some((x) => x !== d && x.pair?.includes(c.id))) return fail(`${displayName(c)} is already in another Nursery.`);
+  }
+  const compat = compatibility(a, b);
+  if (!compat.ok) return fail(compat.reason ?? 'They aren\'t kindred.');
+  d.pair = [a.id, b.id];
+  d.nextAt = t + TUNING.nurseryHours * 3_600_000;
+  return { ok: true };
+}
+
 /** Move something you've placed (a decoration or a nest) to a new spot, on any of your worlds. */
 export function moveDecor(state: GameState, placedId: string, x: number, z: number, rot: number, island: IslandId): Result {
   const d = state.placedDecor.find((p) => p.id === placedId);
@@ -592,6 +620,7 @@ export function storeDecor(state: GameState, placedId: string): Result {
   const d = state.placedDecor.find((p) => p.id === placedId);
   if (!d) return fail('Not found.');
   if (d.decor === 'nest' && state.eggs.some((e) => e.nest === d.id)) return fail('There\'s an egg in this nest. Hatch it first.');
+  if (TOTEMS[d.decor] && (d.expiresAt ?? 0) > state.lastTick) return fail('Its magic is already working. It will crumble away when it runs out.');
   state.placedDecor = state.placedDecor.filter((p) => p !== d);
   state.decorOwned[d.decor] = (state.decorOwned[d.decor] ?? 0) + 1;
   return { ok: true };

@@ -104,6 +104,7 @@ const COIN_ROWS: Row[] = [
   ['slide', 'Little Slide', 'fun', 280, 10, 0.9, 'A tiny slide for tiny friends.'],
   ['windmill', 'Windmill', 'fun', 500, 17, 0.8, 'Its sails turn slowly all day long.'],
   ['airballoon', 'Hot Air Balloon', 'fun', 900, 25, 0.8, 'Tethered, just in case.'],
+  ['nursery', 'Nursery', 'cozy', 2500, 10, 0.9, 'Leave two pets here and they make an egg every few hours, even while you\'re away. Needs a free nest.'],
 ];
 
 const SHARD_ROWS: Row[] = [
@@ -123,6 +124,10 @@ const SHARD_ROWS: Row[] = [
   ['dragonstatue', 'Dragon Statue', 'magic', 150, 20, 0.8, 'A jade dragon, coiled and dreaming.'],
   ['portal', 'Shimmer Portal', 'magic', 180, 25, 0.9, 'Leads nowhere. Looks amazing.'],
   ['goldaxolotl', 'Golden Axolotl', 'magic', 200, 30, 0.6, 'A gleaming statue of the legendary Axolotl.'],
+  // timed rarity totems: lures on their world bring rarer visitors until the magic runs out
+  ['totemrare', 'Rare+ Totem', 'magic', 25, 3, 0.4, 'For 3 hours, lures on this world bring rare visitors twice as often. Works while you\'re away.'],
+  ['totemepic', 'Epic+ Totem', 'magic', 60, 8, 0.4, 'For 2 hours, lures here bring rare visitors 3x and legendary ones 2x as often. Works while you\'re away.'],
+  ['totemlegend', 'Legendary+ Totem', 'magic', 150, 15, 0.45, 'For 1 hour, lures here bring legendary visitors 5x as often, and mythical ones 2x. Works while you\'re away.'],
 ];
 
 const toDef = (currency: 'glimmer' | 'shards') => ([id, name, cat, price, level, r, blurb]: Row): DecorDef =>

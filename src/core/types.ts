@@ -373,6 +373,11 @@ export interface PlacedDecor {
   island?: IslandId;
   /** Fruit trees: when fruit was last picked (or the tree was planted). */
   harvestedAt?: number;
+  /** Rarity totems: when their magic runs out (then they crumble away). */
+  expiresAt?: number;
+  /** Nursery: the pair left here to make eggs, and when the next one comes. */
+  pair?: [string, string];
+  nextAt?: number;
 }
 
 export interface JournalState {
@@ -490,6 +495,10 @@ export interface GameState {
 /** Things that happened during a tick. Rendering, UI, audio and analytics react to these. */
 export type GameEvent =
   | { type: 'arrival'; creature: Creature; spot: SpotId; discovered: boolean; t: number }
+  /** A Nursery pair made an egg (maybe while you were away). */
+  | { type: 'nurseryEgg'; egg: Egg; island: IslandId; t: number }
+  /** A rarity totem's magic ran out and it crumbled away. */
+  | { type: 'totemDone'; decor: string; island: IslandId; t: number }
   | { type: 'mutation'; creature: Creature; mutation: MutationId; cause: EventKind; t: number; discovered: boolean }
   /** The sky reached down to a creature (sparkfall, moonbeam, falling star, frost). It may or may not have changed it. */
   | { type: 'skyTouch'; creature: Creature; event: EventKind; changed: boolean; t: number }

@@ -13,7 +13,7 @@ import { StateRng } from '../src/core/rng';
 import { activeEvent, eventInWindow, isDark, nextEvent } from '../src/core/world';
 import { deserialize, serialize } from '../src/core/save';
 import { addMutation, creatureTraits, makeCreature, speciesTitle } from '../src/core/creatures';
-import { arrivalWeights } from '../src/core/lures';
+import { arrivalWeights, totemBoost } from '../src/core/lures';
 import { TUNING } from '../src/content/tuning';
 import { xpForLevel } from '../src/core/levels';
 import { LURES, SPOTS } from '../src/content/world';
@@ -878,5 +878,33 @@ describe('Halloween', () => {
     SEASON_OVERRIDE.halloween = false;
     expect(addCandy(s, 50, T0)).toBe(0);
     SEASON_OVERRIDE.halloween = null;
+  });
+});
+
+describe('Nursery and totems', () => {
+  it('a Nursery pair makes eggs on their own, even while you are away', async () => {
+    const { setNurseryPair } = await import('../src/core/actions');
+    const s = fresh(31);
+    s.tutorial = 9;
+    s.stats.combines = 99;
+    s.placedDecor.push({ id: 'nur', decor: 'nursery', x: 0, z: 4, rot: 0, island: 'home' });
+    const [a, b] = s.creatures;
+    expect(setNurseryPair(s, 'nur', [a.id, b.id], T0).ok).toBe(true);
+    const before = s.eggs.length;
+    tick(s, T0 + (TUNING.nurseryHours + 0.5) * 60 * MIN, { maxStepMs: 60_000 });
+    expect(s.eggs.length).toBeGreaterThan(before);
+  });
+
+  it('a rarity totem boosts lures on its world until it crumbles away', async () => {
+    const { placeDecor } = await import('../src/core/actions');
+    const s = fresh(32);
+    s.lastTick = T0;
+    s.decorOwned.totemlegend = 1;
+    const share = () => arrivalWeights('riverweed', 'pond', false, null, totemBoost(s, 'home', s.lastTick)).filter(([sp]) => sp.rarity === 'legendary').reduce((x, [, w]) => x + w, 0);
+    const plain = share();
+    expect(placeDecor(s, 'totemlegend', 0, 5, 0, 'home').ok).toBe(true);
+    expect(share()).toBeGreaterThan(plain * 3);
+    tick(s, T0 + 70 * MIN, { maxStepMs: 60_000 });
+    expect(s.placedDecor.some((d) => d.decor === 'totemlegend')).toBe(false);
   });
 });

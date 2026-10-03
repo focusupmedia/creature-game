@@ -5,7 +5,7 @@ import { WILD_SPECIES } from '../content/species';
 import { EVENTS, LURES, SPOTS } from '../content/world';
 import { TUNING } from '../content/tuning';
 import { StateRng } from './rng';
-import type { EventKind, MutationId, SpeciesDef, SpotId } from './types';
+import type { EventKind, GameState, IslandId, MutationId, SpeciesDef, SpotId } from './types';
 
 /**
  * Rarity decides how often something turns up, whatever else answers the
@@ -15,13 +15,15 @@ import type { EventKind, MutationId, SpeciesDef, SpotId } from './types';
 export const RARITY_SHARE: Record<string, number> = { common: 0.62, uncommon: 0.28, rare: 0.08, legendary: 0.015, mythical: 0.005 };
 
 /** Visitor weights; they add up to at most 1 (the rest is "nobody came this time"). */
-export function arrivalWeights(lureId: string, spotId: SpotId, dark: boolean, sky: EventKind | null): [SpeciesDef, number][] {
+export function arrivalWeights(lureId: string, spotId: SpotId, dark: boolean, sky: EventKind | null, extra: Partial<Record<string, number>> = {}): [SpeciesDef, number][] {
   const raw = rawWeights(lureId, spotId, dark, sky);
   const byTier = new Map<string, number>();
   for (const [sp, w] of raw) byTier.set(sp.rarity, (byTier.get(sp.rarity) ?? 0) + w);
   // sky events make rare-and-up visitors a little more likely
-  const charm = LURES[lureId]?.boost ?? {};
-  const boost = (r: string) => (sky && (r === 'rare' || r === 'legendary') ? 1.5 : 1) * (charm[r as keyof typeof charm] ?? 1);
+  // charmed lures and rarity totems both shift the odds toward rarer visitors
+  const charm: Partial<Record<string, number>> = { ...(LURES[lureId]?.boost ?? {}) };
+  for (const [r, x] of Object.entries(extra)) charm[r] = (charm[r] ?? 1) * (x ?? 1);
+  const boost = (r: string) => (sky && (r === 'rare' || r === 'legendary') ? 1.5 : 1) * (charm[r] ?? 1);
   // A rarity nobody answers passes its share down to the next commoner rarity that does
   // (never up), so lures stay busy but legendaries stay rare.
   const share: Record<string, number> = {};
@@ -74,5 +76,23 @@ export function arrivalMutations(lureId: string, sky: EventKind | null, rng: Sta
     if (rng.chance(p)) out.push(ev.mutation);
   }
   if (rng.chance(TUNING.prismaticChance)) out.push('prismatic');
+  return out;
+}
+
+/** Rarity totems placed on a world boost its lures until they run out (they work while you're away too). */
+export const TOTEMS: Record<string, { hours: number; boost: Partial<Record<string, number>>; label: string }> = {
+  totemrare: { hours: 3, boost: { rare: 2 }, label: 'Rare+' },
+  totemepic: { hours: 2, boost: { rare: 3, legendary: 2 }, label: 'Epic+' },
+  totemlegend: { hours: 1, boost: { rare: 3, legendary: 5, mythical: 2 }, label: 'Legendary+' },
+};
+
+/** The combined boost from every active totem on a world. */
+export function totemBoost(state: GameState, island: IslandId, t: number): Partial<Record<string, number>> {
+  const out: Partial<Record<string, number>> = {};
+  for (const d of state.placedDecor) {
+    const def = TOTEMS[d.decor];
+    if (!def || (d.island ?? 'home') !== island || (d.expiresAt ?? 0) <= t) continue;
+    for (const [r, x] of Object.entries(def.boost)) out[r] = Math.max(out[r] ?? 1, x ?? 1);
+  }
   return out;
 }

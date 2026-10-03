@@ -103,6 +103,19 @@ const B: Record<string, (k: Kit) => void> = {
       k.ball(0.28, i % 2 ? '#4fae3a' : '#6fcf4a', [Math.cos(a) * 0.18, 0.2, Math.sin(a) * 0.18], [0.35, 0.12, 1], ).rotation.set(0.6, -a, 0);
     }
   },
+  nursery(k) {
+    // a cosy little hut with a heart over the door and a straw bed out front
+    k.box(1.0, 0.6, 0.8, '#f3e6c8', [0, 0.3, -0.1]);
+    for (const s of [1, -1]) k.box(0.62, 0.06, 0.95, '#ff8fb1', [s * 0.27, 0.78, -0.1], [0, 0, s * -0.62]);
+    k.box(0.28, 0.4, 0.04, '#a8783f', [0, 0.2, 0.31]);
+    k.add(new THREE.SphereGeometry(0.09, 10, 7), '#ff5f9a', [0, 0.72, 0.34], '#ff5f9a');
+    k.cyl(0.32, 0.32, 0.06, '#e8c872', [0, 0.03, 0.62], undefined, undefined, 12);
+    k.torus(0.32, 0.07, '#a8783f', [0, 0.06, 0.62], [-Math.PI / 2, 0, 0]);
+  },
+  // ---- rarity totems: a carved post with a glowing gem (blue, purple, gold)
+  totemrare(k) { totem(k, '#3aa0ff', 0); },
+  totemepic(k) { totem(k, '#a86aff', 1); },
+  totemlegend(k) { totem(k, '#ffc21a', 2); },
   // ---- Halloween Pass decorations
   jackolantern(k) {
     k.ball(0.32, '#ff8a1a', [0, 0.26, 0], [1.2, 0.85, 1.2], '#7a3000');
@@ -758,6 +771,18 @@ const B: Record<string, (k: Kit) => void> = {
     k.glow('#ffe27a', 1.8, 0.5);
   },
 };
+
+function totem(k: Kit, gem: string, tier: number): void {
+  k.cyl(0.16, 0.2, 0.9, '#a8783f', [0, 0.45, 0], undefined, undefined, 6);
+  for (let i = 0; i < 3; i++) k.cyl(0.18, 0.18, 0.06, i % 2 ? '#7a5236' : '#d8b060', [0, 0.2 + i * 0.25, 0], undefined, undefined, 6);
+  for (const s of [1, -1]) k.box(0.14, 0.05, 0.05, '#7a5236', [s * 0.22, 0.75, 0], [0, 0, s * 0.4]);
+  const g = k.add(new THREE.OctahedronGeometry(0.14 + tier * 0.03, 0), gem, [0, 1.08, 0], gem);
+  g.userData.spinGem = true;
+  // glows day and night while its magic works
+  const s = glowSprite(gem, 0.9 + tier * 0.3, 0.8);
+  s.position.set(0, 1.08, 0);
+  k.g.add(s);
+}
 
 export function buildDecor(id: string): THREE.Group {
   const k = new Kit();
