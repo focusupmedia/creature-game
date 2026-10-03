@@ -4,7 +4,7 @@
 // run over the gap.
 
 import { species } from '../content/species';
-import { DIG_KINDS, EVENTS, LURES, MUTATIONS, SPOTS } from '../content/world';
+import { DIG_KINDS, EVENTS, LURES, MUTATIONS, SPOTS, spotOpen } from '../content/world';
 import { TUNING } from '../content/tuning';
 import { ISLAND_ORDER, ISLANDS, SIZE_CAPACITY, islandGeo, randomLand } from '../content/islands';
 import { addMutation, creatureTraits, displayName, growth, makeCreature, newId } from './creatures';
@@ -80,7 +80,7 @@ function step(state: GameState, t: number, dt: number, out: GameEvent[], live = 
   for (const spotId of Object.keys(SPOTS)) {
     const active = state.spots[spotId];
     if (!active) continue;
-    if (!state.islands[SPOTS[spotId].island]?.owned) continue;
+    if (!spotOpen(state.islands, spotId)) continue;
     const weights = arrivalWeights(active.lure, spotId, dark, sky);
     if (weights.length === 0) {
       // Nothing that answers this scent is about: the lure waits instead of wasting.

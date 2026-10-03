@@ -150,7 +150,25 @@ export const SPOTS: Record<string, SpotDef> = {
   oasis: { id: 'oasis', island: 'desert', name: 'Oasis', x: D.ox - 1.6, z: D.oz - 1.8, affinity: { Sand: 1.5, Tide: 1.5 }, water: true },
   sandpit: { id: 'sandpit', island: 'desert', name: 'Sand Pit', x: D.ox + 2.4, z: D.oz + 0.8, affinity: { Sand: 2, Reptile: 1.5, Arachnid: 1.5 }, water: false },
   shallows: { id: 'shallows', island: 'lagoon', name: 'Shallows', x: L.ox + 2.6, z: L.oz - 1.4, affinity: { Reef: 1.3, Amphibian: 2, Spirit: 1.5 }, water: true },
+  // Growing an island to Medium, then Large, opens a new lure spot further round the globe.
+  hollow: { id: 'hollow', island: 'home', name: 'Mushroom Hollow', x: -4.4, z: -9.5, affinity: { Mystic: 1.5, Fungus: 2 }, water: false, minSize: 1 },
+  meadow: { id: 'meadow', island: 'home', name: 'Flower Meadow', x: 9.1, z: -9.1, affinity: { Bloom: 2, Insect: 1.5 }, water: false, minSize: 2 },
+  ridge: { id: 'ridge', island: 'volcano', name: 'Obsidian Ridge', x: V.ox + 0.9, z: V.oz - 9.9, affinity: { Ember: 1.5, Dragon: 2 }, water: false, minSize: 1 },
+  cinder: { id: 'cinder', island: 'volcano', name: 'Cinder Cone', x: V.ox + 11.8, z: V.oz - 3.2, affinity: { Ember: 2, Reptile: 1.3, Primate: 1.5 }, water: false, minSize: 2 },
+  sandbar: { id: 'sandbar', island: 'lagoon', name: 'Sandbar', x: L.ox + 5, z: L.oz + 8.6, affinity: { Reef: 1.3, Shore: 1.5, Bird: 1.3 }, water: false, minSize: 1 },
+  grotto: { id: 'grotto', island: 'lagoon', name: 'Glow Grotto', x: L.ox - 6.1, z: L.oz - 10.6, affinity: { Reef: 1.5, Spirit: 2 }, water: false, minSize: 2 },
+  driftwood: { id: 'driftwood', island: 'beach', name: 'Driftwood Cove', x: B.ox + 2.4, z: B.oz - 9, affinity: { Shore: 1.5, Reptile: 1.5 }, water: false, minSize: 1 },
+  gullrocks: { id: 'gullrocks', island: 'beach', name: 'Gull Rocks', x: B.ox - 8.9, z: B.oz - 7.4, affinity: { Bird: 2, Shore: 1.3 }, water: false, minSize: 2 },
+  cactus: { id: 'cactus', island: 'desert', name: 'Cactus Patch', x: D.ox - 5.4, z: D.oz + 7.7, affinity: { Sand: 1.5, Insect: 1.5 }, water: false, minSize: 1 },
+  ruins: { id: 'ruins', island: 'desert', name: 'Old Ruins', x: D.ox + 6.6, z: D.oz - 9.5, affinity: { Sand: 1.3, Mystic: 1.5, Spirit: 1.5 }, water: false, minSize: 2 },
 };
+
+/** A lure spot you can use: its island is yours and has grown big enough. */
+export function spotOpen(islands: Partial<Record<IslandId, { owned: boolean; size: number }>>, id: string): boolean {
+  const s = SPOTS[id];
+  const isl = s && islands[s.island];
+  return !!isl?.owned && isl.size >= (s.minSize ?? 0);
+}
 
 // ---------------------------------------------------------------- events
 export const EVENTS: Record<EventKind, EventDef> = {

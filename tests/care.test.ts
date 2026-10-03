@@ -158,3 +158,20 @@ describe('wanderers', () => {
     expect(s.digSpots.length).toBe(spots + 2);
   });
 });
+
+describe('island growth', () => {
+  it('growing an island opens new lure spots (but not more nests)', async () => {
+    const { placeLure, upgradeIsland } = await import('../src/core/actions');
+    const s = createGame(5, 0);
+    s.glimmer = 100_000;
+    s.lures.mossberry = 5;
+    const nests = s.nests;
+    expect(placeLure(s, 'hollow', 'mossberry', 0).ok).toBe(false);
+    expect(upgradeIsland(s, 'home', 'glimmer').ok).toBe(true);
+    expect(placeLure(s, 'hollow', 'mossberry', 0).ok).toBe(true);
+    expect(placeLure(s, 'meadow', 'mossberry', 0).ok).toBe(false);
+    expect(upgradeIsland(s, 'home', 'glimmer').ok).toBe(true);
+    expect(placeLure(s, 'meadow', 'mossberry', 0).ok).toBe(true);
+    expect(s.nests).toBe(nests);
+  });
+});

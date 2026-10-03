@@ -2,7 +2,7 @@
 // show. Keeping these pure makes them testable and server-verifiable later.
 
 import { species } from '../content/species';
-import { DECOR, DIG_KINDS, FOODS, TOOLS, EGG_TIERS, EVENTS, GLITTER_MUTATIONS, ITEMS, LURES, MUTATIONS, RESONANCES, SPOTS, SUMMON_WEIGHTS } from '../content/world';
+import { DECOR, DIG_KINDS, FOODS, TOOLS, EGG_TIERS, EVENTS, GLITTER_MUTATIONS, ITEMS, LURES, MUTATIONS, RESONANCES, SPOTS, SUMMON_WEIGHTS, spotOpen } from '../content/world';
 import { ISLANDS, SIZE_PRICE } from '../content/islands';
 import { WILD_SPECIES } from '../content/species';
 import { islandCapacity, islandPopulation } from './sim';
@@ -25,6 +25,7 @@ const fail = (error: string): { ok: false; error: string } => ({ ok: false, erro
 export function placeLure(state: GameState, spot: SpotId, lure: string, t: number): Result {
   if (!SPOTS[spot]) return fail('Unknown spot.');
   if (!state.islands[SPOTS[spot].island]?.owned) return fail('You don\'t own that island yet.');
+  if (!spotOpen(state.islands, spot)) return fail('Grow the island to open this spot.');
   if (state.spots[spot]) return fail('A lure is already here.');
   if (!state.lures[lure]) return fail(`You have no ${LURES[lure]?.name ?? 'lure'}.`);
   state.lures[lure] -= 1;

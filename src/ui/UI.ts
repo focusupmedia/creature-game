@@ -1,5 +1,5 @@
 import { SPECIES, species } from '../content/species';
-import { DECOR, EGG_TIERS, EVENTS, FOODS, GIFTABLE_MUTATIONS, TOOLS, ITEMS, LEGENDARY, LEGENDARY_ORDER, LURES, MUTATIONS, SPOTS } from '../content/world';
+import { DECOR, EGG_TIERS, EVENTS, FOODS, GIFTABLE_MUTATIONS, TOOLS, ITEMS, LEGENDARY, LEGENDARY_ORDER, LURES, MUTATIONS, SPOTS, spotOpen } from '../content/world';
 import { ISLANDS, ISLAND_ORDER, SIZE_NAMES, SIZE_PRICE } from '../content/islands';
 import { TUNING } from '../content/tuning';
 import { NESTS, FONT, SHOP_STALL } from '../content/layout';
@@ -293,7 +293,10 @@ export class UI {
         if (Object.values(s.islands).filter((x) => x.owned).length > 1) {
           b.append(h('div', { class: 'section-title' }, `${ISLANDS[id].icon} ${ISLANDS[id].name}`));
         }
-        for (const spot of spots) b.append(this.spotBlock(spot.id));
+        for (const spot of spots) {
+          if (spotOpen(s.islands, spot.id)) b.append(this.spotBlock(spot.id));
+          else b.append(h('div', { class: 'spot-locked' }, `🔒 ${spot.name}: grow ${ISLANDS[id].name} to ${SIZE_NAMES[spot.minSize ?? 0]} to open this lure spot.`));
+        }
       }
       b.append(h('p', { class: 'muted' }, 'Tip: the same lure can attract different visitors depending on where you place it, the time of day, and the sky.'));
     }, I.LURE);
@@ -1504,10 +1507,12 @@ export class UI {
         if (isl.owned) {
           if (!here) btns.append(h('button', { class: 'btn secondary small', onClick: () => this.game.travel(id) }, 'Visit'));
           const next = SIZE_PRICE[isl.size + 1];
+          const newSpots = Object.values(SPOTS).filter((sp) => sp.island === id && sp.minSize === isl.size + 1);
           if (next) {
             btns.append(
               h('button', { class: 'btn small', disabled: s.glimmer < next.coins, onClick: () => this.game.upgradeIsland(id, 'glimmer') },
                 rich(`Grow to ${SIZE_NAMES[isl.size + 1]} · {coin} ${next.coins}`)),
+              ...newSpots.map((sp) => h('div', { class: 'muted', style: 'width:100%' }, `Opens a new lure spot: ${sp.name}`)),
               h('button', { class: 'btn shard small', disabled: s.shards < next.gems, onClick: () => this.game.upgradeIsland(id, 'shards') },
                 rich(`{gem} ${next.gems}`)),
             );

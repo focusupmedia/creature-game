@@ -87,6 +87,8 @@ export interface SpotDef {
   affinity: Partial<Record<Trait, number>>;
   /** Swimmers can only arrive at water spots. */
   water: boolean;
+  /** Opens once the island grows to this size (1 = Medium, 2 = Large). */
+  minSize?: number;
 }
 
 export interface ResonanceRule {

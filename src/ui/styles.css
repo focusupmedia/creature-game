@@ -534,3 +534,4 @@ input.rename { font-family: var(--display); font-size: 22px; border: var(--outli
 
 /* drawn icons standing in for emoji inside text */
 .icon.ei { width: 1.2em; height: 1.2em; vertical-align: -0.25em; }
+.spot-locked { margin: 8px 0; padding: 10px 12px; border-radius: 14px; border: 3px dashed #9ab0c8; color: var(--ink-soft); font-weight: 700; font-size: 14px; background: rgba(255,255,255,.5); }

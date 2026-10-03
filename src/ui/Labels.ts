@@ -1,7 +1,7 @@
 import { BASKET, FONT, NESTS, SHOP_STALL } from '../content/layout';
 import { ISLANDS, ISLAND_ORDER } from '../content/islands';
 import type { IslandId } from '../core/types';
-import { LURES, SPOTS } from '../content/world';
+import { LURES, SPOTS, spotOpen } from '../content/world';
 import { remainingMs, nestPrice } from '../core/actions';
 import { displayName, isOutlier, sizeLabel } from '../core/creatures';
 import { arrivalWeights } from '../core/lures';
@@ -95,7 +95,7 @@ export class WorldLabels {
         if (dormant) return '💤 Waiting';
         const ms = Math.max(0, active.expiresAt - now());
         return `${LURES[active.lure].name.split(' ')[0]} · ${Math.floor(ms / 60000)}:${String(Math.floor(ms / 1000) % 60).padStart(2, '0')}`;
-      }, () => this.act.openSpot(spot.id), on(spot.island), () => (s().spots[spot.id] ? null : '!'));
+      }, () => this.act.openSpot(spot.id), () => on(spot.island)() && spotOpen(s().islands, spot.id), () => (s().spots[spot.id] ? null : '!'));
     }
 
     this.pin('wl-sign', [SHOP_STALL.x, 2.9, SHOP_STALL.z], () => 'zoomed', () => '🛍️ Shop', () => this.act.openShop(), home);

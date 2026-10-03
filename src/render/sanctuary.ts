@@ -203,9 +203,10 @@ function scatterGrass(G: Merger, g: Geo, pal: (typeof ISLANDS)['home']['palette'
   }
 }
 
-function lureSpots(M: Merger, islandId: IslandId, pickables: THREE.Object3D[], group: THREE.Group, dishColor: string): Record<string, SpotDish> {
+function lureSpots(M: Merger, islandId: IslandId, size: number, pickables: THREE.Object3D[], group: THREE.Group, dishColor: string): Record<string, SpotDish> {
   const out: Record<string, SpotDish> = {};
-  for (const spot of Object.values(SPOTS).filter((s) => s.island === islandId)) {
+  // bigger islands open more spots
+  for (const spot of Object.values(SPOTS).filter((s) => s.island === islandId && size >= (s.minSize ?? 0))) {
     const root = new THREE.Group();
     root.position.set(spot.x, 0, spot.z);
     if (spot.water) {
@@ -355,7 +356,7 @@ export function buildIsland(id: IslandId, size: number, owned: boolean): IslandV
   if (id === 'beach') buildBeach(view, M, g, rand);
   if (id === 'desert') buildDesert(view, M, g, rand);
 
-  view.spotDishes = lureSpots(M, id, view.pickables, group, id === 'volcano' ? '#4a3a3a' : '#8d8f86');
+  view.spotDishes = lureSpots(M, id, size, view.pickables, group, id === 'volcano' ? '#4a3a3a' : '#8d8f86');
 
   scatterGrass(G, g, def.palette, rand, clear, id === 'home' ? 46 : id === 'lagoon' ? 22 : 18, id !== 'volcano');
   // Stand every separately-built piece (water, nests, font, shop, lure dishes...) on the dome.
