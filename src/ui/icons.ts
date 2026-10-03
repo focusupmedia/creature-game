@@ -6,24 +6,15 @@ const INK = '#1b2a4a';
 const svg = (body: string, vb = '0 0 64 64') =>
   `<svg viewBox="${vb}" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">${body}</svg>`;
 
-/** The 8-bit coin (soft currency). Drawn on a 12×12 pixel grid. */
-export const COIN = (() => {
-  let rects = '';
-  for (let y = 0; y < 12; y++) {
-    for (let x = 0; x < 12; x++) {
-      const d = Math.hypot(x - 5.5, (y - 5.5) * 1.02);
-      if (d > 5.9) continue;
-      let c = '#ffc21a';
-      if (d > 4.85) c = '#8a4b00';
-      else if (x >= 5 && x <= 6 && y >= 3 && y <= 8) c = '#e08a00';
-      else if (x + y < 8) c = '#ffe680';
-      else if (x + y > 14) c = '#f0a000';
-      if ((x === 3 && (y === 3 || y === 4)) || (x === 4 && y === 3)) c = '#ffffff';
-      rects += `<rect x="${x}" y="${y}" width="1.02" height="1.02" fill="${c}"/>`;
-    }
-  }
-  return `<svg viewBox="0 0 12 12" shape-rendering="crispEdges" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">${rects}</svg>`;
-})();
+/** Coins (soft currency): a simple gold coin with soft shading, a stamped star and a shine, like the gem. */
+export const COIN = svg(`
+  <circle cx="32" cy="32" r="26" fill="#e8930a"/>
+  <circle cx="30" cy="30" r="23" fill="#ffc21a"/>
+  <path d="M30 7a23 23 0 0 0-16 39.6L46.6 14A22.9 22.9 0 0 0 30 7z" fill="#ffd95a"/>
+  <circle cx="30" cy="30" r="15.5" fill="none" stroke="#e8930a" stroke-width="3"/>
+  <path d="M30 20.5l2.9 6 6.5.8-4.8 4.5 1.2 6.5-5.8-3.2-5.8 3.2 1.2-6.5-4.8-4.5 6.5-.8z" fill="#e8930a"/>
+  <path d="M15 24a16 16 0 0 1 8-9" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" opacity=".9"/>
+  <circle cx="32" cy="32" r="26" fill="none" stroke="${INK}" stroke-width="4"/>`);
 
 /** Starshards (premium): a faceted pink gem. */
 export const GEM = svg(`
@@ -156,3 +147,57 @@ export const PAW = svg(`
   <ellipse cx="39" cy="15" rx="6" ry="8" fill="#ff9fcf" stroke="${INK}" stroke-width="4"/>
   <ellipse cx="50" cy="27" rx="6" ry="7.5" fill="#ff9fcf" stroke="${INK}" stroke-width="4"/>
   <path d="M24 38q3-4 7-4" stroke="#fff" stroke-width="4" stroke-linecap="round" fill="none"/>`);
+
+
+// ---------------------------------------------------------------- hands and gestures
+// Hands are drawn as an outline pass (thick navy) under a fill pass, so the
+// overlapping finger and palm shapes read as one clean silhouette.
+
+const SKIN = '#ffd3ad';
+const SKIN_SHADE = '#f2b384';
+const SLEEVE = '#3aa8ff';
+
+/** A hand pointing up: index finger, folded fingers, thumb and a sleeve cuff. */
+function pointer(): string {
+  const shapes = `
+    <rect x="25" y="6" width="12" height="30" rx="6"/>
+    <rect x="17" y="27" width="30" height="27" rx="11"/>
+    <rect x="9" y="31" width="13" height="19" rx="6.5" transform="rotate(-28 15.5 40.5)"/>`;
+  return `<g fill="${INK}" stroke="${INK}" stroke-width="8" stroke-linejoin="round">${shapes}</g>
+    <g fill="${SKIN}">${shapes}</g>
+    <path d="M38 34h7M38 41h7" stroke="${SKIN_SHADE}" stroke-width="3" stroke-linecap="round"/>
+    <path d="M28 10v10" stroke="#fff" stroke-width="3" stroke-linecap="round" opacity=".8"/>
+    <rect x="19" y="52" width="26" height="9" rx="3" fill="${SLEEVE}" stroke="${INK}" stroke-width="4"/>`;
+}
+
+/** An open hand, fingers spread. */
+function open(): string {
+  const shapes = `
+    <rect x="13" y="12" width="9" height="26" rx="4.5" transform="rotate(-8 17.5 25)"/>
+    <rect x="23" y="6" width="9" height="30" rx="4.5"/>
+    <rect x="33" y="7" width="9" height="30" rx="4.5"/>
+    <rect x="43" y="13" width="9" height="25" rx="4.5" transform="rotate(8 47.5 25)"/>
+    <rect x="15" y="28" width="35" height="26" rx="12"/>
+    <rect x="4" y="30" width="12" height="20" rx="6" transform="rotate(-40 10 40)"/>`;
+  return `<g fill="${INK}" stroke="${INK}" stroke-width="8" stroke-linejoin="round">${shapes}</g>
+    <g fill="${SKIN}">${shapes}</g>
+    <path d="M24 44q8 5 16 0" fill="none" stroke="${SKIN_SHADE}" stroke-width="3" stroke-linecap="round"/>
+    <rect x="19" y="52" width="27" height="9" rx="3" fill="${SLEEVE}" stroke="${INK}" stroke-width="4"/>`;
+}
+
+const arrow = (d: string, color = '#3aa8ff') =>
+  `<path d="${d}" fill="none" stroke="${INK}" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+   <path d="${d}" fill="none" stroke="${color}" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>`;
+const tip = (x: number, y: number) => `<circle cx="${x}" cy="${y}" r="7" fill="${SKIN}" stroke="${INK}" stroke-width="4"/>`;
+
+export const HAND_POINT = svg(pointer());
+export const HAND_OPEN = svg(open());
+export const HAND_RIGHT = svg(`<g transform="rotate(90 32 32)">${pointer()}</g>`);
+export const HAND_WAVE = svg(`<g transform="rotate(-18 32 36)">${open()}</g>${arrow('M6 16q2-7 8-10')}${arrow('M58 44q-1 7-7 11')}`);
+
+/** Getting-around gestures for the controls card. */
+export const GESTURE_DRAG = svg(`<g transform="translate(6 10) scale(.82)">${pointer()}</g>${arrow('M8 9h48M14 4l-6 5 6 5M50 4l6 5-6 5')}`);
+export const GESTURE_PINCH = svg(`${tip(22, 42)}${tip(42, 22)}${arrow('M14 50l-8 8M6 50v8h8')}${arrow('M50 14l8-8M50 6h8v8')}`);
+export const GESTURE_TWIST = svg(`<circle cx="32" cy="32" r="19" fill="none" stroke="#9ab0c8" stroke-width="3" stroke-dasharray="4 5"/>${tip(19, 19)}${tip(45, 45)}${arrow('M44 8a26 26 0 0 1 14 14M52 22h6v-6')}${arrow('M20 56A26 26 0 0 1 6 42M12 42H6v6')}`);
+export const GESTURE_HOLD = svg(`<circle cx="31" cy="12" r="10" fill="none" stroke="#ff9fcf" stroke-width="4"/><circle cx="31" cy="12" r="5" fill="#ff5f9a"/><g transform="translate(0 6)">${pointer()}</g>`);
+export const GESTURE_TAP = svg(`<g transform="translate(0 7)">${pointer()}</g>${arrow('M31 3v3M19 8l2 2M43 8l-2 2', '#ffd21a')}`);

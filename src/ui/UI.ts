@@ -685,13 +685,14 @@ export class UI {
   /** How to get around a globe. Shown the first time, and from Settings. */
   showControls(): void {
     this.modal((m, close) => {
-      const row = (icon: string, title: string, text: string) => h('div', { class: 'ctl-row' }, h('span', { class: 'ctl-ico' }, icon), h('div', null, h('b', null, title), h('div', { class: 'muted' }, text)));
+      const row = (svg: string, title: string, text: string) =>
+        h('div', { class: 'ctl-row' }, h('span', { class: 'ctl-ico' }, I.icon(svg)), h('div', null, h('b', null, title), h('div', { class: 'muted' }, text)));
       m.append(h('h2', null, 'Getting around'),
-        row('👆', 'Drag', 'Roll your island globe any way to look all around it.'),
-        row('🤏', 'Pinch (or mouse wheel)', 'Zoom in close or pull back.'),
-        row('🔄', 'Two-finger twist', 'Spin the globe.'),
-        row('✋', 'Press and hold a creature', 'Pick it up and carry it. Drop it on another creature to breed, or on a dig spot.'),
-        row('👉', 'Tap', 'Choose things: creatures, nests, the shop, lure spots.'),
+        row(I.GESTURE_DRAG, 'Drag', 'Roll your island globe any way to look all around it.'),
+        row(I.GESTURE_PINCH, 'Pinch (or mouse wheel)', 'Zoom in close or pull back.'),
+        row(I.GESTURE_TWIST, 'Two-finger twist', 'Spin the globe.'),
+        row(I.GESTURE_HOLD, 'Press and hold a creature', 'Pick it up and carry it. Drop it on another creature to breed, or on a dig spot.'),
+        row(I.GESTURE_TAP, 'Tap', 'Choose things: creatures, nests, the shop, lure spots.'),
         h('div', { class: 'btns' }, h('button', { class: 'btn', onClick: close }, 'Got it!')));
     });
   }
@@ -1444,13 +1445,20 @@ export class UI {
         break;
       default: text = '';
     }
-    if (!text || this.coachDismissed === step || this.sheetOpen && step !== 3.5 && step !== 4 || this.game.world.revealing) {
+    // never talk over a pop-up (like the first-time controls card)
+    if (!text || this.coachDismissed === step || this.sheetOpen && step !== 3.5 && step !== 4 || this.game.world.revealing || this.modalHost.childElementCount > 0) {
       this.coachEl.classList.add('hidden');
       return;
     }
     if (this.coachEl.dataset.step !== String(step) || this.coachEl.classList.contains('hidden')) {
       this.coachEl.dataset.step = String(step);
-      this.coachEl.replaceChildren(I.icon(I.AXOLOTL, 'icon who'), h('span', null, text),
+      const order = [0, 1, 2, 3, 4, 5];
+      const at = Math.floor(step);
+      this.coachEl.replaceChildren(
+        h('div', { class: 'coach-who' }, I.icon(I.AXOLOTL, 'icon who')),
+        h('div', { class: 'coach-body' },
+          h('div', { class: 'coach-name' }, 'Lotl', h('span', { class: 'coach-steps' }, ...order.map((i) => h('i', { class: i < at ? 'done' : i === at ? 'now' : '' })))),
+          h('div', { class: 'coach-text' }, text)),
         h('button', { class: 'x', 'aria-label': 'Dismiss', onClick: () => { this.coachDismissed = step; if (step === 5) this.game.setTutorial(6); } }, I.icon(I.CLOSE)));
       this.coachEl.classList.remove('hidden');
     }

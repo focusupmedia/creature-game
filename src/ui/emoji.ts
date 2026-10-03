@@ -3,7 +3,7 @@
 // run through emojify(), and creature emote bubbles draw these too, so the game
 // looks the same on every phone instead of using each phone's emoji font.
 
-import { COIN, CREATE, GEAR, GEM, JOURNAL, MONKEY, PAW, POTION } from './icons';
+import { COIN, CREATE, GEAR, GEM, GESTURE_PINCH, GESTURE_TWIST, HAND_OPEN, HAND_POINT, HAND_RIGHT, HAND_WAVE, JOURNAL, MONKEY, PAW, POTION } from './icons';
 
 const INK = '#1b2a4a';
 const O = `stroke="${INK}" stroke-width="4" stroke-linejoin="round" stroke-linecap="round"`;
@@ -97,14 +97,14 @@ const ICONS: Record<string, string> = {
   '👺': face(`<path d="M18 26l10 4M46 26l-10 4" fill="none" ${O}/>${dotEyes}`, `<path d="M22 44q10 6 20 0" fill="none" ${O}/><path d="M26 44l2 5 3-4 3 4 2-5" fill="#fff" ${o3}/>`, '#7ac04a', `<path d="M9 32L-2 22l12 2M55 32l11-10-12 2" fill="#7ac04a" ${O}/>`),
   '👼': face(happyEyes + blush, smile, '#ffd8b0', `<ellipse cx="32" cy="8" rx="15" ry="5" fill="none" stroke="#ffe27a" stroke-width="6"/><path d="M8 40q-8-10 0-18 6 4 4 14zM56 40q8-10 0-18-6 4-4 14z" fill="#fff" ${o3}/>`),
 
-  // --- hands (controls)
-  '👆': svg(`<path d="M24 34V12a5 5 0 0 1 10 0v18l10 2a6 6 0 0 1 5 7l-2 14H24l-8-14a4 4 0 0 1 7-4z" fill="#ffd0a8" ${O}/>`),
-  '👉': svg(`<path d="M30 24h22a5 5 0 0 1 0 10H34l-2 10a6 6 0 0 1-7 5l-14-2V24l14-8a4 4 0 0 1 4 7z" fill="#ffd0a8" ${O}/>`),
-  '✋': svg(`<path d="M18 36V18a4 4 0 0 1 8 0v12V12a4 4 0 0 1 8 0v18V14a4 4 0 0 1 8 0v18-10a4 4 0 0 1 8 0v20c0 10-6 16-16 16-8 0-12-4-16-10l-8-10a4 4 0 0 1 6-5z" fill="#ffd0a8" ${O}/>`),
-  '🤏': svg(`<path d="M20 50V30a6 6 0 0 1 6-6h14a6 6 0 0 1 6 6v20z" fill="#ffd0a8" ${O}/><path d="M24 26V10a4 4 0 0 1 8 0v12M42 26l8-12a4 4 0 0 1 7 4l-8 12" fill="#ffd0a8" ${O}/>`),
-  '👋': svg(`<path d="M18 36V18a4 4 0 0 1 8 0v12V12a4 4 0 0 1 8 0v18V14a4 4 0 0 1 8 0v18-10a4 4 0 0 1 8 0v20c0 10-6 16-16 16-8 0-12-4-16-10l-8-10a4 4 0 0 1 6-5z" fill="#ffd23d" ${O} transform="rotate(-15 32 32)"/><path d="M6 14q2-6 8-8M56 50q-2 6-8 8" fill="none" ${o3}/>`),
-  '🤝': svg(`<path d="M4 30l14-10 12 4 16-4 14 10-12 16-12 4-16-6z" fill="#ffd0a8" ${O}/><path d="M24 34l8 6M30 30l8 6M36 28l6 5" fill="none" ${o3}/>`),
-  '🔄': svg(`<path d="M50 26A20 20 0 0 0 14 22" fill="none" stroke="${INK}" stroke-width="12" stroke-linecap="round"/><path d="M50 26A20 20 0 0 0 14 22" fill="none" stroke="#3aa8ff" stroke-width="6" stroke-linecap="round"/><path d="M14 38a20 20 0 0 0 36 4" fill="none" stroke="${INK}" stroke-width="12" stroke-linecap="round"/><path d="M14 38a20 20 0 0 0 36 4" fill="none" stroke="#3aa8ff" stroke-width="6" stroke-linecap="round"/><path d="M54 14v14H40zM10 50V36h14z" fill="#3aa8ff" ${o3}/>`),
+  // --- hands (clean silhouettes, see icons.ts)
+  '👆': HAND_POINT,
+  '👉': HAND_RIGHT,
+  '✋': HAND_OPEN,
+  '🤏': GESTURE_PINCH,
+  '👋': HAND_WAVE,
+  '🤝': svg(`<g fill="${INK}" stroke="${INK}" stroke-width="8" stroke-linejoin="round"><rect x="4" y="26" width="28" height="14" rx="7"/><rect x="32" y="26" width="28" height="14" rx="7"/><ellipse cx="32" cy="33" rx="12" ry="11"/></g><rect x="4" y="26" width="16" height="14" rx="5" fill="#3aa8ff"/><rect x="44" y="26" width="16" height="14" rx="5" fill="#ff7ab0"/><ellipse cx="32" cy="33" rx="12" ry="11" fill="#ffd3ad"/><path d="M26 28v10M31 27v12M36 28v10" stroke="#f2b384" stroke-width="3" stroke-linecap="round"/>`),
+  '🔄': GESTURE_TWIST,
 
   // --- sky and weather
   '☀': svg(sun(32, 32, 14)),
@@ -125,7 +125,7 @@ const ICONS: Record<string, string> = {
   '🌫': svg(`<g fill="none" stroke="${INK}" stroke-width="11" stroke-linecap="round"><path d="M8 18q12-6 24 0t24 0M8 32q12-6 24 0t24 0M8 46q12-6 24 0t24 0"/></g><g fill="none" stroke="#e8eef4" stroke-width="5" stroke-linecap="round"><path d="M8 18q12-6 24 0t24 0M8 32q12-6 24 0t24 0M8 46q12-6 24 0t24 0"/></g>`),
 
   // --- nature and places
-  '🌳': svg(`<rect x="27" y="36" width="10" height="22" rx="3" fill="#b0642e" ${O}/><circle cx="32" cy="26" r="20" fill="#5fbf4a" ${O}/>${gloss('M20 20a12 12 0 0 1 8-8')}`),
+  '🌳': svg(`<rect x="27" y="38" width="10" height="20" rx="3" fill="#b0642e" ${O}/><g fill="${INK}" stroke="${INK}" stroke-width="8"><circle cx="20" cy="30" r="12"/><circle cx="44" cy="30" r="12"/><circle cx="32" cy="20" r="14"/><circle cx="32" cy="34" r="11"/></g><g fill="#5fbf4a"><circle cx="20" cy="30" r="12"/><circle cx="44" cy="30" r="12"/><circle cx="32" cy="20" r="14"/><circle cx="32" cy="34" r="11"/></g><path d="M14 34q6 6 14 4M36 38q8 2 14-4" fill="none" stroke="#3f9a32" stroke-width="3" stroke-linecap="round"/>${gloss('M24 14a10 10 0 0 1 8-4')}`),
   '🌱': svg(`<path d="M32 58V30" stroke="${INK}" stroke-width="9" stroke-linecap="round"/><path d="M32 58V30" stroke="#5fbf4a" stroke-width="4" stroke-linecap="round"/><path d="M32 32C30 18 18 12 8 14c0 12 10 20 24 18zM32 28c2-12 12-18 24-16-2 12-12 18-24 16z" fill="#7ed321" ${O}/>`),
   '🌿': svg(`<path d="M12 54L50 12" stroke="${INK}" stroke-width="8" stroke-linecap="round"/><path d="M12 54L50 12" stroke="#4fae3a" stroke-width="3" stroke-linecap="round"/><g fill="#7ed321" ${o3}><path d="M22 42q-14-2-14-14 12 0 14 14zM30 34q-12-4-10-16 12 2 10 16zM38 24q-8-6-4-16 10 4 4 16zM26 46q2 12 14 12 0-12-14-12zM34 38q4 12 16 10-2-12-16-10z"/></g>`),
   '🪴': svg(`<path d="M16 38h32l-4 20H20z" fill="#ff9f1a" ${O}/><path d="M32 38V24" stroke="${INK}" stroke-width="4"/><path d="M32 26q-14 0-16-14 14 0 16 14zM32 26q14 0 16-14-14 0-16 14z" fill="#5fbf4a" ${O}/>`),
@@ -147,7 +147,7 @@ const ICONS: Record<string, string> = {
   '🐒': MONKEY,
   '🐾': PAW,
   '🐦': svg(`<path d="M10 36q2-20 24-20 14 0 18 12l10 4-10 4c-2 12-12 18-24 18-12 0-18-8-18-18z" fill="#3aa8ff" ${O}/><path d="M24 38q8 10 20 0" fill="#bfe8ff" ${o3}/><circle cx="42" cy="28" r="3.5" fill="${INK}"/>`),
-  '🦎': svg(`<path d="M8 40q8-14 26-12 12-6 22 0-6 8-18 6-12 10-26 8z" fill="#5fbf4a" ${O}/><path d="M22 36l-4 10M34 38l2 10M30 30l-6-8M40 30l4-8" fill="none" ${o3}/><circle cx="50" cy="30" r="2.5" fill="${INK}"/>`),
+  '🦎': svg(`<path d="M10 30q-6 10 4 16t22 0" fill="none" stroke="${INK}" stroke-width="12" stroke-linecap="round"/><path d="M10 30q-6 10 4 16t22 0" fill="none" stroke="#5fbf4a" stroke-width="5" stroke-linecap="round"/><g fill="${INK}" stroke="${INK}" stroke-width="8" stroke-linejoin="round"><ellipse cx="34" cy="34" rx="14" ry="9"/><ellipse cx="50" cy="28" rx="9" ry="7"/><rect x="24" y="38" width="6" height="12" rx="3" transform="rotate(25 27 44)"/><rect x="38" y="38" width="6" height="12" rx="3" transform="rotate(-25 41 44)"/><rect x="24" y="20" width="6" height="12" rx="3" transform="rotate(-25 27 26)"/><rect x="38" y="20" width="6" height="12" rx="3" transform="rotate(25 41 26)"/></g><g fill="#5fbf4a"><ellipse cx="34" cy="34" rx="14" ry="9"/><ellipse cx="50" cy="28" rx="9" ry="7"/><rect x="24" y="38" width="6" height="12" rx="3" transform="rotate(25 27 44)"/><rect x="38" y="38" width="6" height="12" rx="3" transform="rotate(-25 41 44)"/><rect x="24" y="20" width="6" height="12" rx="3" transform="rotate(-25 27 26)"/><rect x="38" y="20" width="6" height="12" rx="3" transform="rotate(25 41 26)"/></g><g fill="#ffd21a"><circle cx="30" cy="32" r="2.5"/><circle cx="38" cy="35" r="2.5"/></g><circle cx="52" cy="26" r="2.5" fill="${INK}"/>`),
   '🐜': svg(`<g fill="#7a3a2a" ${O}><circle cx="14" cy="34" r="8"/><ellipse cx="30" cy="34" rx="7" ry="6"/><ellipse cx="48" cy="34" rx="11" ry="9"/></g><path d="M26 30l-6-12M34 30l4-12M30 40l-6 12M34 40l6 12M10 28l-6-8M16 28l2-10" fill="none" ${o3}/>`),
   '🦁': svg(`<circle cx="32" cy="32" r="27" fill="#d07a2a" ${O}/><circle cx="32" cy="34" r="17" fill="#ffc04a" ${O}/>${dotEyes}<path d="M28 40h8l-4 4z" fill="${INK}"/>`),
   '🦉': svg(`<path d="M12 18l10 6h20l10-6v28c0 8-8 14-20 14S12 54 12 46z" fill="#a8743a" ${O}/><circle cx="23" cy="32" r="8" fill="#fff" ${O}/><circle cx="41" cy="32" r="8" fill="#fff" ${O}/><circle cx="23" cy="32" r="3.5" fill="${INK}"/><circle cx="41" cy="32" r="3.5" fill="${INK}"/><path d="M29 40h6l-3 5z" fill="#ffb02a" ${o3}/>`),
