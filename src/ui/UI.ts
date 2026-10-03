@@ -1517,6 +1517,9 @@ export class UI {
         h('button', { class: 'btn small secondary', onClick: () => { g.setSound(!g.audio.enabled); this.rerender(); } }, g.audio.enabled ? 'On' : 'Off')));
       b.append(h('div', { class: 'item' }, h('div', { class: 'grow name' }, 'Music'),
         h('button', { class: 'btn small secondary', onClick: () => { g.setMusic(!g.audio.musicEnabled); this.rerender(); } }, g.audio.musicEnabled ? 'On' : 'Off')));
+      b.append(h('div', { class: 'item' }, h('div', { class: 'grow' }, h('div', { class: 'name' }, 'Reminders'),
+        h('div', { class: 'desc' }, 'At most two gentle notifications while you\'re away (egg ready, rare visitor, pet home, the Collector). Never at night.')),
+        h('button', { class: 'btn small secondary', onClick: () => { g.setReminders(!g.remindersOn); this.rerender(); } }, g.remindersOn ? 'On' : 'Off')));
       b.append(h('button', { class: 'btn secondary small', onClick: () => this.showControls() }, '👆 How to get around'));
       b.append(h('div', { class: 'section-title' }, 'Playtest tools'));
       b.append(h('p', { class: 'muted' }, 'These exist to test the prototype quickly and will not ship.'));

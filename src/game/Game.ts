@@ -6,9 +6,10 @@ import { petCreature, playWith } from '../core/friendship';
 import { claimExpedition, sendOnExpedition } from '../core/expeditions';
 import { canClaimLogin, claimLogin } from '../core/login';
 import { claimCollection } from '../core/collections';
+import { planNotifications } from '../core/notify';
 import { EXPEDITIONS, type ExpeditionId } from '../content/expeditions';
 import { claimDaily, claimLasting, questEvent, refreshDailies } from '../core/quests';
-import { awayFinds, buyStorageSlot, findVisitor, keepVisitor, releaseCreature, sendAwayVisitor, feastIsland, feedCreature, hangFeedbag, harvestTree, nextHungryAt, retrieveCreature, sellCreature, storeCreature } from '../core/care';
+import { awayFinds, buyStorageSlot, findVisitor, keepVisitor, releaseCreature, sendAwayVisitor, feastIsland, feedCreature, hangFeedbag, harvestTree, retrieveCreature, sellCreature, storeCreature } from '../core/care';
 import { islandCapacity } from '../core/sim';
 import { xpFor, type PlayEvent } from '../core/progress';
 import { ISLANDS } from '../content/islands';
@@ -36,6 +37,7 @@ import { UI } from '../ui/UI';
 const SAVE_KEY = 'kindred-grove.save.v1';
 const SETTINGS_KEY = 'kindred-grove.settings';
 const SPIN_HINT_KEY = 'kindred-grove.hint.globe';
+const REMINDERS_KEY = 'kindred-grove.reminders';
 const LIVE_TICK_S = 0.25;
 const AWAY_REPORT_MS = 90_000;
 
@@ -202,20 +204,25 @@ export class Game {
     this.saveSoon();
   }
 
+  /** Gentle reminders while you're away: at most a couple, never at night, and only if you want them. */
+  private scheduledNotes: string[] = [];
   private scheduleNotifications(): void {
-    // at most one "peckish" reminder a day
-    const hungryAt = nextHungryAt(this.state, this.now());
-    const day = hungryAt ? new Date(hungryAt).toISOString().slice(0, 10) : '';
-    if (hungryAt && this.state.hungerNotifiedDay !== day) {
-      this.state.hungerNotifiedDay = day;
-      this.notifications.schedule('hunger', hungryAt, 'Your pets are getting peckish 🍓', 'Pop by with a snack. A feedbag can feed them while you\'re away.');
+    for (const id of this.scheduledNotes) this.notifications.cancel(id);
+    this.scheduledNotes = [];
+    if (this.storage.load(REMINDERS_KEY) === 'off') return;
+    for (const n of planNotifications(this.state, this.now())) {
+      this.notifications.schedule(n.id, n.at, n.title, n.body);
+      this.scheduledNotes.push(n.id);
     }
-    for (const e of this.state.eggs) {
-      if (e.nest === null || e.progressMs >= e.incubationMs) continue;
-      this.notifications.schedule(`egg-${e.id}`, this.now() + A.remainingMs(e), 'Something is moving inside an egg…', 'Come see what hatches.');
-    }
-    const ev = nextEvent(this.state, this.now());
-    if (ev) this.notifications.schedule('sky', ev.start, `A ${EVENTS[ev.kind].name.toLowerCase()} is coming`, 'The sanctuary is about to change.');
+  }
+
+  get remindersOn(): boolean {
+    return this.storage.load(REMINDERS_KEY) !== 'off';
+  }
+
+  setReminders(on: boolean): void {
+    this.storage.save(REMINDERS_KEY, on ? 'on' : 'off');
+    if (!on) for (const id of this.scheduledNotes) this.notifications.cancel(id);
   }
 
   // ------------------------------------------------------------------ loop
@@ -570,7 +577,6 @@ export class Game {
     this.world.burst(this.world.at(nest.x, nest.z, 0.8, 'home'), '#bff4ff', 24);
     this.ui.toast('A new egg settles into a warm nest. What could be inside?', 'discovery');
     for (const n of r.notes) this.ui.toast(`📝 Journal: ${n}`);
-    this.notifications.schedule(`egg-${r.egg.id}`, this.now() + r.egg.incubationMs, 'Something is moving inside an egg…', 'Come see what hatches.');
     this.saveSoon();
   }
 

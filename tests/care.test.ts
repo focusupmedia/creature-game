@@ -327,3 +327,19 @@ describe('collections', () => {
     for (const c of COLLECTIONS.filter((x) => x.id.startsWith('world-'))) expect(c.progress(s).total).toBeGreaterThan(0);
   });
 });
+
+describe('reminders', () => {
+  it('plans at most two, most important first, never at night', async () => {
+    const { planNotifications, MAX_REMINDERS } = await import('../src/core/notify');
+    const s = createGame(81, 0);
+    const now = new Date(2026, 5, 1, 12, 0).getTime();
+    s.eggs.push({ id: 'e', species: 'mossfrog', mutations: [], seed: 1, source: 'shop', laidAt: now, incubationMs: 30 * 60_000, progressMs: 0, nest: 0, witnessed: [] });
+    s.collector.nextAt = now + 2 * HOUR;
+    s.visitors.push({ creature: { ...s.creatures[0], id: 'v', species: 'axolotl' }, spot: 'glade', island: 'home', until: now + 5 * HOUR });
+    const plan = planNotifications(s, now);
+    expect(plan.length).toBeLessThanOrEqual(MAX_REMINDERS);
+    expect(plan[0].id).toBe('visitor');
+    const late = planNotifications(s, new Date(2026, 5, 1, 23, 0).getTime());
+    for (const n of late) { const h = new Date(n.at).getHours(); expect(h >= 8 && h < 21).toBe(true); }
+  });
+});
