@@ -16,6 +16,7 @@ import { fmtDuration, h, img, rich, setText } from './dom';
 import * as I from './icons';
 import { WorldLabels } from './Labels';
 import { QUIRKS } from '../content/quirks';
+import { SHADES, type ShadeId } from '../content/shades';
 import { DECOR_CATS, DECOR_LIST } from '../content/decor';
 import { WANDERERS } from '../content/wanderers';
 import { deleteQuirk, wipeQuirks } from '../core/quirks';
@@ -295,8 +296,8 @@ export class UI {
     return !!this.sheetRender;
   }
 
-  private portrait(c: { species: string; mutations: MutationId[] }, cls = 'portrait'): HTMLImageElement {
-    return img(this.game.world.portraits.get(c.species, c.mutations), cls);
+  private portrait(c: { species: string; mutations: MutationId[]; shade?: string }, cls = 'portrait'): HTMLImageElement {
+    return img(this.game.world.portraits.of(c), cls);
   }
 
   private traitChips(traits: Trait[], highlight: Trait[] = []): HTMLElement {
@@ -402,7 +403,8 @@ export class UI {
               return input;
             })()
             : h('button', { class: 'btn secondary small', style: 'align-self:flex-start', onClick: () => { renaming = true; this.rerender(); } }, '✏️ Name'),
-          h('div', { class: 'row', style: 'gap:6px;flex-wrap:wrap' }, rarityTag(sp.rarity), isOutlier(c.size) ? h('span', { class: 'rarity r-outlier' }, sizeLabel(c.size)) : h('span', { class: 'muted' }, sizeLabel(c.size))),
+          h('div', { class: 'row', style: 'gap:6px;flex-wrap:wrap' }, rarityTag(sp.rarity), isOutlier(c.size) ? h('span', { class: 'rarity r-outlier' }, sizeLabel(c.size)) : h('span', { class: 'muted' }, sizeLabel(c.size)),
+            this.shadeChip(c)),
           h('div', { class: 'desc muted' }, sp.blurb),
           h('div', { class: 'quirk-row' }, ...c.quirks.map((q) => h('span', { class: 'quirk', title: QUIRKS[q].blurb }, `${QUIRKS[q].icon} ${QUIRKS[q].name}`))),
         ));
@@ -539,6 +541,12 @@ export class UI {
   }
 
   // ---- storage and the Collector
+
+  /** The pet's color shade: a little swatch chip (Pastel and Shiny stand out). */
+  private shadeChip(c: Creature): HTMLElement {
+    const sh = SHADES[(c.shade ?? 'classic') as ShadeId] ?? SHADES.classic;
+    return h('span', { class: `shade-chip s-${sh.id}`, title: 'Color shade' }, sh.id === 'shiny' ? '✦ Shiny' : `${sh.name} shade`);
+  }
 
   /** Favorite: a heart that fills in when you tap it. Favorites can't be sold or released by mistake. */
   private heartToggle(c: Creature): HTMLButtonElement {
@@ -1676,7 +1684,7 @@ export class UI {
       egg ? h('button', { class: `w-row ${A.remainingMs(egg) <= 0 ? 'ready' : ''}`, onClick: () => this.showNest(egg.nest!) },
         h('span', { class: 'w-ico' }, '🥚'), h('span', { class: 'col' }, h('b', null, eggLine), h('small', null, nestEggs.length > 1 ? `+${nestEggs.length - 1} more` : 'Next egg'))) : '',
       pinned ? h('button', { class: 'w-row', onClick: () => (pinned.stored ? this.showPets('storage') : this.focusCreature(pinned.id)) },
-        img(this.game.world.portraits.get(pinned.species, pinned.mutations), 'w-pic'),
+        img(this.game.world.portraits.of(pinned), 'w-pic'),
         h('span', { class: 'col' }, h('b', null, displayName(pinned)), h('small', null, act))) : '',
     );
   }

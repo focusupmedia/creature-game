@@ -230,3 +230,19 @@ describe('scan fixes', () => {
     expect(s.gifts.some((g) => g.island === 'home')).toBe(true);
   });
 });
+
+describe('color shades', () => {
+  it('most pets are common shades, Pastel is rare, Shiny very rare, and babies take after parents', async () => {
+    const { rollShade, SHADES } = await import('../src/content/shades');
+    const { StateRng } = await import('../src/core/rng');
+    const rng = new StateRng({ rng: 7 } as never);
+    const n: Record<string, number> = {};
+    for (let i = 0; i < 20000; i++) { const s = rollShade(rng); n[s] = (n[s] ?? 0) + 1; }
+    expect((n.shiny ?? 0) / 20000).toBeLessThan(0.02);
+    expect((n.pastel ?? 0) / 20000).toBeLessThan(0.1);
+    expect(Object.keys(n).every((k) => k in SHADES)).toBe(true);
+    let same = 0;
+    for (let i = 0; i < 2000; i++) if (rollShade(rng, ['rosy', 'rosy']) === 'rosy') same++;
+    expect(same / 2000).toBeGreaterThan(0.45);
+  });
+});

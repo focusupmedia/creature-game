@@ -70,6 +70,7 @@ export function startCombine(state: GameState, aId: string, bId: string, t: numb
     witnessed: [],
     relative: o.relative,
     parentPersonalities: [a.personality, b.personality],
+    parentShades: [a.shade, b.shade],
     parentQuirks: [a.quirks, b.quirks],
   };
   if (state.tutorial < 4) egg.incubationMs = Math.min(egg.incubationMs, 40_000);
@@ -106,7 +107,7 @@ export function hatch(state: GameState, eggId: string, t: number): Result<HatchR
     : egg.source === 'shop' ? `Hatched from a ${egg.tier ? EGG_TIERS[egg.tier]?.name ?? 'shop egg' : 'traveler\'s egg'}.`
       : egg.source === 'dug' ? 'Hatched from an egg a creature dug up.' : 'Hatched from a mysterious egg.';
   const c = makeCreature(state, egg.species, egg.mutations, t, story, {
-    seed: egg.seed, island: 'home', hatchling: true, parents: egg.parentPersonalities, parentQuirks: egg.parentQuirks,
+    seed: egg.seed, island: 'home', hatchling: true, parents: egg.parentPersonalities, parentQuirks: egg.parentQuirks, parentShades: egg.parentShades,
     sizeSpray: egg.sprays?.includes('grow') ? 'grow' : egg.sprays?.includes('shrink') ? 'shrink' : undefined,
     met: {
       how: egg.source === 'combine' ? 'bred' : egg.source === 'shop' ? 'shop' : egg.source === 'dug' ? 'dug' : 'other',

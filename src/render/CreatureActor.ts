@@ -123,7 +123,7 @@ export class CreatureActor {
   }
 
   constructor(public creature: Creature, scene: THREE.Object3D, public geo: Geo) {
-    this.model = buildCreature(creature.species, creature.mutations, creature.seed);
+    this.model = buildCreature(creature.species, creature.mutations, creature.seed, creature.shade);
     this.root = this.model.root;
     this.traits = creatureTraits(creature);
     const sp = species(creature.species);

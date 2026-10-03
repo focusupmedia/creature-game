@@ -69,7 +69,7 @@ export class Reveal {
       this.crackMeshes.push(crack);
     }
 
-    this.model = buildCreature(creature.species, creature.mutations, creature.seed);
+    this.model = buildCreature(creature.species, creature.mutations, creature.seed, creature.shade);
     this.model.root.visible = false;
     this.model.root.scale.setScalar(this.model.baseScale * 1.4);
     this.scene.add(this.model.root);

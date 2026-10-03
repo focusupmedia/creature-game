@@ -500,6 +500,7 @@ describe('save', () => {
   it('creature traits accumulate through mutations', () => {
     const s = fresh();
     const frog = s.creatures[0];
+    frog.shade = 'classic';
     addMutation(frog, 'giant', T0, 'x');
     addMutation(frog, 'lunar', T0, 'x');
     addMutation(frog, 'storm', T0, 'x');

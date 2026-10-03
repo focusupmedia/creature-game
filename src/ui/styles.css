@@ -559,3 +559,10 @@ input.rename { font-family: var(--display); font-size: 22px; border: var(--outli
 .decor-list .item.locked { opacity: .6; }
 .decor-list .item.locked .swatch-img { filter: grayscale(.8); }
 .chip.locked { background: #e8e4f0; color: var(--ink-soft); font-weight: 800; }
+
+/* color shades */
+.shade-chip { font-size: 12px; font-weight: 800; padding: 2px 8px; border-radius: 999px; border: 2px solid var(--ink); background: #fff; color: var(--ink); }
+.shade-chip.s-sunny { background: #ffe9a8; } .shade-chip.s-rosy { background: #ffd0e2; } .shade-chip.s-minty { background: #c8f5dc; }
+.shade-chip.s-dusky { background: #c8c0d8; } .shade-chip.s-ocean { background: #bfe0ff; }
+.shade-chip.s-pastel { background: linear-gradient(90deg, #ffd8ec, #d8ecff, #e8ffd8); }
+.shade-chip.s-shiny { background: linear-gradient(90deg, #fff3a0, #ffd21a, #fff3a0); box-shadow: 0 0 8px #ffd21a; }

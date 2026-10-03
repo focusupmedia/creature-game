@@ -228,7 +228,7 @@ export class Game {
             if (this.state.tutorial <= 1) this.setTutorial(2);
             break;
           }
-          const pic = this.world.portraits.get(ev.creature.species, ev.creature.mutations);
+          const pic = this.world.portraits.of(ev.creature);
           const where = SPOTS[ev.spot].island === this.world.current ? `the ${SPOTS[ev.spot].name}` : ISLANDS[SPOTS[ev.spot].island].name;
           if (ev.discovered) {
             this.audio.play('discover');
@@ -262,13 +262,13 @@ export class Game {
               : 'The Goblin found nothing worth taking and slunk off.', 'info', undefined, 5000);
           break;
         case 'visitorLeft':
-          if (live) this.ui.toast(`${speciesTitle(ev.creature)} got tired of waiting and wandered off.`, 'info', this.world.portraits.get(ev.creature.species, ev.creature.mutations));
+          if (live) this.ui.toast(`${speciesTitle(ev.creature)} got tired of waiting and wandered off.`, 'info', this.world.portraits.of(ev.creature));
           break;
         case 'mutation': {
           this.analytics.track('mutation_gained', { mutation: ev.mutation, cause: ev.cause, new: ev.discovered });
           if (!live) break;
           this.audio.play('chime');
-          const pic = this.world.portraits.get(ev.creature.species, ev.creature.mutations);
+          const pic = this.world.portraits.of(ev.creature);
           this.ui.toast(`${displayName(ev.creature)} became ${MUTATIONS[ev.mutation].name}!${ev.discovered ? ' A new kind of change!' : ''}`, 'discovery', pic, 5000);
           break;
         }
@@ -308,7 +308,7 @@ export class Game {
           const where = def.island && def.island !== this.world.current ? ` (at ${ISLANDS[def.island].name})` : '';
           this.ui.toast(`${def.icon} ${def.arrive}${where}`, 'discovery', undefined, 6000);
           if (ev.creature) {
-            const pic = this.world.portraits.get(ev.creature.species, ev.creature.mutations);
+            const pic = this.world.portraits.of(ev.creature);
             const who = ev.creature.nickname ?? `Your ${species(ev.creature.species).name}`;
             setTimeout(() => this.ui.toast(`${who} became ${MUTATIONS[def.mutation].name}!${ev.discovered ? ' A legendary change!' : ''}`, 'discovery', pic, 6000), 3500);
           }

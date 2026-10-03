@@ -185,6 +185,8 @@ export interface Creature {
   mutations: MutationId[];
   bornAt: number;
   seed: number;
+  /** Color shade rolled at birth (see content/shades.ts). Older pets: classic. */
+  shade?: string;
   nickname?: string;
   history: HistoryEntry[];
   /** Arrived but still walking in / eating at a lure. Purely presentational. */
@@ -252,6 +254,7 @@ export interface Egg {
   /** A different species than either parent. */
   relative?: boolean;
   parentPersonalities?: Personality[];
+  parentShades?: (string | undefined)[];
   parentQuirks?: QuirkId[][];
   /** Egg shop tier it came from, if bought. */
   tier?: string;

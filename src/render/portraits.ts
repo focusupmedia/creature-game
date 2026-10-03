@@ -22,11 +22,11 @@ export class Portraits {
     this.rt.texture.colorSpace = THREE.SRGBColorSpace;
   }
 
-  get(species: SpeciesId, mutations: MutationId[], silhouette = false): string {
-    const key = `${species}|${mutations.join(',')}|${silhouette}`;
+  get(species: SpeciesId, mutations: MutationId[], silhouette = false, shade?: string): string {
+    const key = `${species}|${mutations.join(',')}|${silhouette}|${shade ?? ''}`;
     const hit = this.cache.get(key);
     if (hit) return hit;
-    const model = buildCreature(species, mutations, 500);
+    const model = buildCreature(species, mutations, 500, shade);
     animateGlow(model, 0.65);
     model.root.scale.setScalar(1);
     model.root.rotation.y = -0.5;
@@ -45,6 +45,11 @@ export class Portraits {
     disposeCreature(model);
     this.cache.set(key, url);
     return url;
+  }
+
+  /** A portrait of one particular pet (its mutations and color shade). */
+  of(c: { species: SpeciesId; mutations: MutationId[]; shade?: string }): string {
+    return this.get(c.species, c.mutations, false, c.shade);
   }
 
   /** A little picture of a decoration for the shop and Decor lists. */

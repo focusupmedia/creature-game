@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { SHADES, type ShadeId } from '../content/shades';
 import { species as speciesDef } from '../content/species';
 import { MUTATIONS } from '../content/world';
 import { glowLevel, rarestMutation, visibleMutations } from '../core/creatures';
@@ -743,7 +744,7 @@ function bird(k: Kit, P: Palette, m: Parameters<Builder>[2], thunder: boolean) {
 
 // ---------------------------------------------------------------- mutation overlays
 
-function mutatePalette(P: Palette, muts: MutationId[], seed: number): Palette {
+function mutatePalette(P: Palette, muts: MutationId[], seed: number, shade?: string): Palette {
   const out = { ...P };
   const jitter = ((seed % 1000) / 1000 - 0.5) * 0.06;
   const shift = (hex: string, dh: number, ds = 0, dl = 0) => {
@@ -753,6 +754,22 @@ function mutatePalette(P: Palette, muts: MutationId[], seed: number): Palette {
     c.setHSL((hsl.h + dh + 1) % 1, Math.min(1, Math.max(0, hsl.s + ds)), Math.min(1, Math.max(0, hsl.l + dl)));
     return `#${c.getHexString()}`;
   };
+  // the pet's own color shade first; mutations tint on top of it below
+  const sh = shade ? SHADES[shade as ShadeId] : undefined;
+  if (sh && sh.id !== 'classic') {
+    const tint = (hex: string, k = sh.amount) => `#${new THREE.Color(hex).lerp(new THREE.Color(sh.tint), k).getHexString()}`;
+    if (sh.id === 'shiny') {
+      // Shiny: the colors turn right round, with a golden sheen
+      out.main = tint(shift(out.main, 0.5, 0.15));
+      out.second = tint(shift(out.second, 0.5, 0.15));
+      out.accent = shift(out.accent, 0.5, 0.15);
+    } else {
+      out.main = tint(out.main);
+      out.second = tint(out.second, sh.amount * 0.8);
+      out.belly = tint(out.belly, sh.amount * 0.5);
+      if (sh.id === 'pastel') out.accent = tint(out.accent);
+    }
+  }
   out.main = shift(out.main, jitter);
   const mix = (hex: string, to: string, t: number) => `#${new THREE.Color(hex).lerp(new THREE.Color(to), t).getHexString()}`;
   // One color mutation tints the whole creature. When several stack, each
@@ -811,11 +828,11 @@ function mutatePalette(P: Palette, muts: MutationId[], seed: number): Palette {
 
 const tmpColor = new THREE.Color();
 
-export function buildCreature(speciesId: SpeciesId, mutations: MutationId[], seed: number): CreatureModel {
+export function buildCreature(speciesId: SpeciesId, mutations: MutationId[], seed: number, shade?: string): CreatureModel {
   const sp = speciesDef(speciesId);
   const muts = visibleMutations({ species: speciesId, mutations });
   const k = new Kit();
-  const P = mutatePalette(PALETTES[speciesId] ?? PALETTES.mossfrog, muts, seed);
+  const P = mutatePalette(PALETTES[speciesId] ?? PALETTES.mossfrog, muts, seed, shade);
   const root = new THREE.Group();
   const body = new THREE.Group();
   root.add(body);
@@ -954,6 +971,20 @@ export function buildCreature(speciesId: SpeciesId, mutations: MutationId[], see
       w.position.set(Math.cos(a) * 0.32, m.height * (0.2 + (i % 3) * 0.2), Math.sin(a) * 0.32);
       body.add(w);
     }
+  }
+
+  if (shade === 'shiny' && !m.twinkles) {
+    // Shiny pets glint: little gold sparkles that twinkle around them
+    const tw = new THREE.Group();
+    for (let i = 0; i < 6; i++) {
+      const a = i * 2.39996;
+      const s = k.mesh(G.tetra, '#fff6b0', [0.045, 0.045, 0.045], [Math.cos(a) * 0.3, m.height * (0.3 + (i % 3) * 0.22), Math.sin(a) * 0.3], '#ffd21a');
+      s.castShadow = false;
+      s.userData.noOutline = true;
+      tw.add(s);
+    }
+    body.add(tw);
+    m.twinkles = tw;
   }
 
   // Mythicals always shine; otherwise the rarest mutation sets the glow.

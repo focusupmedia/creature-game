@@ -1,6 +1,7 @@
 import { species } from '../content/species';
 import { MUTATIONS } from '../content/world';
 import { TUNING } from '../content/tuning';
+import { SHADES, rollShade, type ShadeId } from '../content/shades';
 import type { Creature, GameState, IslandId, MutationId, Personality, SpeciesId, Trait } from './types';
 import { StateRng } from './rng';
 import { rollQuirks } from './quirks';
@@ -41,9 +42,11 @@ export function rarestMutation(c: { species: SpeciesId; mutations: MutationId[] 
   return best;
 }
 
-export function speciesTitle(c: { species: SpeciesId; mutations: MutationId[] }): string {
+export function speciesTitle(c: { species: SpeciesId; mutations: MutationId[]; shade?: string }): string {
   const adj = visibleMutations(c).map((m) => MUTATIONS[m].name);
-  return [...adj, species(c.species).name].join(' ');
+  // rare shades show in the name: "Shiny Frost Mossfrog"
+  const shade = c.shade && SHADES[c.shade as ShadeId]?.tier !== 'common' ? [SHADES[c.shade as ShadeId].name] : [];
+  return [...shade, ...adj, species(c.species).name].join(' ');
 }
 
 export function displayName(c: Creature): string {
@@ -77,6 +80,8 @@ export interface CreatureOpts {
   met?: CreatureOrigin;
   /** An egg spray nudged its size: Grow Mist or Shrink Mist. */
   sizeSpray?: 'grow' | 'shrink';
+  /** Parents' color shades; babies often take after one. */
+  parentShades?: (string | undefined)[];
 }
 
 /** Grown-up size, mostly in the normal range with rare tiny or huge outliers. */
@@ -118,6 +123,7 @@ export function makeCreature(
     quirks: rollQuirks(rng, opts.parentQuirks, personality),
     fullness: 1,
     met: opts.met,
+    shade: rollShade(rng, opts.parentShades),
   };
 }
 
