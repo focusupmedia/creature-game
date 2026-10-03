@@ -1,7 +1,7 @@
 // Versioned save format. Saves are plain JSON so they can be synced to a cloud
 // save backend unchanged. Migrations run in order on load.
 
-import { SAVE_VERSION } from './state';
+import { SAVE_VERSION, newSaveId } from './state';
 import { generateShop } from './shop';
 import type { GameState, Personality } from './types';
 import { StateRng } from './rng';
@@ -38,6 +38,10 @@ const MIGRATIONS: Record<number, Migration> = {
   // v2 → v3: dig spots you drop creatures on.
   2: (raw) => {
     raw.digSpots = [];
+  },
+  // v13 → v14: cloud save. Every game gets an id.
+  13: (raw) => {
+    raw.cloud ??= { saveId: newSaveId(Number(raw.seed) || 0, Number(raw.createdAt) || 0) };
   },
   // v12 → v13: saves that reached v12 before the storage bump still get it (the old maximum was 9).
   12: (raw) => {

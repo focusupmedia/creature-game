@@ -101,6 +101,7 @@
 | A79 | **Large content round:** 6 skies (Heatwave, Blossom Breeze, Firefly Night, Gale, rare Bubble Rain and Great Comet), 8 mutations (one per new sky, plus Crystal from Crystal Caves trips and Golden for some best friends), 20 quests, 8 pet activities (chase, cuddle, butterflies/fireflies/bubbles, stargaze, splash, dance, sunbathe, ball) | Approved ("Large"), built |
 | A80 | **Coming back:** away chest (fills up to 12 h; an ad doubles it), pets bring presents, a welcome-back gift after 1+ day (bigger after 3+) | Approved ("all three"), built |
 | A81 | **Messages:** in-game pop-ups queue by importance, one at a time; real phone notifications wait for the native build (planner ready: rare sky starting, daily gift/contest ready, at most two) | Approved, built |
+| A82 | **Cloud save:** Apple/Google built-in saved games (Game Center on iPhone, Play Games on Android; saves don't move between them), signed in automatically with a Sign in link in Settings, and a side-by-side "pick a save" card when saves disagree. Game side built; native plugins written, wired in at the app-build step (docs/CLOUD_SAVE.md) | Approved, built |
 | A37 | **Build order:** quick wins (A29, A30) → round islands (A31) → drag/breed/dig spots (A32) → creatures, islands, mythicals (A34, A35) → Angel then Infernal/Abyssal (A33) → hunger + economy (A36) | Approved |
 
 ## Where I'm challenging the brief

@@ -479,7 +479,7 @@ describe('save', () => {
     for (const c of v1.creatures) { delete c.island; delete c.size; delete c.growMs; delete c.personality; }
     for (const k of ['vent', 'ash', 'reef', 'shallows']) delete v1.spots[k];
     const s = deserialize(JSON.stringify(v1));
-    expect(s.version).toBe(13);
+    expect(s.version).toBe(14);
     expect(s.digSpots).toEqual([]);
     expect(s.islands.cloud).toEqual({ owned: false, size: 0 });
     expect(s.islands.home.owned).toBe(true);

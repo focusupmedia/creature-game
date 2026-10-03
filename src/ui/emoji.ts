@@ -205,6 +205,7 @@ const ICONS: Record<string, string> = {
   '🦋': svg(`<path d="M32 30C22 10 4 10 8 26c2 8 14 10 24 4zM32 30c10-20 28-20 24-4-2 8-14 10-24 4zM32 32c-10 4-20 14-14 20 6 4 12-8 14-20zM32 32c10 4 20 14 14 20-6 4-12-8-14-20z" fill="#b88aff" ${O}/><path d="M32 20v26" stroke="${INK}" stroke-width="5" stroke-linecap="round"/>`),
   '💦': svg(drop(22, 30, 1.1) + drop(44, 22, 0.8) + drop(42, 48, 0.7)),
   '⚽': svg(`<circle cx="32" cy="32" r="25" fill="#ffffff" ${O}/><path d="M32 20l10 7-4 12H26l-4-12z" fill="${INK}"/><path d="M32 20V8M42 27l11-4M38 39l7 10M26 39l-7 10M22 27l-11-4" stroke="${INK}" stroke-width="3"/>${gloss('M16 22a18 18 0 0 1 8-8')}`),
+  '📱': svg(`<rect x="16" y="4" width="32" height="56" rx="7" fill="#3a4a78" ${O}/><rect x="21" y="11" width="22" height="38" rx="3" fill="#bfe8ff"/><circle cx="32" cy="54" r="2.5" fill="#fff"/>${gloss('M24 16v10')}`),
   '🗺': svg(`<path d="M6 14l16-6 20 6 16-6v42l-16 6-20-6-16 6z" fill="#f4e2b0" ${O}/><path d="M22 8v42M42 14v42" fill="none" ${o3}/><path d="M28 28l8 8M36 28l-8 8" stroke="#ff4a4a" stroke-width="4" stroke-linecap="round"/>`),
   '🔮': svg(`<rect x="16" y="48" width="32" height="10" rx="4" fill="#b0742e" ${O}/><circle cx="32" cy="28" r="22" fill="#b08aff" ${O}/><circle cx="32" cy="28" r="12" fill="#e0d0ff" opacity=".6"/>${gloss('M20 22a14 14 0 0 1 8-8')}`),
   '⏩': svg(`<path d="M6 12l24 20-24 20zM32 12l24 20-24 20z" fill="#3aa8ff" ${O}/>`),

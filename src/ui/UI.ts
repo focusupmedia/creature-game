@@ -12,6 +12,7 @@ import type { Creature, DecorDef, Egg, GameEvent, IslandId, LegendaryKind, Mutat
 import { islandCapacity } from '../core/sim';
 import { marketPrice, marketReady, marketWants, wantFilled, wantMatches } from '../core/market';
 import type { WelcomeGift } from '../core/away';
+import type { SaveSummary } from '../core/cloud';
 import { wandererDeals } from '../core/wanderers';
 import { activeEvent, dayPhase, daylight, isDark, nextEvent } from '../core/world';
 import type { Game } from '../game/Game';
@@ -1031,6 +1032,38 @@ export class UI {
     this.petSel = null;
   }
 
+  /**
+   * Two saves disagree (or a save turned up on a new phone): show both and let
+   * the player choose. Nothing is replaced until they tap one.
+   */
+  showSaveChoice(local: SaveSummary, cloud: SaveSummary, onPick: (pick: 'local' | 'cloud') => void, found: boolean): void {
+    const ago = (t: number) => {
+      const m = Math.max(0, Math.round((this.game.now() - t) / 60000));
+      return m < 1 ? 'just now' : m < 60 ? `${m} min ago` : m < 48 * 60 ? `${Math.round(m / 60)} h ago` : `${Math.round(m / 1440)} days ago`;
+    };
+    const service = this.game.cloudStatus?.service ?? 'the cloud';
+    let done = () => {};
+    const card = (s: SaveSummary, title: string, which: 'local' | 'cloud', best: boolean) =>
+      h('div', { class: `save-card ${best ? 'best' : ''}` },
+        h('div', { class: 'save-where' }, which === 'cloud' ? `☁️ ${title}` : `📱 ${title}`),
+        h('div', { class: 'save-level' }, `★ Level ${s.level}`),
+        h('div', { class: 'save-stats' },
+          h('div', null, `${s.creatures} creatures`), h('div', null, `${s.species} kinds found`),
+          h('div', null, `${s.worlds} world${s.worlds === 1 ? '' : 's'}`), h('div', null, rich(`{coin} ${s.coins.toLocaleString()}`))),
+        h('div', { class: 'muted' }, `${s.device} · saved ${ago(s.savedAt)}`),
+        h('button', { class: `btn ${best ? '' : 'secondary'} wide`, onClick: () => { done(); onPick(which); } }, which === 'cloud' ? 'Play this one' : 'Keep this one'));
+    const cloudBest = cloud.level > local.level || (cloud.level === local.level && cloud.species >= local.species);
+    this.modal((m, close) => {
+      done = close;
+      m.classList.add('save-choice');
+      m.append(h('h2', null, found ? 'We found your save!' : 'Which save do you want?'),
+        h('p', { class: 'muted' }, found
+          ? `There's a Kindred Grove save in your ${service}. Pick up where you left off, or keep this new game.`
+          : `This device and your ${service} have different saves. Pick the one to keep playing; the other is kept as a backup on this device.`),
+        h('div', { class: 'save-cards' }, card(local, 'This device', 'local', !cloudBest), card(cloud, service, 'cloud', cloudBest)));
+    }, false);
+  }
+
   /** Sell or release everyone picked, after one clear check. */
   private confirmBulk(kind: 'sell' | 'release', picked: Creature[], total: number): void {
     const s = this.game.state;
@@ -1866,6 +1899,27 @@ export class UI {
 
   // ---- settings / playtest tools
 
+  /** Settings → Cloud save: where your game is backed up, and the link button. */
+  private cloudSettings(): HTMLElement {
+    const g = this.game;
+    const st = g.cloudStatus;
+    const box = h('div', { class: 'item cloud-item' });
+    const service = st?.service ?? (/iPhone|iPad/.test(navigator.userAgent) ? 'Game Center' : 'the cloud');
+    const status = !st ? 'Checking…'
+      : !st.available ? `${service} isn't available on this device right now. Your game is saved on this device.`
+        : !st.signedIn ? `Not linked. Sign in to ${service} to keep your game safe if you change or lose your phone.`
+          : g.cloudSavedAt ? `Saved to ${service}${st.account ? ` (${st.account})` : ''} · ${fmtDuration(g.now() - g.cloudSavedAt)} ago`
+            : `Linked to ${service}${st.account ? ` (${st.account})` : ''}. Saves automatically.`;
+    box.append(h('div', { class: 'grow' }, h('div', { class: 'name' }, '☁️ Cloud save'), h('div', { class: 'desc' }, status)),
+      h('div', { class: 'col', style: 'gap:6px' },
+        st?.signedIn
+          ? h('button', { class: 'btn small', onClick: () => void g.cloudUpload(true).then(() => this.rerender()) }, 'Save now')
+          : h('button', { class: 'btn small', disabled: !!st && !st.available, onClick: () => void g.cloudSignIn() }, 'Sign in'),
+        st?.signedIn ? h('button', { class: 'btn small secondary', onClick: () => void g.cloudSync(true) }, 'Check now') : null));
+    if (!st) void g.cloud.status().then((s) => { g.cloudStatus = s; this.rerender(); });
+    return box;
+  }
+
   showSettings(): void {
     const g = this.game;
     this.openSheet('Settings', 'Kindred Grove · prototype', (b) => {
@@ -1881,12 +1935,16 @@ export class UI {
       };
       b.append(volumeRow('Sound', 'sound', g.audio.enabled, g.audio.soundVolume, () => g.setSound(!g.audio.enabled)));
       b.append(volumeRow('Music', 'music', g.audio.musicEnabled, g.audio.musicVolume, () => g.setMusic(!g.audio.musicEnabled)));
+      b.append(this.cloudSettings());
       b.append(h('div', { class: 'item' }, h('div', { class: 'grow' }, h('div', { class: 'name' }, 'Reminders'),
         h('div', { class: 'desc' }, 'At most two gentle notifications while you\'re away (egg ready, rare visitor, pet home, the Collector). Never at night.')),
         h('button', { class: 'btn small secondary', onClick: () => { g.setReminders(!g.remindersOn); this.rerender(); } }, g.remindersOn ? 'On' : 'Off')));
       b.append(h('button', { class: 'btn secondary small', onClick: () => this.showControls() }, '👆 How to get around'));
       b.append(h('div', { class: 'section-title' }, 'Playtest tools'));
       b.append(h('p', { class: 'muted' }, 'These exist to test the prototype quickly and will not ship.'));
+      if (g.cloudStatus?.service === 'Test cloud' && g.cloudStatus.signedIn) {
+        b.append(h('button', { class: 'btn secondary small', onClick: () => g.simulateOtherDevice() }, '☁️ Pretend another phone saved'));
+      }
       const speed = h('div', { class: 'btns' }, ...[1, 10, 60].map((x) =>
         h('button', { class: `btn small ${g.timeScale === x ? '' : 'secondary'}`, onClick: () => { g.timeScale = x; this.rerender(); } }, `${x}× time`)));
       b.append(speed);
@@ -1908,12 +1966,13 @@ export class UI {
 
   // ------------------------------------------------------------------ modal
 
-  modal(build: (m: HTMLElement, close: () => void) => void): void {
+  /** A pop-up. `dismissable` false: tapping outside does nothing (a choice must be made). */
+  modal(build: (m: HTMLElement, close: () => void) => void, dismissable = true): void {
     const m = h('div', { class: 'modal', role: 'dialog' });
     const wrap = h('div', { class: 'modal-wrap' }, m);
     const close = () => wrap.remove();
     const openedAt = performance.now();
-    wrap.addEventListener('click', (e) => { if (e.target === wrap && performance.now() - openedAt > 350) close(); });
+    wrap.addEventListener('click', (e) => { if (dismissable && e.target === wrap && performance.now() - openedAt > 350) close(); });
     build(m, close);
     this.modalHost.append(wrap);
   }

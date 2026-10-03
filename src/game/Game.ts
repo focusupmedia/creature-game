@@ -21,13 +21,15 @@ import { StateRng } from '../core/rng';
 import { refreshShop } from '../core/shop';
 import { fillWant } from '../core/market';
 import { fillAwayChest, openAwayChest, welcomeBackGift } from '../core/away';
+import { decideSync, summarize, type CloudBlob } from '../core/cloud';
+import { createCloudSave, deviceName, TestCloudSave, type CloudSave, type CloudStatus } from '../platform/cloudSave';
 import { NESTS } from '../content/layout';
 import { TUNING } from '../content/tuning';
 import * as A from '../core/actions';
 import { displayName, speciesTitle } from '../core/creatures';
 import { deserialize, serialize } from '../core/save';
 import { tick } from '../core/sim';
-import { createGame } from '../core/state';
+import { createGame, newSaveId } from '../core/state';
 import type { GameEvent, GameState, IslandId, LegendaryKind, MutationId } from '../core/types';
 import { activeEvent, dayPhase, nextEvent } from '../core/world';
 import { Audio } from '../platform/audio';
@@ -39,6 +41,9 @@ import { World, type CarryTarget, type Pick } from '../render/World';
 import { UI } from '../ui/UI';
 
 const SAVE_KEY = 'kindred-grove.save.v1';
+/** Set just before a reload that swapped in the cloud save, so we can say so afterwards. */
+const CLOUD_LOADED_KEY = 'kindred-grove.cloud.loaded';
+const CLOUD_EVERY_S = 300;
 const SETTINGS_KEY = 'kindred-grove.settings';
 const SPIN_HINT_KEY = 'kindred-grove.hint.globe';
 const REMINDERS_KEY = 'kindred-grove.reminders';
@@ -55,6 +60,14 @@ export class Game {
   readonly purchases: Purchases = new StubPurchases();
   readonly notifications: Notifications = new WebNotifications();
   readonly crash: Crash = new ConsoleCrash();
+  readonly cloud: CloudSave = createCloudSave();
+  cloudStatus: CloudStatus | null = null;
+  /** When this session last saved to the cloud (for Settings). */
+  cloudSavedAt = 0;
+  /** The cloud holds a save from a newer version of the game: never overwrite it. */
+  private cloudBlocked = false;
+  private cloudBusy = false;
+  private cloudAcc = 0;
   readonly ads: Ads;
   timeScale = 1;
   placing: ((x: number, z: number) => void) | null = null;
@@ -62,6 +75,8 @@ export class Game {
   private saveAcc = 0;
   private dirty = false;
   private hiddenAt = 0;
+  /** A reload is on its way (cloud save swapped in): don't save over it. */
+  private reloading = false;
   private digHints = 0;
   private questCheck = 0;
 
@@ -109,6 +124,14 @@ export class Game {
       this.saveSoon();
     }
     this.welcomeBack(events, away);
+    // just restarted on the cloud save?
+    const fromCloud = this.storage.load(CLOUD_LOADED_KEY);
+    if (fromCloud) {
+      this.storage.remove(CLOUD_LOADED_KEY);
+      setTimeout(() => this.ui.toast(`☁️ Welcome back! Your level ${fromCloud} save is loaded.`, 'discovery', undefined, 5000, { priority: 3 }), 600);
+    }
+    // see what's in the cloud (signs in automatically on phones)
+    setTimeout(() => void this.cloudSync(), 1500);
     this.analytics.track('session_start', { creatures: this.state.creatures.length, away_min: Math.round(away / 60000) });
     this.world.start();
     if (!this.storage.load(SPIN_HINT_KEY)) {
@@ -171,6 +194,7 @@ export class Game {
   }
 
   save(): void {
+    if (this.reloading) return;
     try {
       this.storage.save(SAVE_KEY, serialize(this.state, this.now()));
       this.dirty = false;
@@ -183,6 +207,125 @@ export class Game {
     this.dirty = true;
   }
 
+  // ------------------------------------------------------------------ cloud save
+
+  /** Compare this device's save with the cloud copy and do the right thing (see core/cloud.ts). */
+  async cloudSync(manual = false): Promise<void> {
+    if (this.cloudBusy) return;
+    this.cloudBusy = true;
+    try {
+      this.cloudStatus = await this.cloud.status();
+      if (!this.cloudStatus.available || !this.cloudStatus.signedIn) {
+        if (manual) this.ui.fail(`Sign in to ${this.cloudStatus.service} to save to the cloud.`);
+        return;
+      }
+      const blob = await this.cloud.load();
+      this.save();
+      const local = summarize(this.state, deviceName());
+      const d = decideSync(local, this.state.cloud?.syncedAt, blob?.summary ?? null);
+      switch (d.kind) {
+        case 'update-needed':
+          this.cloudBlocked = true;
+          this.ui.toast('Your cloud save comes from a newer version of Kindred Grove. Update the game to load it.', 'info', undefined, 6000, { priority: 3 });
+          break;
+        case 'download':
+          if (d.quiet) this.useCloudSave(blob!);
+          else this.ui.showSaveChoice(local, blob!.summary, (pick) => (pick === 'cloud' ? this.useCloudSave(blob!) : void this.cloudUpload(true)), true);
+          break;
+        case 'ask':
+          this.ui.showSaveChoice(local, blob!.summary, (pick) => (pick === 'cloud' ? this.useCloudSave(blob!) : void this.cloudUpload(true)), false);
+          break;
+        case 'upload':
+          this.cloudBusy = false;
+          await this.cloudUpload(manual);
+          break;
+        default:
+          if (manual) this.ui.toast(`☁️ Your save in ${this.cloudStatus.service} is up to date.`, 'info', undefined, 3000, { priority: 3 });
+      }
+    } catch (e) {
+      this.crash.capture(e, 'cloudSync');
+      if (manual) this.ui.fail('Couldn\'t reach the cloud just now. Your game is safe on this device.');
+    } finally {
+      this.cloudBusy = false;
+    }
+  }
+
+  /** Put this device's save in the cloud. */
+  async cloudUpload(manual = false): Promise<boolean> {
+    if (this.cloudBlocked || this.cloudBusy || this.reloading) return false;
+    if (!this.cloudStatus?.signedIn) {
+      if (manual) await this.cloudSync(true);
+      return false;
+    }
+    this.cloudBusy = true;
+    try {
+      const t = this.now();
+      this.state.cloud ??= { saveId: newSaveId(this.state.seed, this.state.createdAt) };
+      const before = this.state.cloud.syncedAt;
+      // stamp the sync time into the copy we send, so both sides agree on it
+      this.state.cloud.syncedAt = t;
+      const data = serialize(this.state, t);
+      const ok = await this.cloud.save({ data, summary: summarize(this.state, deviceName()) });
+      if (!ok) {
+        this.state.cloud.syncedAt = before;
+        if (manual) this.ui.fail('Couldn\'t save to the cloud just now. Your game is safe on this device.');
+        return false;
+      }
+      this.storage.save(SAVE_KEY, data);
+      this.cloudSavedAt = t;
+      if (manual) this.ui.toast(`☁️ Saved to ${this.cloudStatus.service}.`, 'info', undefined, 3000, { priority: 3 });
+      return true;
+    } catch (e) {
+      this.crash.capture(e, 'cloudUpload');
+      if (manual) this.ui.fail('Couldn\'t save to the cloud just now. Your game is safe on this device.');
+      return false;
+    } finally {
+      this.cloudBusy = false;
+    }
+  }
+
+  /** Link Game Center / Google Play Games from Settings, then sync. */
+  async cloudSignIn(): Promise<void> {
+    const ok = await this.cloud.signIn();
+    this.cloudStatus = await this.cloud.status();
+    this.ui.rerender();
+    if (!ok) return this.ui.fail(`Couldn't sign in to ${this.cloudStatus.service}. You can try again any time.`);
+    await this.cloudSync(true);
+    this.ui.rerender();
+  }
+
+  /** Swap in the cloud save: keep a backup of this one, store the cloud copy, and restart on it. */
+  private useCloudSave(blob: CloudBlob): void {
+    try {
+      deserialize(blob.data); // make sure it loads before replacing anything
+    } catch (e) {
+      this.crash.capture(e, 'cloudLoad');
+      this.ui.fail('That cloud save couldn\'t be opened. Your game on this device is unchanged.');
+      return;
+    }
+    this.save();
+    const mine = this.storage.load(SAVE_KEY);
+    if (mine) this.storage.save(`${SAVE_KEY}.before-cloud`, mine);
+    const st = deserialize(blob.data);
+    st.cloud = { saveId: blob.summary.saveId, syncedAt: blob.summary.savedAt };
+    this.storage.save(SAVE_KEY, JSON.stringify(st));
+    this.storage.save(CLOUD_LOADED_KEY, String(blob.summary.level));
+    this.reloading = true;
+    location.reload();
+  }
+
+  /** Playtest tool: pretend another phone kept playing this game and saved to the cloud. */
+  simulateOtherDevice(): void {
+    if (!(this.cloud instanceof TestCloudSave)) return;
+    const st = deserialize(serialize(this.state, this.now()));
+    st.glimmer += 5000;
+    st.xp += 3000;
+    const t = this.now() + 60_000;
+    const data = serialize(st, t);
+    this.cloud.write({ data, summary: { ...summarize(st, 'Another phone'), savedAt: t } });
+    this.ui.toast('Another (pretend) phone saved to the test cloud. Play a little, then tap "Check now".', 'info', undefined, 5000, { priority: 3 });
+  }
+
   reset(): void {
     this.storage.remove(SAVE_KEY);
     location.reload();
@@ -192,6 +335,7 @@ export class Game {
     if (document.hidden) {
       this.hiddenAt = this.now();
       this.save();
+      void this.cloudUpload();
       this.scheduleNotifications();
     } else if (this.hiddenAt) {
       const away = this.now() - this.hiddenAt;
@@ -200,6 +344,8 @@ export class Game {
       this.dispatch(events, false);
       this.welcomeBack(events, away);
       this.offerLogin();
+      // another device may have played while we were away
+      if (away > 60_000) void this.cloudSync();
     }
   }
 
@@ -288,6 +434,11 @@ export class Game {
     const legend = this.state.legendary && t < this.state.legendary.end ? this.state.legendary.kind : null;
     this.audio.ambience(dt, this.world.sky.darkness, sky, legend, this.world.current);
     this.ui.update(dt);
+    this.cloudAcc += dt;
+    if (this.cloudAcc > CLOUD_EVERY_S) {
+      this.cloudAcc = 0;
+      void this.cloudUpload();
+    }
     this.saveAcc += dt;
     if (this.saveAcc > 15 || (this.dirty && this.saveAcc > 1)) {
       this.saveAcc = 0;

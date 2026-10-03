@@ -5,7 +5,12 @@ import { recordSpecies } from './journal';
 import { generateShop } from './shop';
 import type { GameState } from './types';
 
-export const SAVE_VERSION = 13;
+export const SAVE_VERSION = 14;
+
+/** A new game id for cloud save: unique enough per device and moment. */
+export function newSaveId(seed: number, t: number): string {
+  return `${(seed >>> 0).toString(36)}-${t.toString(36)}`;
+}
 
 export function createGame(now: number, seed = Math.floor(Math.random() * 2 ** 31)): GameState {
   const state: GameState = {
@@ -27,6 +32,7 @@ export function createGame(now: number, seed = Math.floor(Math.random() * 2 ** 3
     feedbags: {},
     storageSlots: TUNING.storageBase,
     levelPaid: 1,
+    cloud: { saveId: newSaveId(seed, now) },
     visitors: [],
     wanderer: null,
     expeditions: [],

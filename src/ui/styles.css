@@ -676,3 +676,12 @@ input.rename { font-family: var(--display); font-size: 22px; border: var(--outli
 .away-chest { background: linear-gradient(180deg, #fff6c8, #ffe08a); }
 .wg-icon { font-size: 34px; flex: none; }
 .wg-icon .icon { width: 40px; height: 40px; }
+
+/* ---- cloud save */
+.save-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
+.save-card { background: var(--white); border: 3px solid var(--sky-3); border-radius: 16px; padding: 10px; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.save-card.best { border-color: #3aaa4a; box-shadow: 0 0 0 3px #bff0b0; }
+.save-where { font-weight: 800; font-size: 13px; }
+.save-level { font-family: var(--display); font-size: 22px; color: var(--ink); }
+.save-stats { font-size: 13px; line-height: 1.5; }
+.cloud-item .desc { font-size: 13px; }
