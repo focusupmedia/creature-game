@@ -464,6 +464,19 @@ export function placeDecor(state: GameState, decor: string, x: number, z: number
   return { ok: true };
 }
 
+/** Buy a decoration from the catalog: needs the keeper level, then coins or Starshards. */
+export function buyDecor(state: GameState, id: string): Result<{ message: string }> {
+  const d = DECOR[id];
+  if (!d) return fail('Unknown decoration.');
+  if (levelOf(state.xp) < (d.level ?? 1)) return fail(`Reach keeper level ${d.level} to unlock the ${d.name}.`);
+  const wallet = d.currency === 'shards' ? state.shards : state.glimmer;
+  if (wallet < d.price) return fail(d.currency === 'shards' ? 'Not enough Starshards.' : 'Not enough coins.');
+  if (d.currency === 'shards') state.shards -= d.price;
+  else state.glimmer -= d.price;
+  state.decorOwned[id] = (state.decorOwned[id] ?? 0) + 1;
+  return { ok: true, message: `${d.name} bought! Find it in Decor to place it.` };
+}
+
 /** Chop down a scenery tree to make room. It leaves a stump and a little wood worth a few coins. */
 export function chopTree(state: GameState, island: IslandId, index: number): Result<{ coins: number }> {
   if (!state.islands[island]?.owned) return fail('You don\'t own that world.');

@@ -622,6 +622,19 @@ export class Game {
     this.saveSoon();
   }
 
+  buyDecor(id: string): void {
+    const r = A.buyDecor(this.state, id);
+    if (!r.ok) {
+      this.audio.play('error');
+      return this.ui.toast(r.error);
+    }
+    this.audio.play('coin');
+    this.analytics.track('decor_bought', { decor: id });
+    this.ui.toast(r.message);
+    this.ui.rerender();
+    this.saveSoon();
+  }
+
   buy(offerId: string): void {
     const offer = this.state.shop.offers.find((o) => o.id === offerId);
     const r = A.buyOffer(this.state, offerId, this.now());

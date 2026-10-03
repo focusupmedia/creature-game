@@ -24,3 +24,17 @@ describe('drawn icons', () => {
     expect([...missing].map(([e, f]) => `${e} in ${f}`)).toEqual([]);
   });
 });
+
+describe('decor catalog', () => {
+  it('has 50-100 decorations, each with a model, a group and an unlock level', async () => {
+    const { DECOR_LIST } = await import('../src/content/decor');
+    const src = readFileSync('src/render/decor.ts', 'utf8');
+    expect(DECOR_LIST.length).toBeGreaterThanOrEqual(50);
+    expect(DECOR_LIST.length).toBeLessThanOrEqual(100);
+    expect(new Set(DECOR_LIST.map((d) => d.id)).size).toBe(DECOR_LIST.length);
+    for (const d of DECOR_LIST) {
+      expect(src.includes(`  ${d.id}(k)`), `${d.id} has no model`).toBe(true);
+      expect(d.cat && d.level && d.r).toBeTruthy();
+    }
+  });
+});

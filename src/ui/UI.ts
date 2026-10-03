@@ -8,7 +8,7 @@ import { creatureTraits, displayName, growth, isOutlier, sizeLabel, speciesTitle
 import { compatibility, eggClues } from '../core/genetics';
 import { arrivalWeights } from '../core/lures';
 import { nestOccupant } from '../core/state';
-import type { Creature, Egg, GameEvent, IslandId, LegendaryKind, MutationId, SpotId, Trait } from '../core/types';
+import type { Creature, DecorDef, Egg, GameEvent, IslandId, LegendaryKind, MutationId, SpotId, Trait } from '../core/types';
 import { islandCapacity } from '../core/sim';
 import { activeEvent, dayPhase, daylight, isDark, nextEvent } from '../core/world';
 import type { Game } from '../game/Game';
@@ -16,6 +16,7 @@ import { fmtDuration, h, img, rich, setText } from './dom';
 import * as I from './icons';
 import { WorldLabels } from './Labels';
 import { QUIRKS } from '../content/quirks';
+import { DECOR_CATS, DECOR_LIST } from '../content/decor';
 import { WANDERERS } from '../content/wanderers';
 import { deleteQuirk, wipeQuirks } from '../core/quirks';
 import { MAX_LEVEL, levelOf, levelProgress, levelReward, type LevelUp } from '../core/levels';
@@ -85,6 +86,8 @@ export class UI {
   private fontPick: [string | null, string | null] = [null, null];
   private journalTab: 'creatures' | 'mutations' | 'notes' = 'creatures';
   private journalWorld: IslandId | 'all' = 'all';
+  private decorCat = 'all';
+  private decorSort: 'level' | 'price' | 'name' = 'level';
   private shopTab: 'lure' | 'egg' | 'item' | 'decor' | 'shards' | 'food' = 'egg';
   private coachDismissed = -1;
   private coachShownAt = 0;
@@ -1080,6 +1083,10 @@ export class UI {
         return;
       }
 
+      if (this.shopTab === 'decor') {
+        this.decorCatalog(b);
+        return;
+      }
       b.append(h('div', { class: 'row muted' }, `New stock in ${fmtDuration(s.shop.nextRefreshAt - t)}`));
       b.append(h('div', { class: 'btns' },
         h('button', { class: 'btn shard small', disabled: s.shards < TUNING.shopRefreshShards, onClick: () => {
@@ -1134,6 +1141,40 @@ export class UI {
       }
       b.append(list);
     }, I.SHOP);
+  }
+
+  /** Mango's decoration catalog: always open, grouped and sorted, unlocked by keeper level. */
+  private decorCatalog(b: HTMLElement): void {
+    const s = this.game.state;
+    const lvl = levelOf(s.xp);
+    const chip = (id: string, label: string) => h('button', { class: `chip-btn ${this.decorCat === id ? 'on' : ''}`, onClick: () => { this.decorCat = id; this.rerender(); } }, label);
+    b.append(h('div', { class: 'world-filter' }, chip('all', 'All'), ...DECOR_CATS.map((c) => chip(c.id, `${c.icon} ${c.name}`))));
+    const sorts = [['level', 'Unlock level'], ['price', 'Price'], ['name', 'Name']] as const;
+    const cur = sorts.find(([k]) => k === this.decorSort) ?? sorts[0];
+    b.append(h('div', { class: 'sort-row' }, h('span', { class: 'muted' }, `${DECOR_LIST.filter((d) => lvl >= (d.level ?? 1)).length} of ${DECOR_LIST.length} unlocked`),
+      h('button', { class: 'sort-btn', onClick: () => { this.decorSort = sorts[(sorts.indexOf(cur) + 1) % sorts.length][0]; this.rerender(); } }, `Sort: ${cur[1]} ▾`)));
+    const cmp: Record<string, (a: DecorDef, b2: DecorDef) => number> = {
+      level: (a, b2) => (a.level ?? 1) - (b2.level ?? 1) || a.price - b2.price,
+      // Starshard prices are worth about 20 coins each when sorting by price
+      price: (a, b2) => a.price * (a.currency === 'shards' ? 20 : 1) - b2.price * (b2.currency === 'shards' ? 20 : 1),
+      name: (a, b2) => a.name.localeCompare(b2.name),
+    };
+    const list = h('div', { class: 'list decor-list' });
+    for (const d of DECOR_LIST.filter((x) => this.decorCat === 'all' || x.cat === this.decorCat).sort(cmp[this.decorSort])) {
+      const locked = lvl < (d.level ?? 1);
+      const owned = s.decorOwned[d.id] ?? 0;
+      const placed = s.placedDecor.filter((p) => p.decor === d.id).length;
+      const wallet = d.currency === 'shards' ? s.shards : s.glimmer;
+      list.append(h('div', { class: `item ${locked ? 'locked' : ''}` },
+        img(this.game.world.portraits.decor(d.id), 'swatch-img'),
+        h('div', { class: 'grow' }, h('div', { class: 'name' }, d.name),
+          h('div', { class: 'desc' }, locked ? `🔒 Unlocks at keeper level ${d.level}` : d.blurb),
+          owned || placed ? h('div', { class: 'muted' }, `You have ${owned} to place${placed ? ` · ${placed} placed` : ''}`) : null),
+        locked ? h('span', { class: 'chip locked' }, `Lv ${d.level}`)
+          : h('button', { class: `btn small ${d.currency === 'shards' ? 'shard' : ''}`, disabled: wallet < d.price, onClick: () => this.game.buyDecor(d.id) },
+            rich(`${d.currency === 'shards' ? '{gem}' : '{coin}'} ${d.price}`))));
+    }
+    b.append(list);
   }
 
   // ---- journal
@@ -1232,16 +1273,16 @@ export class UI {
     const s = this.game.state;
     this.openSheet('Decorate', 'Make the sanctuary yours.', (b) => {
       const owned = Object.entries(s.decorOwned).filter(([, n]) => n > 0);
-      if (!owned.length) b.append(h('p', { class: 'muted' }, 'You have no decorations to place. The merchant sells a few, and new ones rotate in.'));
+      if (!owned.length) b.append(h('p', { class: 'muted' }, 'You have no decorations to place. Mango sells nearly a hundred in his DECOR tab, and more unlock as you level up.'));
       const list = h('div', { class: 'list' });
       for (const [id, n] of owned) {
-        list.append(h('div', { class: 'item' }, h('div', { class: 'swatch' }, '🪴'),
+        list.append(h('div', { class: 'item' }, img(this.game.world.portraits.decor(id), 'swatch-img'),
           h('div', { class: 'grow' }, h('div', { class: 'name' }, `${DECOR[id].name} ×${n}`), h('div', { class: 'desc' }, DECOR[id].blurb)),
           h('button', { class: 'btn small', onClick: () => this.beginPlacement(id) }, 'Place')));
       }
       b.append(list);
-      if (s.placedDecor.length) b.append(h('p', { class: 'muted' }, 'Tap a placed decoration to put it back in your satchel.'));
-      b.append(h('button', { class: 'btn secondary wide', style: 'margin-top:12px', onClick: () => this.showShop() }, 'Browse decorations'));
+      b.append(h('p', { class: 'muted' }, 'Tap a placed decoration to put it back in your satchel. Tap a scenery tree to chop it down and make room.'));
+      b.append(h('button', { class: 'btn secondary wide', style: 'margin-top:12px', onClick: () => { this.shopTab = 'decor'; this.showShop(); } }, 'Browse the decor catalog'));
     }, I.DECOR);
   }
 

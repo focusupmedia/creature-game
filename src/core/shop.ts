@@ -51,14 +51,7 @@ export function generateShop(seed: number, rotation: number, t: number, owned: I
   egg(['wild', 'ember', 'reef'][rotation % 3], 2);
   egg('starry', 2);
 
-  const basic = Object.values(DECOR).filter((d) => !d.rotating && d.id !== 'fruittree');
-  const premium = Object.values(DECOR).filter((d) => d.rotating);
-  const d1 = pick(basic);
-  let d2 = pick(basic);
-  if (d2.id === d1.id) d2 = basic[(basic.indexOf(d1) + 1) % basic.length];
-  for (const d of [d1, d2]) add({ kind: 'decor', ref: d.id, price: d.price, currency: d.currency, qty: 1, stock: 1 });
-  const p = premium[rotation % premium.length];
-  add({ kind: 'decor', ref: p.id, price: p.price, currency: 'shards', qty: 1, stock: 1 });
+  // Decorations live in the always-open catalog (see buyDecor), not the rotating stock.
 
   return { rotation, offers, nextRefreshAt: t + TUNING.shopRefreshMin * 60_000 };
 }

@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import type { MutationId, SpeciesId } from '../core/types';
 import { animateGlow, buildCreature, disposeCreature } from './creatureModels';
+import { buildDecor } from './decor';
 
 // Renders small creature portraits for UI lists and the journal, using the main
 // renderer and an offscreen target. Results are cached as data URLs.
@@ -40,17 +41,45 @@ export class Portraits {
     model.root.traverse((o) => {
       if (o instanceof THREE.Sprite) o.visible = false;
     });
-    model.root.updateMatrixWorld(true);
+    const url = this.snap(model.root);
+    disposeCreature(model);
+    this.cache.set(key, url);
+    return url;
+  }
+
+  /** A little picture of a decoration for the shop and Decor lists. */
+  decor(id: string): string {
+    const key = `decor|${id}`;
+    const hit = this.cache.get(key);
+    if (hit) return hit;
+    const root = buildDecor(id);
+    root.rotation.y = -0.5;
+    root.traverse((o) => {
+      if (o instanceof THREE.Sprite) o.visible = false;
+    });
+    const url = this.snap(root, 0.45);
+    root.traverse((o) => {
+      if (o instanceof THREE.Mesh) o.geometry.dispose();
+    });
+    this.cache.set(key, url);
+    return url;
+  }
+
+  /** Frame an object, render it to the offscreen target and return a PNG data URL. */
+  private snap(root: THREE.Object3D, tilt = 0.6): string {
+    root.updateMatrixWorld(true);
     const box = new THREE.Box3();
-    model.root.traverse((o) => {
-      if (o instanceof THREE.Mesh && !o.userData.outline) box.expandByObject(o);
+    root.traverse((o) => {
+      if (o instanceof THREE.Mesh && !o.userData.outline && o.visible) box.expandByObject(o);
     });
     const size = box.getSize(new THREE.Vector3());
     const center = box.getCenter(new THREE.Vector3());
     const r = Math.max(size.x, size.y, size.z) * 0.62;
-    this.camera.position.set(center.x, center.y + r * 0.6, center.z + r * 3.3);
+    // flat things (rugs, stepping stones) read better from above
+    if (size.y < Math.max(size.x, size.z) * 0.3) tilt = 2.2;
+    this.camera.position.set(center.x, center.y + r * tilt, center.z + r * 3.3);
     this.camera.lookAt(center);
-    this.scene.add(model.root);
+    this.scene.add(root);
     const prevTarget = this.renderer.getRenderTarget();
     const prevClear = this.renderer.getClearAlpha();
     this.renderer.setRenderTarget(this.rt);
@@ -61,16 +90,13 @@ export class Portraits {
     this.renderer.readRenderTargetPixels(this.rt, 0, 0, 128, 128, px);
     this.renderer.setRenderTarget(prevTarget);
     this.renderer.setClearAlpha(prevClear);
-    this.scene.remove(model.root);
-    disposeCreature(model);
+    this.scene.remove(root);
     const g = this.canvas.getContext('2d')!;
     const img = g.createImageData(128, 128);
     // flip Y
     for (let y = 0; y < 128; y++) img.data.set(px.subarray((127 - y) * 512, (128 - y) * 512), y * 512);
     g.clearRect(0, 0, 128, 128);
     g.putImageData(img, 0, 0);
-    const url = this.canvas.toDataURL('image/png');
-    this.cache.set(key, url);
-    return url;
+    return this.canvas.toDataURL('image/png');
   }
 }

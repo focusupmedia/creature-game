@@ -165,6 +165,10 @@ export interface DecorDef {
   rotating: boolean;
   /** How much ground it covers (radius, map units). */
   r?: number;
+  /** Catalog group (nature, stone, lights, cozy, fun, magic). */
+  cat?: string;
+  /** Keeper level needed to buy it. */
+  level?: number;
 }
 
 // ---------------------------------------------------------------- state

@@ -1,4 +1,5 @@
 import { ISLANDS } from './islands';
+import { DECOR_LIST } from './decor';
 import type {
   DigKind, IslandId, LegendaryKind, DecorDef, EventDef, EventKind, ItemDef, LureDef, MutationDef, MutationId, ResonanceRule, SpotDef,
 } from '../core/types';
@@ -404,16 +405,7 @@ export const ITEMS: Record<string, ItemDef> = {
 export const GLITTER_MUTATIONS: MutationId[] = ['lunar', 'storm', 'frost', 'starlit', 'misty', 'aurora'];
 
 // ---------------------------------------------------------------- cosmetics
-export const DECOR: Record<string, DecorDef> = {
-  lantern: { id: 'lantern', name: 'Firefly Lantern', blurb: 'Glows warmly after dusk.', price: 80, currency: 'glimmer', rotating: false },
-  flowerbed: { id: 'flowerbed', name: 'Wildflower Patch', blurb: 'A tumble of color.', price: 50, currency: 'glimmer', rotating: false },
-  stoneArch: { id: 'stoneArch', name: 'Mossy Arch', blurb: 'Old stones, older moss.', price: 140, currency: 'glimmer', rotating: false },
-  mushroomRing: { id: 'mushroomRing', name: 'Fairy Ring', blurb: 'Some say things dance here at night.', price: 110, currency: 'glimmer', rotating: false },
-  fruittree: { id: 'fruittree', name: 'Berry Tree', blurb: 'Grows a fresh berry every hour and a half. Tap it to pick them.', price: 150, currency: 'glimmer', rotating: false },
-  crystal: { id: 'crystal', name: 'Dreaming Crystal', blurb: 'Hums a note just below hearing. Glows at night.', price: 40, currency: 'shards', rotating: true },
-  windchime: { id: 'windchime', name: 'Moonbell Chime', blurb: 'Rings by itself before an eclipse.', price: 35, currency: 'shards', rotating: true },
-  sakura: { id: 'sakura', name: 'Blossom Tree', blurb: 'Petals drift across the sanctuary.', price: 55, currency: 'shards', rotating: true },
-};
+export const DECOR: Record<string, DecorDef> = Object.fromEntries(DECOR_LIST.map((d) => [d.id, d]));
 
 // ---------------------------------------------------------------- egg shop
 export interface EggTier {
