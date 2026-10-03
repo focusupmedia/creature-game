@@ -18,7 +18,8 @@ export const TUNING = {
    * Blizzard, Aurora and Meteor Shower stay rarer unless summoned.
    */
   eventWeights: {
-    storm: 0.22, eclipse: 0.15, rainbow: 0.15, fog: 0.13, starry: 0.08, fullmoon: 0.07, blizzard: 0.07, aurora: 0.07, meteor: 0.06,
+    storm: 0.16, eclipse: 0.1, rainbow: 0.1, fog: 0.09, heatwave: 0.09, blossom: 0.09, gale: 0.08, firefly: 0.07,
+    starry: 0.05, fullmoon: 0.045, blizzard: 0.045, aurora: 0.04, meteor: 0.04, bubbles: 0.03, comet: 0.02,
   } as Record<string, number>,
   /** Starshard rocks a meteor shower drops on each world you own. */
   meteorRocks: [2, 4] as [number, number],

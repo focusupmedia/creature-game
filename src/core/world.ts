@@ -40,7 +40,7 @@ export interface SkyEvent {
 
 type Sched = Pick<GameState, 'seed' | 'createdAt'> & { summoned?: GameState['summoned'] };
 
-const KINDS: EventKind[] = ['storm', 'eclipse', 'starry', 'fullmoon', 'blizzard', 'rainbow', 'aurora', 'meteor', 'fog'];
+const KINDS: EventKind[] = ['storm', 'eclipse', 'starry', 'fullmoon', 'blizzard', 'rainbow', 'aurora', 'meteor', 'fog', 'heatwave', 'blossom', 'firefly', 'gale', 'bubbles', 'comet'];
 
 function pickKind(r: number): EventKind {
   const total = KINDS.reduce((s, k) => s + (TUNING.eventWeights[k] ?? 0), 0);

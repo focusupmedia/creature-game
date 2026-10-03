@@ -569,6 +569,7 @@ export class CreatureActor {
     if (m.twinkles) {
       m.twinkles.children.forEach((s, i) => s.scale.setScalar(0.03 + Math.max(0, Math.sin(this.phase * 4 + i * 1.7)) * 0.05));
     }
+    for (const sp of (this.root.userData.spinners ?? []) as THREE.Object3D[]) sp.rotation.y += dt * (sp.userData.spin ?? 1.5);
     if (this.root.userData.prismatic) animatePrismatic(m, time);
     animateGlow(m, time);
 

@@ -45,6 +45,11 @@ export type CarryTarget = { kind: 'creature'; id: string } | { kind: 'dig'; id: 
 
 interface Burst { sprite: THREE.Sprite; vel: THREE.Vector3; life: number; max: number; drag: number }
 
+/** The colour of the sparkle when one of the newer skies touches a creature. */
+const TOUCH_COLOR: Partial<Record<EventKind, string>> = {
+  heatwave: '#ffc04a', blossom: '#ff9ec4', firefly: '#e8ff6a', gale: '#e8f6ff', bubbles: '#9ae6ff', comet: '#c8b8ff',
+};
+
 export class World {
   readonly renderer: THREE.WebGLRenderer;
   readonly scene = new THREE.Scene();
@@ -623,6 +628,10 @@ export class World {
           this.sky.moonbeam(a.worldPosition, globeNormal(a.geo, a.position.x, a.position.z));
         } else if (ev.event === 'starry') {
           this.sky.fallingStar(at, () => this.burst(at, '#fff1a8', 26, 1.8));
+        } else if (ev.event === 'comet') {
+          this.sky.fallingStar(at, () => this.burst(at, '#c8b8ff', 34, 2.2));
+        } else if (TOUCH_COLOR[ev.event]) {
+          this.burst(this.above(a.position, 0.5, a.geo.id), TOUCH_COLOR[ev.event]!, 34, 1.8);
         } else {
           this.burst(this.above(a.position, 0.6, a.geo.id), '#ffffff', 30, 1.4);
         }
@@ -630,7 +639,7 @@ export class World {
       }
       case 'eggTouched': {
         const e = this.eggs.get(ev.egg.id);
-        const color: Record<string, string> = { storm: '#fff27a', starry: '#fff1a8', blizzard: '#ffffff' };
+        const color: Record<string, string> = { storm: '#fff27a', starry: '#fff1a8', blizzard: '#ffffff', ...TOUCH_COLOR };
         if (e) this.burst(e.model.root.position.clone().setY(e.model.root.position.y + 0.7), color[ev.event] ?? '#c9d4ff', 16);
         break;
       }

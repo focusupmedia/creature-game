@@ -3,7 +3,8 @@
 // bring back better finds. Pets and play have a little cooldown so it stays
 // a gentle daily ritual, not a button to mash.
 
-import { displayName } from './creatures';
+import { addMutation, displayName } from './creatures';
+import { recordMutation } from './journal';
 import type { Creature, GameState } from './types';
 
 const MIN = 60_000;
@@ -26,11 +27,21 @@ export const findBonus = (c: Pick<Creature, 'bond'>) => (hearts(c) >= 4 ? 1.25 :
 export type BondResult = { ok: true; gained: number; hearts: number; newHeart: boolean; message: string } | { ok: false; error: string };
 
 /** Add friendship; reports when a new heart fills in. */
-export function addBond(c: Creature, points: number): { gained: number; newHeart: boolean } {
+/**
+ * Add friendship. Some pets (about one in four) are so loved when they first
+ * become a best friend that they turn Golden.
+ */
+export function addBond(c: Creature, points: number, state?: GameState): { gained: number; newHeart: boolean; golden: boolean } {
   const before = hearts(c);
   const was = c.bond ?? 0;
   c.bond = Math.min(BOND_MAX, was + points);
-  return { gained: c.bond - was, newHeart: hearts(c) > before };
+  const newHeart = hearts(c) > before;
+  let golden = false;
+  if (state && newHeart && hearts(c) === HEARTS.length && (c.seed >>> 3) % 4 === 0) {
+    golden = addMutation(c, 'golden', state.lastTick, 'Became your best friend, and was so loved it turned to gold.');
+    if (golden) recordMutation(state, 'golden', state.lastTick);
+  }
+  return { gained: c.bond - was, newHeart, golden };
 }
 
 function interact(state: GameState, id: string, t: number, kind: 'pet' | 'play'): BondResult {
@@ -44,10 +55,10 @@ function interact(state: GameState, id: string, t: number, kind: 'pet' | 'play')
   }
   if (kind === 'pet') c.pettedAt = t;
   else c.playedAt = t;
-  const r = addBond(c, kind === 'pet' ? 3 : 6);
+  const r = addBond(c, kind === 'pet' ? 3 : 6, state);
   const name = displayName(c);
   const message = r.newHeart
-    ? (isBestFriend(c) ? `${name} is now your best friend! They'll follow you around.` : `${name}'s friendship grew to ${hearts(c)} hearts!`)
+    ? (isBestFriend(c) ? `${name} is now your best friend! They'll follow you around.${r.golden ? ' And look: so much love turned it Golden! ✨' : ''}` : `${name}'s friendship grew to ${hearts(c)} hearts!`)
     : kind === 'pet' ? `${name} loved that.` : `${name} had a great time playing!`;
   return { ok: true, gained: r.gained, hearts: hearts(c), newHeart: r.newHeart, message };
 }

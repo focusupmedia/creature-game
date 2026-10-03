@@ -3,7 +3,8 @@
 import { EXPEDITIONS, expeditionSlots, type ExpeditionId } from '../content/expeditions';
 import { ITEMS } from '../content/world';
 import { TUNING } from '../content/tuning';
-import { displayName, growth } from './creatures';
+import { addMutation, displayName, growth } from './creatures';
+import { recordMutation } from './journal';
 import { findBonus } from './friendship';
 import { levelOf } from './levels';
 import { hasQuirk } from './quirks';
@@ -46,7 +47,7 @@ export function stepExpeditions(state: GameState, t: number, out: GameEvent[]): 
   }
 }
 
-export interface ExpeditionHaul { story: string; coins: number; shards: number; item?: string; egg: boolean }
+export interface ExpeditionHaul { story: string; coins: number; shards: number; item?: string; egg: boolean; crystal?: boolean }
 
 /** Welcome a pet home and collect what it found. */
 export function claimExpedition(state: GameState, creatureId: string, t: number): ({ ok: true } & ExpeditionHaul) | Fail {
@@ -70,7 +71,14 @@ export function claimExpedition(state: GameState, creatureId: string, t: number)
   if (item) state.items[item] = (state.items[item] ?? 0) + 1;
   if (egg) layEgg(state, rollEggTier(state, 'starry'), 'gift', t);
   c.fullness = Math.max(0.15, c.fullness - 0.25);
-  const story = rng.pick(def.stories).replace('{name}', displayName(c));
+  let story = rng.pick(def.stories).replace('{name}', displayName(c));
   c.history.push({ t, text: story });
-  return { ok: true, story, coins, shards, item, egg };
+  // deep in the Crystal Caves, gems sometimes start growing on a visitor
+  const crystal = e.dest === 'crystalcaves' && rng.chance(0.15)
+    && addMutation(c, 'crystal', t, 'Came home from the Crystal Caves with glittering gems growing from its back.');
+  if (crystal) {
+    recordMutation(state, 'crystal', t);
+    story += ' And look: glittering gems are growing on its back. It turned Crystal!';
+  }
+  return { ok: true, story, coins, shards, item, egg, crystal };
 }

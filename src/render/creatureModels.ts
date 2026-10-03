@@ -824,6 +824,26 @@ function mutatePalette(P: Palette, muts: MutationId[], seed: number, shade?: str
     out.main = mix(out.main, '#e8eef4', 0.35);
     out.belly = mix(out.belly, '#ffffff', 0.4);
   }
+  // the newer skies' marks
+  if (muts.includes('sunkissed')) {
+    out.main = mix(out.main, '#ffc860', 0.35);
+    out.accent = '#ff9a2a';
+  }
+  if (muts.includes('blossom')) out.belly = mix(out.belly, '#ffd0e6', 0.4);
+  if (muts.includes('glowing')) out.accent = '#e8ff6a';
+  if (muts.includes('breezy')) out.main = mix(out.main, '#e8f6ff', 0.22);
+  if (muts.includes('bubbly')) out.second = mix(out.second, '#9ae6ff', 0.4);
+  if (muts.includes('cosmic')) {
+    out.main = mix(out.main, '#2a2060', 0.55);
+    out.second = mix(out.second, '#6a4ad0', 0.5);
+  }
+  if (muts.includes('crystal')) out.accent = '#bff4ff';
+  // Golden goes last: it gilds everything
+  if (muts.includes('golden')) {
+    out.main = mix(out.main, '#ffd23d', 0.6);
+    out.second = mix(out.second, '#e8a020', 0.5);
+    out.belly = mix(out.belly, '#fff2b0', 0.5);
+  }
   return out;
 }
 
@@ -1045,6 +1065,109 @@ export function buildCreature(speciesId: SpeciesId, mutations: MutationId[], see
       body.add(w);
     }
   }
+
+  const spinners: THREE.Object3D[] = [];
+  if (muts.includes('sunkissed')) {
+    // sunspot freckles across the back
+    for (let i = 0; i < 6; i++) {
+      const a = i * 2.39996;
+      const r = 0.08 + (i % 3) * 0.05;
+      const dot = k.ball(0.025, '#ff8a2a', [A.back.x + Math.cos(a) * r * A.scale, A.back.y + 0.01, A.back.z + Math.sin(a) * r * A.scale], [1, 0.5, 1]);
+      dot.castShadow = false;
+      dot.userData.noOutline = true;
+      body.add(dot);
+    }
+  }
+  if (muts.includes('blossom')) {
+    // little flowers sprouting on the back and one on the head
+    const spots: [number, number, number][] = [[A.back.x + 0.08, A.back.y, A.back.z], [A.back.x - 0.1, A.back.y - 0.02, A.back.z - 0.08], [A.head.x + 0.06, A.head.y, A.head.z]];
+    spots.forEach(([x, y, z], j) => {
+      const f = new THREE.Group();
+      for (let i = 0; i < 5; i++) {
+        const a = (i / 5) * Math.PI * 2;
+        f.add(k.ball(0.03, j === 2 ? '#ffffff' : '#ff9ec4', [Math.cos(a) * 0.035, 0, Math.sin(a) * 0.035]));
+      }
+      f.add(k.ball(0.022, '#ffe066', [0, 0.01, 0]));
+      f.position.set(x, y + 0.02, z);
+      body.add(f);
+    });
+  }
+  if (muts.includes('glowing')) {
+    for (let i = 0; i < 6; i++) {
+      const a = i * 2.39996;
+      const dot = k.ball(0.03, '#f0ff8a', [Math.cos(a) * 0.22 * A.scale, A.center.y + Math.sin(i * 1.7) * 0.12, A.center.z + Math.sin(a) * 0.24 * A.scale], [1, 1, 1], '#e8ff6a');
+      dot.castShadow = false;
+      dot.userData.noOutline = true;
+      body.add(dot);
+    }
+    const glow = glowSprite('#e8ff6a', 1.4 * A.scale, 0.55);
+    glow.position.copy(A.center);
+    body.add(glow);
+    m.glows.push(glow);
+  }
+  if (muts.includes('breezy')) {
+    const swirl = new THREE.Group();
+    swirl.position.copy(A.center);
+    for (let i = 0; i < 2; i++) {
+      const ring = k.mesh(new THREE.TorusGeometry(1, 0.05, 4, 24, Math.PI * 1.3), '#ffffff', [0.34 * A.scale - i * 0.05, 0.34 * A.scale - i * 0.05, 0.34], [0, -0.06 + i * 0.12, 0], '#dff4ff');
+      ring.rotation.set(Math.PI / 2 + 0.2, 0, i * 2.4);
+      ring.castShadow = false;
+      ring.userData.noOutline = true;
+      swirl.add(ring);
+    }
+    swirl.userData.spin = 2.2;
+    body.add(swirl);
+    spinners.push(swirl);
+  }
+  if (muts.includes('bubbly')) {
+    const bubbles = new THREE.Group();
+    bubbles.position.copy(A.center);
+    for (let i = 0; i < 4; i++) {
+      const a = (i / 4) * Math.PI * 2;
+      const bub = new THREE.Mesh(G.sphere, new THREE.MeshToonMaterial({ color: '#c8f2ff', transparent: true, opacity: 0.45, emissive: '#9ae6ff', emissiveIntensity: 0.3 }));
+      bub.scale.setScalar(0.05 + (i % 2) * 0.03);
+      bub.position.set(Math.cos(a) * 0.36 * A.scale, (i % 2) * 0.15, Math.sin(a) * 0.36 * A.scale);
+      bub.add(k.ball(0.3, '#ffffff', [-0.35, 0.35, 0.6], [1, 1, 0.5]));
+      bubbles.add(bub);
+    }
+    bubbles.userData.spin = 0.8;
+    body.add(bubbles);
+    spinners.push(bubbles);
+  }
+  if (muts.includes('cosmic')) {
+    // a little night sky on its coat, and a tiny moon in orbit
+    for (let i = 0; i < 8; i++) {
+      const a = i * 2.39996;
+      const s = k.mesh(G.tetra, '#ffffff', [0.022, 0.022, 0.022], [Math.cos(a) * 0.2 * A.scale, A.center.y + Math.sin(i * 1.3) * 0.12, A.center.z + Math.sin(a) * 0.22 * A.scale], '#ffffff');
+      s.castShadow = false;
+      s.userData.noOutline = true;
+      body.add(s);
+    }
+    const orbit = new THREE.Group();
+    orbit.position.set(A.head.x, A.head.y + 0.05, A.head.z);
+    orbit.add(k.ball(0.045, '#f4f0ff', [0.28 * A.scale, 0, 0], [1, 1, 1], '#c9b8ff'));
+    orbit.rotation.z = 0.3;
+    orbit.userData.spin = 1.4;
+    body.add(orbit);
+    spinners.push(orbit);
+  }
+  if (muts.includes('crystal')) {
+    // gems growing from the back
+    for (let i = 0; i < 4; i++) {
+      const a = (i / 4) * Math.PI * 2 + 0.4;
+      const gem = k.mesh(new THREE.OctahedronGeometry(1, 0), i % 2 ? '#bff4ff' : '#d8c8ff', [0.05, 0.12 + (i % 2) * 0.04, 0.05],
+        [A.back.x + Math.cos(a) * 0.09 * A.scale, A.back.y + 0.06, A.back.z + Math.sin(a) * 0.09 * A.scale], '#8ad8ff');
+      gem.rotation.set(Math.sin(a) * 0.4, 0, -Math.cos(a) * 0.4);
+      body.add(gem);
+    }
+  }
+  if (muts.includes('golden')) {
+    const shine = glowSprite('#ffd23d', 1.6 * A.scale, 0.5);
+    shine.position.copy(A.center);
+    body.add(shine);
+    m.glows.push(shine);
+  }
+  root.userData.spinners = spinners;
 
   if (shade === 'shiny' && !m.twinkles) {
     // Shiny pets glint: little gold sparkles that twinkle around them

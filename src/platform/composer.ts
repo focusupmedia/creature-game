@@ -2,7 +2,8 @@
 // time. Pure (no WebAudio) so it can be tested; music.ts turns the notes into
 // sound. Each mood is a small "song recipe": key, tempo, chords, instruments.
 
-export type MoodId = 'day' | 'night' | 'storm' | 'eclipse' | 'starry' | 'fullmoon' | 'blizzard' | 'rainbow' | 'aurora' | 'meteor' | 'fog' | 'angel' | 'infernal' | 'abyssal';
+export type MoodId = 'day' | 'night' | 'storm' | 'eclipse' | 'starry' | 'fullmoon' | 'blizzard' | 'rainbow' | 'aurora' | 'meteor' | 'fog' | 'angel' | 'infernal' | 'abyssal'
+  | 'heatwave' | 'blossom' | 'firefly' | 'gale' | 'bubbles' | 'comet';
 export type Inst = 'kalimba' | 'marimba' | 'bell' | 'bass' | 'pad';
 
 export interface Note {
@@ -71,6 +72,18 @@ export const MOODS: Record<MoodId, MoodDef> = {
   meteor: { bpm: 96, root: 60, scale: LYDIAN, chords: [0, 4, 1, 0], lead: 'bell', arp: 'kalimba', pad: true, bass: true, density: [0.25, 0.7], arpDensity: 0.6, swing: 0.05, volume: 0.9, echo: 0.35 },
   // Misty Fog: hushed, sparse kalimba in D dorian.
   fog: { bpm: 56, root: 50, scale: DORIAN, chords: [0, 3, 6, 3], lead: 'kalimba', arp: null, pad: true, bass: false, density: [0.08, 0.38], arpDensity: 0, swing: 0, volume: 0.8, echo: 0.55 },
+  // Heatwave: lazy, swinging marimba in A major.
+  heatwave: { bpm: 84, root: 57, scale: IONIAN, chords: [0, 3, 4, 3], lead: 'marimba', arp: null, pad: false, bass: true, density: [0.2, 0.55], arpDensity: 0, swing: 0.16, volume: 0.9, echo: 0.2 },
+  // Blossom Breeze: light kalimba and bells drifting in F lydian.
+  blossom: { bpm: 92, root: 53, scale: LYDIAN, chords: [0, 1, 4, 0], lead: 'kalimba', arp: 'bell', pad: true, bass: true, density: [0.3, 0.7], arpDensity: 0.4, swing: 0.06, volume: 0.95, echo: 0.3 },
+  // Firefly Night: soft kalimba with twinkling bells in A dorian.
+  firefly: { bpm: 70, root: 57, scale: DORIAN, chords: [0, 3, 0, 4], lead: 'kalimba', arp: 'bell', pad: true, bass: true, density: [0.12, 0.5], arpDensity: 0.45, swing: 0.04, volume: 0.85, echo: 0.45 },
+  // Gale: brisk, tumbling marimba in D dorian.
+  gale: { bpm: 112, root: 50, scale: DORIAN, chords: [0, 3, 6, 4], lead: 'marimba', arp: 'kalimba', pad: false, bass: true, density: [0.35, 0.75], arpDensity: 0.5, swing: 0, volume: 0.9, echo: 0.2 },
+  // Bubble Rain: bouncy bells in G lydian.
+  bubbles: { bpm: 96, root: 55, scale: LYDIAN, chords: [0, 4, 1, 4], lead: 'bell', arp: 'kalimba', pad: true, bass: true, density: [0.25, 0.65], arpDensity: 0.5, swing: 0.08, volume: 0.9, echo: 0.4 },
+  // Great Comet: grand, slow bells in E lydian.
+  comet: { bpm: 60, root: 52, scale: LYDIAN, chords: [0, 4, 1, 5], lead: 'bell', arp: 'kalimba', pad: true, bass: true, density: [0.15, 0.55], arpDensity: 0.3, swing: 0, volume: 1, echo: 0.5 },
   // Glassy, hushed bells in B minor.
   blizzard: { bpm: 62, root: 59, scale: AEOLIAN, chords: [0, 5, 2, 6], lead: 'bell', arp: null, pad: true, bass: false, density: [0.08, 0.4], arpDensity: 0, swing: 0, volume: 1, echo: 0.45 },
 };

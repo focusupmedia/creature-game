@@ -51,6 +51,38 @@ export const MUTATIONS: Record<MutationId, MutationDef> = {
     id: 'abyssal', trait: 'Abyssal', name: 'Abyssal', inheritChance: 0.25, tier: 'legendary', glow: '#3affe0',
     blurb: 'Came back from the deep tide glowing like the bottom of the sea.',
   },
+  sunkissed: {
+    id: 'sunkissed', trait: 'Sunkissed', name: 'Sunkissed', inheritChance: 0.45, tier: 'common', glow: '#ffc04a',
+    blurb: 'Basked through a heatwave. Warm golden coat, freckled with sunspots.',
+  },
+  blossom: {
+    id: 'blossom', trait: 'Blossom', name: 'Blossom', inheritChance: 0.45, tier: 'common', glow: '#ffb0d8',
+    blurb: 'Caught in a blossom breeze. Little flowers keep sprouting on its back.',
+  },
+  glowing: {
+    id: 'glowing', trait: 'Glowing', name: 'Glowing', inheritChance: 0.45, tier: 'rare', glow: '#e8ff6a',
+    blurb: 'Danced with the fireflies until some of their light stayed behind.',
+  },
+  breezy: {
+    id: 'breezy', trait: 'Breezy', name: 'Breezy', inheritChance: 0.45, tier: 'rare', glow: '#c8f0ff',
+    blurb: 'A gale blew right through it. Now a little wind swirls around it everywhere.',
+  },
+  bubbly: {
+    id: 'bubbly', trait: 'Bubbly', name: 'Bubbly', inheritChance: 0.4, tier: 'rare', glow: '#9ae6ff',
+    blurb: 'Came out of the bubble rain shimmering like a soap bubble. Pops bubbles when happy.',
+  },
+  cosmic: {
+    id: 'cosmic', trait: 'Cosmic', name: 'Cosmic', inheritChance: 0.35, tier: 'epic', glow: '#9a6aff',
+    blurb: 'Touched by the tail of the Great Comet. Its coat is a little night sky, with a tiny moon in orbit.',
+  },
+  crystal: {
+    id: 'crystal', trait: 'Crystal', name: 'Crystal', inheritChance: 0.35, tier: 'epic', glow: '#bff4ff',
+    blurb: 'Came home from the Crystal Caves with glittering gems growing from its back.',
+  },
+  golden: {
+    id: 'golden', trait: 'Golden', name: 'Golden', inheritChance: 0.2, tier: 'legendary', glow: '#ffd23d',
+    blurb: 'So loved it turned to gold. Only ever happens to a best friend.',
+  },
 };
 
 // ---------------------------------------------------------------- legendary events
@@ -95,7 +127,7 @@ export const LEGENDARY: Record<LegendaryKind, LegendaryDef> = {
 export const LEGENDARY_ORDER: LegendaryKind[] = ['angel', 'infernal', 'abyssal'];
 
 /** Mutations a legendary gift can grant (legendary ones only come from the events themselves). */
-export const GIFTABLE_MUTATIONS: MutationId[] = ['lunar', 'storm', 'frost', 'starlit', 'giant', 'prismatic'];
+export const GIFTABLE_MUTATIONS: MutationId[] = ['lunar', 'storm', 'frost', 'starlit', 'giant', 'prismatic', 'sunkissed', 'blossom', 'glowing', 'breezy', 'bubbly', 'cosmic'];
 
 // ---------------------------------------------------------------- lures
 // Lures are named for what they smell like, so players learn by association
@@ -308,11 +340,96 @@ export const EVENTS: Record<EventKind, EventDef> = {
       bubble: 'Lost in the fog 🌫️',
     },
   },
+  heatwave: {
+    arrive: 'Phew! A heatwave shimmers over the island. Sun-lovers are out in force.', leave: 'A cool breeze returns. The heatwave is over.', away: 'A heatwave baked the island golden.',
+    kind: 'heatwave', name: 'Heatwave', icon: '☀️', mutation: 'sunkissed', empowers: 'Sand',
+    attracts: { Reptile: 2, Sand: 2, Ember: 1.5, Insect: 1.3 },
+    arrivalMutationChance: 0.15, empoweredMutationChance: 0.45, eggMutationChance: 0.2,
+    teaser: 'The air is getting very warm and still. The lizards are lining up to sunbathe.',
+    durationMin: [3, 5], dark: false,
+    touch: {
+      name: 'sunbeam', perEvent: 2, chance: 0.35, favor: 'Reptile',
+      story: 'Basked in a heatwave until its coat turned golden.',
+      lesson: 'Creatures that bask in a heatwave can come out Sunkissed.',
+      bubble: 'Soaking up the sun ☀️',
+    },
+  },
+  blossom: {
+    arrive: 'A warm breeze carries petals everywhere. A Blossom Breeze!', leave: 'The last petals settle.', away: 'Blossom petals drifted over the island.',
+    kind: 'blossom', name: 'Blossom Breeze', icon: '🌸', mutation: 'blossom', empowers: 'Bloom',
+    attracts: { Bloom: 2.5, Insect: 2, Mammal: 1.3, Bird: 1.3 },
+    arrivalMutationChance: 0.15, empoweredMutationChance: 0.45, eggMutationChance: 0.2,
+    teaser: 'Something sweet is on the wind. Petals are starting to drift by.',
+    durationMin: [3, 5], dark: false,
+    touch: {
+      name: 'petal shower', perEvent: 2, chance: 0.35, favor: 'Bloom',
+      story: 'A shower of petals landed on it, and little flowers began to grow.',
+      lesson: 'In a Blossom Breeze, petals can take root on a creature: Blossom.',
+      bubble: 'Covered in petals 🌸',
+    },
+  },
+  firefly: {
+    arrive: 'Thousands of fireflies rise from the grass. A Firefly Night!', leave: 'The fireflies drift off to sleep.', away: 'Fireflies lit up the island all night.',
+    kind: 'firefly', name: 'Firefly Night', icon: '✨', mutation: 'glowing', empowers: 'Grove',
+    attracts: { Insect: 3, Grove: 1.5, Amphibian: 1.5 },
+    arrivalMutationChance: 0.12, empoweredMutationChance: 0.4, eggMutationChance: 0.2,
+    teaser: 'Tiny lights are blinking on in the grass, one by one.',
+    durationMin: [3, 5], dark: true,
+    touch: {
+      name: 'firefly swarm', perEvent: 2, chance: 0.35, favor: 'Insect',
+      story: 'Danced with a swarm of fireflies, and kept a little of their light.',
+      lesson: 'On a Firefly Night, a creature caught in the swarm can start Glowing.',
+      bubble: 'Dancing with fireflies ✨',
+    },
+  },
+  gale: {
+    arrive: 'Whoosh! A great gale is blowing. Hold on to something!', leave: 'The wind drops to a whisper.', away: 'A gale blew across the island.',
+    kind: 'gale', name: 'Gale', icon: '🌬️', mutation: 'breezy', empowers: 'Sky',
+    attracts: { Bird: 2.5, Sky: 2, Spirit: 1.3 },
+    arrivalMutationChance: 0.12, empoweredMutationChance: 0.4, eggMutationChance: 0.2,
+    teaser: 'The trees are starting to sway. The birds are very excited about something.',
+    durationMin: [3, 4.5], dark: false,
+    touch: {
+      name: 'whirlwind', perEvent: 2, chance: 0.35, favor: 'Bird',
+      story: 'A little whirlwind spun it round and round. Some of the wind stayed.',
+      lesson: 'A whirlwind in a gale can leave a creature Breezy.',
+      bubble: 'Whirled around by the wind 🌬️',
+    },
+  },
+  bubbles: {
+    arrive: 'Huge shimmering bubbles are floating up from the sea. Bubble Rain!', leave: 'The last bubble pops.', away: 'Bubble Rain shimmered over the island.',
+    kind: 'bubbles', name: 'Bubble Rain', icon: '🫧', mutation: 'bubbly', empowers: 'Reef', rare: true,
+    attracts: { Fish: 2, Reef: 2, Amphibian: 1.5, Spirit: 1.3 },
+    arrivalMutationChance: 0.12, empoweredMutationChance: 0.35, eggMutationChance: 0.15,
+    teaser: 'The sea is fizzing. A few bubbles are already drifting up into the sky.',
+    durationMin: [2.5, 4], dark: false,
+    touch: {
+      name: 'giant bubble', perEvent: 2, chance: 0.35, favor: 'Fish',
+      story: 'Floated around inside a giant bubble for a while, and came out shimmering.',
+      lesson: 'Creatures caught in a giant bubble come out Bubbly.',
+      bubble: 'Floating in a bubble 🫧',
+    },
+  },
+  comet: {
+    arrive: 'A Great Comet blazes across the night sky! Something very rare is happening.', leave: 'The comet sails on into the dark.', away: 'A Great Comet crossed the sky.',
+    kind: 'comet', name: 'Great Comet', icon: '💫', mutation: 'cosmic', empowers: 'Mystic', rare: true,
+    attracts: { Dragon: 2, Spirit: 2, Mystic: 1.5 },
+    arrivalMutationChance: 0.1, empoweredMutationChance: 0.3, eggMutationChance: 0.12,
+    teaser: 'A new bright star appeared last night, and it has a tail.',
+    durationMin: [3, 4.5], dark: true,
+    touch: {
+      name: 'comet dust', perEvent: 1, chance: 0.45, favor: 'Mystic',
+      story: 'Comet dust fell softly onto it. Now its coat holds a tiny night sky.',
+      lesson: 'Dust from the Great Comet can make a creature Cosmic.',
+      bubble: 'Sparkling with comet dust 💫',
+    },
+  },
 };
 
 /** Events an ad can summon, with weights. The rarer natural events are favored. */
 export const SUMMON_WEIGHTS: Record<EventKind, number> = {
   storm: 1, eclipse: 1, starry: 1.3, fullmoon: 1.3, blizzard: 1.3, rainbow: 1.1, aurora: 1.3, meteor: 1.3, fog: 1,
+  heatwave: 1, blossom: 1.1, firefly: 1.2, gale: 1, bubbles: 1.3, comet: 1.3,
 };
 
 // ---------------------------------------------------------------- resonances

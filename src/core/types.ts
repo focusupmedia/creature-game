@@ -10,10 +10,12 @@ export type Trait =
   // Kinds — body plans
   | 'Amphibian' | 'Reptile' | 'Insect' | 'Bird' | 'Fish' | 'Mammal' | 'Fungus' | 'Spirit' | 'Dragon' | 'Primate' | 'Arachnid'
   // Mutation traits — acquired, never native
-  | 'Lunar' | 'Storm' | 'Giant' | 'Prismatic' | 'Starlit' | 'Frost' | 'Angelic' | 'Infernal' | 'Abyssal' | 'Aurora' | 'Misty';
+  | 'Lunar' | 'Storm' | 'Giant' | 'Prismatic' | 'Starlit' | 'Frost' | 'Angelic' | 'Infernal' | 'Abyssal' | 'Aurora' | 'Misty'
+  | 'Sunkissed' | 'Blossom' | 'Glowing' | 'Breezy' | 'Bubbly' | 'Cosmic' | 'Crystal' | 'Golden';
 
 export type SpeciesId = string;
-export type MutationId = 'lunar' | 'storm' | 'giant' | 'prismatic' | 'starlit' | 'frost' | 'angelic' | 'infernal' | 'abyssal' | 'aurora' | 'misty';
+export type MutationId = 'lunar' | 'storm' | 'giant' | 'prismatic' | 'starlit' | 'frost' | 'angelic' | 'infernal' | 'abyssal' | 'aurora' | 'misty'
+  | 'sunkissed' | 'blossom' | 'glowing' | 'breezy' | 'bubbly' | 'cosmic' | 'crystal' | 'golden';
 /** Very rare events that grant a gift and leave one creature with a legendary mutation. Never summoned by ads. */
 export type LegendaryKind = 'angel' | 'infernal' | 'abyssal';
 export type LureId = string;
@@ -23,7 +25,8 @@ export type SpotId = string;
 export type IslandId = 'home' | 'volcano' | 'lagoon' | 'beach' | 'desert' | 'cloud';
 export type Personality = 'energetic' | 'lazy' | 'shy' | 'curious' | 'grumpy' | 'friendly';
 export type WandererKind = 'fortune' | 'treasure' | 'chef' | 'gnome' | 'goblin';
-export type EventKind = 'storm' | 'eclipse' | 'starry' | 'fullmoon' | 'blizzard' | 'rainbow' | 'aurora' | 'meteor' | 'fog';
+export type EventKind = 'storm' | 'eclipse' | 'starry' | 'fullmoon' | 'blizzard' | 'rainbow' | 'aurora' | 'meteor' | 'fog'
+  | 'heatwave' | 'blossom' | 'firefly' | 'gale' | 'bubbles' | 'comet';
 
 export type Rarity = 'common' | 'uncommon' | 'rare' | 'legendary' | 'mythical';
 export type Activity = 'day' | 'night' | 'any';
@@ -119,6 +122,8 @@ export interface EventDef {
   eggMutationChance: number;
   teaser: string;
   durationMin: [number, number];
+  /** A rare sky (a Wild Sky Charm can bring it). */
+  rare?: boolean;
   /** Counts as night for nocturnal creatures. */
   dark: boolean;
   /** How the event reaches down and changes a resident creature. */

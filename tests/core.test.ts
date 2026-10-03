@@ -70,7 +70,8 @@ describe('sky events', () => {
         if (e) counts[e.kind] = (counts[e.kind] ?? 0) + 1;
       }
     }
-    expect(Object.keys(counts).sort()).toEqual(['aurora', 'blizzard', 'eclipse', 'fog', 'fullmoon', 'meteor', 'rainbow', 'starry', 'storm']);
+    expect(Object.keys(counts).sort()).toEqual(['aurora', 'blizzard', 'blossom', 'bubbles', 'comet', 'eclipse', 'firefly', 'fog', 'fullmoon', 'gale', 'heatwave', 'meteor', 'rainbow', 'starry', 'storm']);
+    expect(counts.comet).toBeLessThan(counts.heatwave);
     // storms are still the most common sky, but every other sky gets a real turn
     for (const k of Object.keys(counts)) if (k !== 'storm') expect(counts.storm).toBeGreaterThan(counts[k]);
     expect(counts.storm).toBeGreaterThan(counts.starry * 2);

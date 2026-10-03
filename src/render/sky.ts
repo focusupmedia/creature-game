@@ -38,6 +38,12 @@ const MOODS: Record<EventKind, { mood: Mood; strength: number; darkness: number 
   aurora: { mood: M('#04122a', '#123c52', '#1a3a5a', '#b8ffe6', 0.6, '#6ad8b8', '#1a2a3a', 0.85), strength: 0.95, darkness: 0.8 },
   meteor: { mood: M('#0a0a30', '#2a2060', '#33307a', '#ffd8b8', 0.55, '#8a70d0', '#22203a', 0.85), strength: 0.95, darkness: 0.85 },
   fog: { mood: M('#b8c4cc', '#dde4ea', '#d0d8e0', '#f2f4f6', 1.1, '#e8eef2', '#8a9490', 1.1), strength: 0.85, darkness: 0.1 },
+  heatwave: { mood: M('#3a9af0', '#ffe2a0', '#ffd080', '#fff0c0', 2.7, '#fff4d8', '#8a7a40', 1.3), strength: 0.6, darkness: 0 },
+  blossom: { mood: M('#6aa8ff', '#ffd8ec', '#ffc8e0', '#fff6f0', 2.2, '#fff0f6', '#7a8a5a', 1.2), strength: 0.55, darkness: 0 },
+  firefly: { mood: M('#0a1a2a', '#1e3a40', '#203a3a', '#e8ff9a', 0.55, '#7ab07a', '#1a2a1a', 0.85), strength: 0.95, darkness: 0.8 },
+  gale: { mood: M('#5a8ac8', '#c8dcf0', '#b0c8e4', '#f4f8ff', 1.8, '#e0ecf8', '#5a6a5a', 1.1), strength: 0.6, darkness: 0 },
+  bubbles: { mood: M('#4ab8e8', '#c8f4ff', '#a8e8ff', '#f0fcff', 2.1, '#e8faff', '#4a8a8a', 1.2), strength: 0.65, darkness: 0 },
+  comet: { mood: M('#08082a', '#2a1a5a', '#30206a', '#d8c8ff', 0.6, '#8a7ad8', '#20183a', 0.85), strength: 0.95, darkness: 0.85 },
 };
 
 const RAINBOW = ['#ff4a4a', '#ff9a2a', '#ffe23a', '#5ad64a', '#3aa8ff', '#5a5aff', '#b05aff'];
@@ -83,7 +89,16 @@ export class Sky {
   private fx: Fx[] = [];
   private shootTimer = 0;
   /** 0..1 how much of each event is showing (eases in/out). */
-  private mix: Record<EventKind, number> = { storm: 0, eclipse: 0, starry: 0, fullmoon: 0, blizzard: 0, rainbow: 0, aurora: 0, meteor: 0, fog: 0 };
+  private mix: Record<EventKind, number> = {
+    storm: 0, eclipse: 0, starry: 0, fullmoon: 0, blizzard: 0, rainbow: 0, aurora: 0, meteor: 0, fog: 0,
+    heatwave: 0, blossom: 0, firefly: 0, gale: 0, bubbles: 0, comet: 0,
+  };
+  /** Petals (Blossom Breeze), motes (fireflies, heat shimmer), bubbles, wind streaks (Gale) and the comet. */
+  private petals!: THREE.Points;
+  private motes!: THREE.Points;
+  private bubbles!: THREE.Points;
+  private streaks!: THREE.LineSegments;
+  private comet = new THREE.Group();
   private rainbow = new THREE.Group();
   private rainbowMats: THREE.MeshBasicMaterial[] = [];
   private aurora = new THREE.Group();
@@ -237,6 +252,47 @@ export class Sky {
     }
     this.aurora.visible = false;
     this.group.add(this.aurora);
+
+    // particle weather for the newer skies
+    const field = (n: number, h: number) => {
+      const a = new Float32Array(n * 3);
+      for (let i = 0; i < n; i++) {
+        a[i * 3] = (Math.random() - 0.5) * 36;
+        a[i * 3 + 1] = Math.random() * h;
+        a[i * 3 + 2] = (Math.random() - 0.5) * 36;
+      }
+      const g = new THREE.BufferGeometry();
+      g.setAttribute('position', new THREE.BufferAttribute(a, 3));
+      return g;
+    };
+    this.petals = new THREE.Points(field(700, 16), new THREE.PointsMaterial({ color: '#ff6aae', size: 1.0, map: petalTexture(), transparent: true, opacity: 0, depthWrite: false }));
+    this.motes = new THREE.Points(field(420, 7), new THREE.PointsMaterial({ color: '#e8ff6a', size: 0.55, map: glowTexture(), transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending }));
+    this.bubbles = new THREE.Points(field(220, 18), new THREE.PointsMaterial({ color: '#ffffff', size: 2.2, map: bubbleTexture(), transparent: true, opacity: 0, depthWrite: false }));
+    const sp2 = new Float32Array(160 * 6);
+    for (let i = 0; i < 160; i++) {
+      const x = (Math.random() - 0.5) * 30;
+      const y = 0.5 + Math.random() * 10;
+      const z = (Math.random() - 0.5) * 26;
+      sp2.set([x, y, z, x + 1.6 + Math.random(), y, z], i * 6);
+    }
+    const sg2 = new THREE.BufferGeometry();
+    sg2.setAttribute('position', new THREE.BufferAttribute(sp2, 3));
+    this.streaks = new THREE.LineSegments(sg2, new THREE.LineBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0 }));
+    for (const p of [this.petals, this.motes, this.bubbles, this.streaks]) {
+      p.frustumCulled = false;
+      this.group.add(p);
+    }
+    // the Great Comet: a bright head with a long glowing tail, high behind the island
+    const head = noFog(glowSprite('#ffffff', 10, 1));
+    const coma = noFog(glowSprite('#b8a8ff', 24, 0.7));
+    this.comet.add(coma, head);
+    for (let i = 1; i <= 14; i++) {
+      const tail = noFog(glowSprite(i % 2 ? '#c8b8ff' : '#8ad8ff', 13 - i * 0.6, 0.6 - i * 0.035));
+      tail.position.set(i * 3.4, i * 1.2, 0);
+      this.comet.add(tail);
+    }
+    this.comet.visible = false;
+    this.group.add(this.comet);
     scene.add(this.group);
   }
 
@@ -395,6 +451,8 @@ export class Sky {
     this.cloudMat.color.set('#5a6272').lerp(C('#f2f6ff'), Math.max(mx.blizzard, mx.fog) / Math.max(0.001, cloudAmt));
     this.clouds.rotation.y = Math.sin(time * 0.02) * 0.15;
 
+    this.updateParticles(dt, time);
+
     for (const f of this.fx) {
       f.life -= dt;
       f.update?.(1 - Math.max(0, f.life) / f.max, dt);
@@ -407,6 +465,64 @@ export class Sky {
       });
       return false;
     });
+  }
+
+  /** Petals drift and sway down; fireflies wander; bubbles float up; the gale blows streaks sideways; the comet sails. */
+  private updateParticles(dt: number, time: number): void {
+    const mx = this.mix;
+    const step = (pts: THREE.Points | THREE.LineSegments, f: (a: Float32Array, i: number) => void, stride = 3) => {
+      const attr = pts.geometry.getAttribute('position') as THREE.BufferAttribute;
+      const a = attr.array as Float32Array;
+      for (let i = 0; i < a.length / stride; i++) f(a, i);
+      attr.needsUpdate = true;
+    };
+    const pm = this.petals.material as THREE.PointsMaterial;
+    pm.opacity = mx.blossom * 0.95;
+    if (mx.blossom > 0.02) step(this.petals, (a, i) => {
+      a[i * 3 + 1] -= dt * (0.7 + (i % 4) * 0.15);
+      a[i * 3] += dt * (0.9 + Math.sin(time * 1.3 + i) * 0.9);
+      a[i * 3 + 2] += Math.cos(time * 0.9 + i * 0.7) * dt * 0.5;
+      if (a[i * 3 + 1] < 0) { a[i * 3 + 1] = 16; a[i * 3] = (Math.random() - 0.5) * 36 - 4; }
+      if (a[i * 3] > 18) a[i * 3] -= 36;
+    });
+    // fireflies by night, golden heat shimmer by day
+    const mm = this.motes.material as THREE.PointsMaterial;
+    const heat = mx.heatwave;
+    mm.opacity = Math.max(mx.firefly * (0.75 + Math.sin(time * 3) * 0.2), heat * 0.35);
+    mm.color.set(heat > mx.firefly ? '#ffd27a' : '#e8ff6a');
+    mm.size = heat > mx.firefly ? 1.1 : 0.55;
+    if (mx.firefly > 0.02 || heat > 0.02) step(this.motes, (a, i) => {
+      if (heat > mx.firefly) {
+        a[i * 3 + 1] += dt * 0.6;
+        if (a[i * 3 + 1] > 6) a[i * 3 + 1] = 0;
+      } else {
+        a[i * 3] += Math.sin(time * 0.8 + i * 1.7) * dt * 0.6;
+        a[i * 3 + 1] += Math.sin(time * 1.1 + i) * dt * 0.3;
+        a[i * 3 + 2] += Math.cos(time * 0.7 + i * 2.3) * dt * 0.6;
+        a[i * 3 + 1] = Math.max(0.2, Math.min(6, a[i * 3 + 1]));
+      }
+    });
+    const bm = this.bubbles.material as THREE.PointsMaterial;
+    bm.opacity = mx.bubbles;
+    if (mx.bubbles > 0.02) step(this.bubbles, (a, i) => {
+      a[i * 3 + 1] += dt * (0.8 + (i % 3) * 0.3);
+      a[i * 3] += Math.sin(time + i) * dt * 0.4;
+      if (a[i * 3 + 1] > 18) { a[i * 3 + 1] = 0; a[i * 3] = (Math.random() - 0.5) * 36; }
+    });
+    const lm = this.streaks.material as THREE.LineBasicMaterial;
+    lm.opacity = mx.gale * 0.6;
+    if (mx.gale > 0.02) step(this.streaks, (a, i) => {
+      const v = dt * (14 + (i % 5) * 3);
+      a[i * 6] += v; a[i * 6 + 3] += v;
+      if (a[i * 6] > 15) { const len = a[i * 6 + 3] - a[i * 6]; a[i * 6] = -15; a[i * 6 + 3] = -15 + len; }
+    }, 6);
+    // the comet crawls across the visible sky while it lasts
+    this.comet.visible = mx.comet > 0.01;
+    if (this.comet.visible) {
+      // like the aurora, in the band of sky the camera can see behind the island
+      this.comet.position.copy(SHOWCASE).add(new THREE.Vector3(24 - ((time * 0.5) % 48), 14, 0));
+      this.comet.children.forEach((c) => ((c as THREE.Sprite).material as THREE.SpriteMaterial).opacity = mx.comet * (c === this.comet.children[1] ? 1 : 0.55));
+    }
   }
 
   /** Effects aimed at a point in the world go in the scene; sky-only ones (shooting stars) travel with the sky. */
@@ -493,4 +609,41 @@ function moonCanvas(): HTMLCanvasElement {
     g.fill();
   }
   return c;
+}
+
+/** A soft pink petal for the Blossom Breeze. */
+function petalTexture(): THREE.Texture {
+  const c = document.createElement('canvas');
+  c.width = c.height = 32;
+  const g = c.getContext('2d')!;
+  g.fillStyle = '#ffffff';
+  g.beginPath();
+  g.ellipse(16, 16, 13, 7, 0.6, 0, Math.PI * 2);
+  g.fill();
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+
+/** A shimmering soap bubble: a clear middle, a rainbow rim and a little shine. */
+function bubbleTexture(): THREE.Texture {
+  const c = document.createElement('canvas');
+  c.width = c.height = 64;
+  const g = c.getContext('2d')!;
+  const grad = g.createRadialGradient(32, 32, 18, 32, 32, 30);
+  grad.addColorStop(0, 'rgba(220,245,255,0.15)');
+  grad.addColorStop(0.65, 'rgba(160,225,255,0.5)');
+  grad.addColorStop(0.85, 'rgba(255,160,230,0.95)');
+  grad.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = grad;
+  g.beginPath();
+  g.arc(32, 32, 30, 0, Math.PI * 2);
+  g.fill();
+  g.fillStyle = 'rgba(255,255,255,0.9)';
+  g.beginPath();
+  g.ellipse(22, 20, 6, 3, -0.7, 0, Math.PI * 2);
+  g.fill();
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
 }

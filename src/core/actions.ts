@@ -210,7 +210,7 @@ export function workDigSpot(state: GameState, spotId: string, creatureId: string
   else if (rng.chance(kind.eggChance) && state.eggs.filter((e) => e.nest === null).length < TUNING.basketSize) gift.item = 'egg';
   state.digSpots = state.digSpots.filter((x) => x !== d);
   state.gifts.push(gift);
-  addBond(c, 2);
+  addBond(c, 2, state);
   return { ok: true, gift };
 }
 

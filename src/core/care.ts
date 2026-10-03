@@ -60,8 +60,8 @@ export function feedCreature(state: GameState, id: string): Result {
   state.food[food] -= 1;
   c.fullness = Math.min(1, c.fullness + FOODS[food].amount);
   // feeding by hand makes friends
-  const r = addBond(c, 2);
-  return { ok: true, message: `${displayName(c)} munched a ${FOODS[food].name}. Yum!${r.newHeart ? ` Friendship grew to ${hearts(c)} hearts!` : ''}` };
+  const r = addBond(c, 2, state);
+  return { ok: true, message: `${displayName(c)} munched a ${FOODS[food].name}. Yum!${r.newHeart ? ` Friendship grew to ${hearts(c)} hearts!` : ''}${r.golden ? ' So much love turned it Golden! ✨' : ''}` };
 }
 
 /** A Feast Basket feeds everyone on an island. */
