@@ -383,6 +383,8 @@ export interface GameState {
   storageSlots: number;
   /** Lure visitors waiting for you to Keep them or Send them away. */
   visitors: Visitor[];
+  /** Journal pages finished and claimed (collection id → when). */
+  collections?: Record<string, number>;
   /** Daily login calendar: the last day claimed (UTC date) and how many days claimed in all. */
   login?: { day: string; claimed: number };
   /** Pets away exploring. */

@@ -306,3 +306,24 @@ describe('login calendar', () => {
     expect(s.eggs.some((e) => e.tier === 'starry')).toBe(true);
   });
 });
+
+describe('collections', () => {
+  it('a finished journal page pays once', async () => {
+    const { COLLECTIONS, claimCollection, claimableCollections } = await import('../src/core/collections');
+    const s = createGame(71, 0);
+    const shades = COLLECTIONS.find((c) => c.id === 'shades')!;
+    expect(claimCollection(s, 'shades', 0).ok).toBe(false);
+    ['classic', 'sunny', 'rosy', 'minty', 'dusky', 'ocean'].forEach((sh, i) => {
+      const c = { ...s.creatures[0], id: `z${i}`, shade: sh };
+      s.creatures.push(c);
+    });
+    expect(shades.progress(s)).toEqual({ have: 6, total: 6 });
+    expect(claimableCollections(s).map((c) => c.id)).toContain('shades');
+    const coins = s.glimmer;
+    expect(claimCollection(s, 'shades', 0).ok).toBe(true);
+    expect(s.glimmer).toBe(coins + shades.reward.coins);
+    expect(claimCollection(s, 'shades', 0).ok).toBe(false);
+    // every world page has creatures to find
+    for (const c of COLLECTIONS.filter((x) => x.id.startsWith('world-'))) expect(c.progress(s).total).toBeGreaterThan(0);
+  });
+});

@@ -5,6 +5,7 @@ import { addXp, grantMissingLevelCreatures } from '../core/levels';
 import { petCreature, playWith } from '../core/friendship';
 import { claimExpedition, sendOnExpedition } from '../core/expeditions';
 import { canClaimLogin, claimLogin } from '../core/login';
+import { claimCollection } from '../core/collections';
 import { EXPEDITIONS, type ExpeditionId } from '../content/expeditions';
 import { claimDaily, claimLasting, questEvent, refreshDailies } from '../core/quests';
 import { awayFinds, buyStorageSlot, findVisitor, keepVisitor, releaseCreature, sendAwayVisitor, feastIsland, feedCreature, hangFeedbag, harvestTree, nextHungryAt, retrieveCreature, sellCreature, storeCreature } from '../core/care';
@@ -180,6 +181,16 @@ export class Game {
   offerLogin(): void {
     if (this.state.tutorial < 5 || !canClaimLogin(this.state, this.now())) return;
     setTimeout(() => this.ui.showLoginCalendar(), 900);
+  }
+
+  claimCollection(id: string): void {
+    const r = claimCollection(this.state, id, this.now());
+    if (!r.ok) return this.ui.toast(r.error);
+    this.audio.play('fanfare');
+    this.ui.toast(`🏅 ${r.def.name} complete! {coin} +${r.def.reward.coins.toLocaleString()}  {gem} +${r.def.reward.shards}`, 'discovery', undefined, 5000);
+    this.analytics.track('collection_claimed', { id });
+    this.ui.rerender();
+    this.saveSoon();
   }
 
   claimLogin(): void {

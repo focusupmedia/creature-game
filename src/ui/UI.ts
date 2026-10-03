@@ -21,6 +21,7 @@ import { PET_COOLDOWN_MIN, PLAY_COOLDOWN_MIN, hearts } from '../core/friendship'
 import { EXPEDITIONS, EXPEDITION_ORDER, expeditionSlots, type ExpeditionId } from '../content/expeditions';
 import type { ExpeditionHaul } from '../core/expeditions';
 import { LOGIN_REWARDS, canClaimLogin, loginDay } from '../core/login';
+import { COLLECTIONS, claimableCollections } from '../core/collections';
 import { DECOR_CATS, DECOR_LIST } from '../content/decor';
 import { WANDERERS } from '../content/wanderers';
 import { deleteQuirk, wipeQuirks } from '../core/quirks';
@@ -90,7 +91,7 @@ export class UI {
   private lastShards = -1;
   private refreshTimer = 0;
   private fontPick: [string | null, string | null] = [null, null];
-  private journalTab: 'creatures' | 'mutations' | 'notes' = 'creatures';
+  private journalTab: 'creatures' | 'mutations' | 'notes' | 'pages' = 'creatures';
   private journalWorld: IslandId | 'all' = 'all';
   private decorCat = 'all';
   private feedWorld: IslandId = 'home';
@@ -215,7 +216,7 @@ export class UI {
     this.shopDot.classList.toggle('hidden', s.shop.rotation === this.seenShopRotation);
     const ads = A.adsLeft(s, t);
     if (this.adsBadge.textContent !== String(ads)) this.adsBadge.textContent = String(ads);
-    this.journalDot.classList.toggle('hidden', s.journal.notes.length === this.seenNotes);
+    this.journalDot.classList.toggle('hidden', s.journal.notes.length === this.seenNotes && !claimableCollections(s).length);
     this.petsDot.classList.toggle('hidden', !s.expeditions.some((e) => e.end <= t));
 
     this.refreshTimer -= dt;
@@ -1340,7 +1341,24 @@ export class UI {
     this.openSheet('Field Journal', `${found} of ${SPECIES.length} creatures discovered`, (b) => {
       const tab = (id: typeof this.journalTab, label: string) =>
         h('button', { class: this.journalTab === id ? 'on' : '', onClick: () => { this.journalTab = id; this.rerender(); } }, label);
-      b.append(h('div', { class: 'tabs' }, tab('creatures', '🐾 Creatures'), tab('mutations', '✨ Mutations'), tab('notes', `📝 Notes (${s.journal.notes.length})`)));
+      const ready = claimableCollections(s).length;
+      b.append(h('div', { class: 'tabs' }, tab('creatures', '🐾 Creatures'), tab('pages', `🏅 Pages${ready ? ' ❗' : ''}`), tab('mutations', '✨ Mutations'), tab('notes', `📝 Notes (${s.journal.notes.length})`)));
+      if (this.journalTab === 'pages') {
+        b.append(h('p', { class: 'muted' }, 'Finish a page of your journal for a big reward and a badge.'));
+        const list = h('div', { class: 'list' });
+        for (const c of COLLECTIONS) {
+          const p = c.progress(s);
+          const claimed = s.collections?.[c.id] !== undefined;
+          const done = p.have >= p.total;
+          list.append(h('div', { class: `item ${done && !claimed ? 'wanted' : ''}` }, h('div', { class: `swatch ${claimed ? 'badge' : ''}` }, claimed ? '🏅' : c.icon),
+            h('div', { class: 'grow' }, h('div', { class: 'name' }, c.name), h('div', { class: 'desc' }, c.blurb),
+              h('div', { class: 'progress small' }, h('i', { style: `width:${Math.round((p.have / Math.max(1, p.total)) * 100)}%` })),
+              h('div', { class: 'muted' }, claimed ? 'Badge earned!' : rich(`${p.have} / ${p.total} · reward {coin} ${c.reward.coins.toLocaleString()} {gem} ${c.reward.shards}`))),
+            done && !claimed ? h('button', { class: 'btn small', onClick: () => this.game.claimCollection(c.id) }, 'Claim') : null));
+        }
+        b.append(list);
+        return;
+      }
       if (this.journalTab === 'creatures') {
         // one journal, filtered by world: a world's creatures are the ones its habitats attract
         const worldOf = (id: IslandId): Trait[] => (id === 'home' ? ['Grove', 'Tide', 'Bloom', 'Mystic'] : [ISLANDS[id].habitat]);
