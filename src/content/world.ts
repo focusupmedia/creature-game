@@ -83,6 +83,31 @@ export const MUTATIONS: Record<MutationId, MutationDef> = {
     id: 'golden', trait: 'Golden', name: 'Golden', inheritChance: 0.2, tier: 'legendary', glow: '#ffd23d',
     blurb: 'So loved it turned to gold. It starts with a best friend, and sometimes its babies carry it on.',
   },
+  // ---- Halloween marks: only during the Halloween season's spooky skies
+  ghostly: {
+    id: 'ghostly', trait: 'Ghostly', name: 'Ghostly', inheritChance: 0.3, tier: 'epic', glow: '#dfe8ff',
+    blurb: 'A Haunting passed right through it. Now it\'s pale, see-through and floats a little.',
+  },
+  calcified: {
+    id: 'calcified', trait: 'Calcified', name: 'Calcified', inheritChance: 0.35, tier: 'rare', glow: '#f6f2e4',
+    blurb: 'Rattled by the Boneyard Night: bone-white, with little bones showing through.',
+  },
+  mummified: {
+    id: 'mummified', trait: 'Mummified', name: 'Mummified', inheritChance: 0.35, tier: 'rare', glow: '#e8dcb8',
+    blurb: 'Caught in a Tomb Wind and wrapped from head to tail in old bandages.',
+  },
+  zombified: {
+    id: 'zombified', trait: 'Zombified', name: 'Zombified', inheritChance: 0.4, tier: 'common', glow: '#9ccf7a',
+    blurb: 'Wandered into the Graveyard Fog and came out green, stitched and a little shuffly.',
+  },
+  vampire: {
+    id: 'vampire', trait: 'Vampire', name: 'Vampire', inheritChance: 0.25, tier: 'epic', glow: '#d8283e',
+    blurb: 'Bitten by the light of a Blood Moon: a little cape, tiny fangs and red eyes.',
+  },
+  pumpkin: {
+    id: 'pumpkin', trait: 'Pumpkin', name: 'Pumpkin', inheritChance: 0.4, tier: 'common', glow: '#ff8a1a',
+    blurb: 'Grew a jack-o\'-lantern hat during a Pumpkin Patch night. It glows after dark.',
+  },
 };
 
 // ---------------------------------------------------------------- legendary events
@@ -440,12 +465,69 @@ export const EVENTS: Record<EventKind, EventDef> = {
       bubble: 'Sparkling with comet dust 💫',
     },
   },
+  // ---- Halloween skies (only during the Halloween season; one comes at least once an hour)
+  haunting: {
+    arrive: 'A Haunting! Ghosts drift over the island…', leave: 'The ghosts fade away with a giggle.', away: 'A Haunting drifted over the sanctuary.',
+    kind: 'haunting', name: 'Haunting', icon: '👻', mutation: 'ghostly', empowers: 'Spirit', season: 'halloween',
+    attracts: { Spirit: 3, Mystic: 1.5 },
+    arrivalMutationChance: 0.15, empoweredMutationChance: 0.45, eggMutationChance: 0.3,
+    teaser: 'Something keeps whispering "boo" from behind the trees.',
+    durationMin: [3, 4.5], dark: true,
+    touch: { name: 'ghost', perEvent: 2, chance: 0.5, favor: 'Spirit', story: 'A friendly ghost floated right through it, and it came out Ghostly.', lesson: 'A Haunting can turn a creature Ghostly.', bubble: 'A ghost went right through me 👻' },
+  },
+  boneyard: {
+    arrive: 'Boneyard Night! You can hear bones rattling in the dark.', leave: 'The rattling stops.', away: 'Bones rattled through a Boneyard Night.',
+    kind: 'boneyard', name: 'Boneyard Night', icon: '💀', mutation: 'calcified', empowers: 'Reptile', season: 'halloween',
+    attracts: { Reptile: 2, Dragon: 1.5 },
+    arrivalMutationChance: 0.15, empoweredMutationChance: 0.4, eggMutationChance: 0.3,
+    teaser: 'The skeletons are getting their dancing shoes out.',
+    durationMin: [3, 4.5], dark: true,
+    touch: { name: 'bone dust', perEvent: 2, chance: 0.5, favor: 'Reptile', story: 'Danced with the skeletons on Boneyard Night and came home Calcified.', lesson: 'Boneyard Night can turn a creature Calcified.', bubble: 'Rattled by bone dust 💀' },
+  },
+  tomb: {
+    arrive: 'A Tomb Wind blows, full of old bandages!', leave: 'The Tomb Wind settles.', away: 'A Tomb Wind blew through.',
+    kind: 'tomb', name: 'Tomb Wind', icon: '🧻', mutation: 'mummified', empowers: 'Sand', season: 'halloween',
+    attracts: { Sand: 2.5, Mammal: 1.3 },
+    arrivalMutationChance: 0.15, empoweredMutationChance: 0.4, eggMutationChance: 0.3,
+    teaser: 'The old ruins are creaking open.',
+    durationMin: [3, 4.5], dark: false,
+    touch: { name: 'bandage', perEvent: 2, chance: 0.5, favor: 'Sand', story: 'Got wrapped up in flying bandages on a Tomb Wind. Mummified!', lesson: 'A Tomb Wind can Mummify a creature.', bubble: 'All wrapped up 🧻' },
+  },
+  graveyard: {
+    arrive: 'A green Graveyard Fog creeps in…', leave: 'The fog shuffles away.', away: 'A Graveyard Fog crept over the islands.',
+    kind: 'graveyard', name: 'Graveyard Fog', icon: '🧟', mutation: 'zombified', empowers: 'Amphibian', season: 'halloween',
+    attracts: { Amphibian: 2, Fungus: 2, Insect: 1.5 },
+    arrivalMutationChance: 0.2, empoweredMutationChance: 0.45, eggMutationChance: 0.35,
+    teaser: 'Something is groaning under the moss. Probably fine.',
+    durationMin: [3, 4.5], dark: true,
+    touch: { name: 'green fog', perEvent: 2, chance: 0.55, favor: 'Amphibian', story: 'Shuffled out of the Graveyard Fog a little green and stitched up. Zombified!', lesson: 'Graveyard Fog can Zombify a creature.', bubble: 'Braaains… I mean berries 🧟' },
+  },
+  bloodmoon: {
+    arrive: 'A Blood Moon rises, red and enormous!', leave: 'The moon turns back to silver.', away: 'A Blood Moon rose over the sanctuary.',
+    kind: 'bloodmoon', name: 'Blood Moon', icon: '🧛', mutation: 'vampire', empowers: 'Mammal', season: 'halloween',
+    attracts: { Mammal: 2, Bird: 1.5, Spirit: 1.5 },
+    arrivalMutationChance: 0.12, empoweredMutationChance: 0.35, eggMutationChance: 0.25,
+    teaser: 'Bats are gathering. The moon looks a little pink tonight.',
+    durationMin: [3, 4.5], dark: true,
+    touch: { name: 'blood moonbeam', perEvent: 1, chance: 0.55, favor: 'Mammal', story: 'Stood in the light of the Blood Moon and woke up a little Vampire.', lesson: 'The Blood Moon can turn a creature into a little Vampire.', bubble: 'I vant to nibble your berries 🧛' },
+  },
+  pumpkinpatch: {
+    arrive: 'Pumpkin Patch night! Jack-o\'-lanterns light up everywhere.', leave: 'The lanterns flicker out.', away: 'Jack-o\'-lanterns lit up a Pumpkin Patch night.',
+    kind: 'pumpkinpatch', name: 'Pumpkin Patch', icon: '🎃', mutation: 'pumpkin', empowers: 'Grove', season: 'halloween',
+    attracts: { Grove: 2, Bloom: 1.5, Insect: 1.3 },
+    arrivalMutationChance: 0.2, empoweredMutationChance: 0.45, eggMutationChance: 0.35,
+    teaser: 'Pumpkins are popping up all over the meadow.',
+    durationMin: [3, 4.5], dark: true,
+    touch: { name: 'pumpkin', perEvent: 2, chance: 0.55, favor: 'Grove', story: 'A pumpkin landed on its head on Pumpkin Patch night, and stayed there.', lesson: 'On Pumpkin Patch nights, creatures can end up wearing a pumpkin.', bubble: 'Look at my pumpkin hat 🎃' },
+  },
 };
 
 /** Events an ad can summon, with weights. The rarer natural events are favored. */
 export const SUMMON_WEIGHTS: Record<EventKind, number> = {
   storm: 1, eclipse: 1, starry: 1.3, fullmoon: 1.3, blizzard: 1.3, rainbow: 1.1, aurora: 1.3, meteor: 1.3, fog: 1,
   heatwave: 1, blossom: 1.1, firefly: 1.2, gale: 1, bubbles: 1.3, comet: 1.3,
+  // Halloween skies are never summoned outside the season (see summonEvent)
+  haunting: 0, boneyard: 0, tomb: 0, graveyard: 0, bloodmoon: 0, pumpkinpatch: 0,
 };
 
 // ---------------------------------------------------------------- resonances

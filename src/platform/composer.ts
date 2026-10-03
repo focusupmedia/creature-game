@@ -3,7 +3,7 @@
 // sound. Each mood is a small "song recipe": key, tempo, chords, instruments.
 
 export type MoodId = 'day' | 'night' | 'storm' | 'eclipse' | 'starry' | 'fullmoon' | 'blizzard' | 'rainbow' | 'aurora' | 'meteor' | 'fog' | 'angel' | 'infernal' | 'abyssal'
-  | 'heatwave' | 'blossom' | 'firefly' | 'gale' | 'bubbles' | 'comet';
+  | 'heatwave' | 'blossom' | 'firefly' | 'gale' | 'bubbles' | 'comet' | 'spooky';
 export type Inst = 'kalimba' | 'marimba' | 'bell' | 'bass' | 'pad';
 
 export interface Note {
@@ -52,6 +52,8 @@ export const MOODS: Record<MoodId, MoodDef> = {
   // Low, thoughtful marimba in D dorian; quiet so the rain sits on top.
   storm: { bpm: 76, root: 50, scale: DORIAN, chords: [0, 3, 0, 6], lead: 'marimba', arp: null, pad: true, bass: true, density: [0.15, 0.5], arpDensity: 0, swing: 0, volume: 0.7, echo: 0.28 },
   // Mysterious, floaty kalimba in E phrygian.
+  // Halloween skies: a playful minor-key creep, plinky bells and a walking bass
+  spooky: { bpm: 84, root: 50, scale: AEOLIAN, chords: [0, 5, 3, 4], lead: 'marimba', arp: 'bell', pad: true, bass: true, density: [0.16, 0.55], arpDensity: 0.35, swing: 0.12, volume: 0.85, echo: 0.4 },
   eclipse: { bpm: 58, root: 52, scale: PHRYGIAN, chords: [0, 1, 0, 6], lead: 'kalimba', arp: null, pad: true, bass: true, density: [0.1, 0.45], arpDensity: 0, swing: 0, volume: 0.85, echo: 0.42 },
   // Twinkly bells and kalimba sparkles in E lydian.
   starry: { bpm: 80, root: 64, scale: LYDIAN, chords: [0, 1, 0, 4], lead: 'bell', arp: 'kalimba', pad: true, bass: false, density: [0.15, 0.55], arpDensity: 0.35, swing: 0.05, volume: 0.85, echo: 0.4 },

@@ -14,6 +14,7 @@ import { marketPrice, marketReady, marketWants, wantFilled, wantMatches } from '
 import type { WelcomeGift } from '../core/away';
 import type { SaveSummary } from '../core/cloud';
 import { GAME_NAME } from './brand';
+import { halloweenEndsAt, inHalloween } from '../content/seasons';
 import { eggIcon, eggName, tierEggIcon } from './eggLook';
 import { wandererDeals } from '../core/wanderers';
 import { activeEvent, dayPhase, daylight, isDark, nextEvent } from '../core/world';
@@ -57,7 +58,8 @@ export function shopTabFor(text: string): ShopTab | null {
 
 const fmtClock = (ms: number) => `${Math.floor(Math.max(0, ms) / 60000)}:${String(Math.floor(Math.max(0, ms) / 1000) % 60).padStart(2, '0')}`;
 
-const MUT_ICON: Record<MutationId, string> = { lunar: '🌙', storm: '⚡', giant: '⛰️', prismatic: '🌈', starlit: '🌟', frost: '❄️', angelic: '😇', infernal: '😈', abyssal: '🫧', aurora: '🌌', misty: '🌫️', sunkissed: '☀️', blossom: '🌸', glowing: '✨', breezy: '🌬️', bubbly: '🫧', cosmic: '💫', crystal: '💎', golden: '👑' };
+const MUT_ICON: Record<MutationId, string> = { lunar: '🌙', storm: '⚡', giant: '⛰️', prismatic: '🌈', starlit: '🌟', frost: '❄️', angelic: '😇', infernal: '😈', abyssal: '🫧', aurora: '🌌', misty: '🌫️', sunkissed: '☀️', blossom: '🌸', glowing: '✨', breezy: '🌬️', bubbly: '🫧', cosmic: '💫', crystal: '💎', golden: '👑',
+  ghostly: '👻', calcified: '💀', mummified: '🧻', zombified: '🧟', vampire: '🧛', pumpkin: '🎃' };
 const ITEM_ICON: Record<string, string> = { warmth: '🔥', giantChance: '🧪', grow: '🌱', shrink: '💧', glitter: '✨', speedy: '⚡' };
 const HABITAT_ICON: Partial<Record<Trait | 'Any', string>> = { Grove: '🌳', Tide: '💧', Bloom: '🌸', Mystic: '🔮', Any: '✨' };
 const MUTATION_TRAITS: Trait[] = ['Lunar', 'Storm', 'Giant', 'Prismatic', 'Starlit', 'Frost', 'Angelic', 'Infernal', 'Abyssal', 'Aurora', 'Misty'];
@@ -1891,6 +1893,12 @@ export class UI {
       case 'abyssal': return 'Legendary. The lagoon is deeper than it looks. Something rises from it, once in a long while.';
       case 'aurora': return 'On the clearest, coldest nights, ribbons of light sometimes dance overhead.';
       case 'misty': return 'Shy things come out when a soft fog rolls in. Some keep a little of it.';
+      case 'ghostly': return 'Halloween only: something friendly and see-through drifts by on spooky nights.';
+      case 'calcified': return 'Halloween only: listen for rattling bones after dark.';
+      case 'mummified': return 'Halloween only: an old wind blows out of the ruins.';
+      case 'zombified': return 'Halloween only: a green fog creeps out of the graveyard.';
+      case 'vampire': return 'Halloween only: the moon turns red, and the bats come out.';
+      case 'pumpkin': return 'Halloween only: pumpkins pop up all over the meadow one night.';
       default: return 'Vanishingly rare. Nobody you know has seen one.';
     }
   }
@@ -2194,9 +2202,12 @@ export class UI {
     this.modal((m, close) => {
       m.append(
         h('h2', { class: 'outlined' }, 'Summon an event!'),
+        inHalloween(t) ? h('div', { class: 'halloween-banner' },
+          h('b', null, `🎃 Halloween event · ${halloweenEndsAt(t) - t > 86_400_000 ? `${Math.ceil((halloweenEndsAt(t) - t) / 86_400_000)} days` : fmtDuration(halloweenEndsAt(t) - t)} left`),
+          h('span', null, 'A spooky sky comes at least once an hour, and each one can leave a rare mark: Ghostly, Calcified, Mummified, Zombified, Vampire or Pumpkin. Eggs feel them too!')) : '',
         h('p', null, 'Watch a short ad and the sky brings a random event. Maybe a storm or an eclipse… or something rare like a Starry Night, a Full Moon or an Aurora.'),
         h('div', { class: 'row', style: 'justify-content:center;gap:10px;font-size:26px;margin:8px 0;flex-wrap:wrap' },
-          ...Object.values(EVENTS).map((e) => h('span', { title: e.name }, e.icon))),
+          ...Object.values(EVENTS).filter((e) => !e.season || inHalloween(t)).map((e) => h('span', { title: e.name }, e.icon))),
         h('p', { class: 'muted' }, busy
           ? `A ${EVENTS[busy.kind].name.toLowerCase()} is happening right now. Try again when it passes.`
           : `${left} ad${left === 1 ? '' : 's'} left today. Each event can change your creatures in its own way.`),

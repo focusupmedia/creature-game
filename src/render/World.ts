@@ -49,6 +49,7 @@ interface Burst { sprite: THREE.Sprite; vel: THREE.Vector3; life: number; max: n
 /** The colour of the sparkle when one of the newer skies touches a creature. */
 const TOUCH_COLOR: Partial<Record<EventKind, string>> = {
   heatwave: '#ffc04a', blossom: '#ff9ec4', firefly: '#e8ff6a', gale: '#e8f6ff', bubbles: '#9ae6ff', comet: '#c8b8ff',
+  haunting: '#dfe8ff', boneyard: '#f6f2e4', tomb: '#e8dcb8', graveyard: '#9ccf7a', bloodmoon: '#ff4a5a', pumpkinpatch: '#ff9a2a',
 };
 
 export class World {

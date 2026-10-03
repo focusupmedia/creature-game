@@ -7,6 +7,7 @@ import { ISLANDS, SIZE_PRICE } from '../content/islands';
 import { SPECIES, WILD_SPECIES } from '../content/species';
 import { islandCapacity, islandPopulation } from './sim';
 import { TUNING } from '../content/tuning';
+import { inHalloween } from '../content/seasons';
 import { addMutation, displayName, makeCreature, newId } from './creatures';
 import { compatibility, combine, incubationMs } from './genetics';
 import { addNote, recordMutation, recordResonance, recordSpecies } from './journal';
@@ -604,7 +605,9 @@ export function summonEvent(state: GameState, t: number): Result<{ kind: EventKi
   if (activeEvent(state, t)) return fail('The sky is already busy. Wait for this event to pass.');
   if (adsLeft(state, t) <= 0) return fail('No more ads today. Come back tomorrow!');
   const rng = new StateRng(state);
-  const kind = rng.weighted(Object.entries(SUMMON_WEIGHTS) as [EventKind, number][]) ?? 'storm';
+  // during Halloween an ad can bring the spooky skies too
+  const weights = (Object.entries(SUMMON_WEIGHTS) as [EventKind, number][]).map(([k, w]): [EventKind, number] => [k, EVENTS[k].season === 'halloween' && inHalloween(t) ? 1.2 : w]);
+  const kind = rng.weighted(weights) ?? 'storm';
   const [dMin, dMax] = EVENTS[kind].durationMin;
   const dur = rng.range(dMin, dMax) * 60_000;
   consumeAd(state, t);

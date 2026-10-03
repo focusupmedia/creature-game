@@ -718,3 +718,8 @@ input.rename { font-family: var(--display); font-size: 22px; border: var(--outli
 /* best friend perks on the creature card */
 .perks { margin: 4px 0 0; padding-left: 18px; font-size: 13px; color: #6a4a00; }
 .perks li { margin: 1px 0; }
+
+/* Halloween: the limited-time banner */
+.halloween-banner { display: flex; flex-direction: column; gap: 4px; margin: 6px 0 8px; padding: 10px 12px; border-radius: 14px; border: 3px solid #1b2a4a;
+  background: linear-gradient(135deg, #3a1a5a, #7a3a8a 55%, #ff8a1a); color: #fff; font-size: 13px; text-align: left; }
+.halloween-banner b { font-size: 15px; color: #ffd27a; }

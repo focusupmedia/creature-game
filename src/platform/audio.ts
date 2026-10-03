@@ -5,6 +5,7 @@
 import type { EventKind, IslandId, LegendaryKind } from '../core/types';
 import type { MoodId } from './composer';
 import { Music } from './music';
+import { EVENTS } from '../content/world';
 
 /** The kinds of voice creatures have (see voiceOf in render/voices.ts). */
 export type VoiceKind = 'croak' | 'tweet' | 'squeak' | 'purr' | 'hiss' | 'buzz' | 'bloop' | 'roar' | 'chime' | 'ooh' | 'pop' | 'click';
@@ -106,7 +107,7 @@ export class Audio {
     // Legendary and sky events set the music's mood; otherwise day or night,
     // with a little overlap at dawn and dusk so it doesn't flip back and forth.
     if (legendary) this.mood = legendary;
-    else if (sky) this.mood = sky;
+    else if (sky) this.mood = EVENTS[sky].season ? 'spooky' : (sky as MoodId);
     else if (darkness > 0.6) this.mood = 'night';
     else if (darkness < 0.4 || this.mood !== 'night') this.mood = 'day';
     if (!this.ctx || !this.rain || !this.wind) return;

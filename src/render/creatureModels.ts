@@ -90,6 +90,7 @@ const G = {
   octa: new THREE.OctahedronGeometry(1, 0),
   smile: new THREE.TorusGeometry(0.11, 0.022, 6, 16, Math.PI),
   tetra: new THREE.TetrahedronGeometry(1, 0),
+  box: new THREE.BoxGeometry(1, 1, 1),
 };
 
 class Kit {
@@ -849,6 +850,31 @@ function mutatePalette(P: Palette, muts: MutationId[], seed: number, shade?: str
     out.second = mix(out.second, '#6a4ad0', 0.5);
   }
   if (muts.includes('crystal')) out.accent = '#bff4ff';
+  // Halloween marks
+  if (muts.includes('ghostly')) {
+    out.main = mix(out.main, '#e8eeff', 0.6);
+    out.second = mix(out.second, '#c8d4ff', 0.5);
+    out.belly = mix(out.belly, '#ffffff', 0.6);
+  }
+  if (muts.includes('calcified')) {
+    out.main = mix(out.main, '#f4efe0', 0.7);
+    out.second = mix(out.second, '#d8d0b8', 0.6);
+    out.belly = mix(out.belly, '#fffaf0', 0.5);
+  }
+  if (muts.includes('mummified')) {
+    out.main = mix(out.main, '#e8dcb8', 0.55);
+    out.second = mix(out.second, '#c8b890', 0.4);
+  }
+  if (muts.includes('zombified')) {
+    out.main = mix(out.main, '#8fbf6a', 0.5);
+    out.second = mix(out.second, '#5a7a4a', 0.45);
+    out.belly = mix(out.belly, '#c8e0a8', 0.4);
+  }
+  if (muts.includes('vampire')) {
+    out.main = mix(out.main, '#d8d0e8', 0.25);
+    out.accent = '#d8283e';
+  }
+  if (muts.includes('pumpkin')) out.second = mix(out.second, '#ff8a1a', 0.35);
   // Golden goes last: it gilds everything
   if (muts.includes('golden')) {
     out.main = mix(out.main, '#ffd23d', 0.6);
@@ -1208,6 +1234,94 @@ export function buildCreature(speciesId: SpeciesId, mutations: MutationId[], see
       gem.rotation.set(Math.sin(a) * 0.4, 0, -Math.cos(a) * 0.4);
       body.add(gem);
     }
+  }
+  // ---- Halloween marks
+  if (muts.includes('ghostly')) {
+    // see-through, with a cold glow
+    for (const mat of k.mats.slice(0, m.bodyMats)) {
+      mat.transparent = true;
+      mat.opacity = 0.62;
+    }
+    const chill = glowSprite('#dfe8ff', 1.5 * A.scale, 0.5);
+    chill.position.copy(A.center);
+    body.add(chill);
+    m.glows.push(chill);
+  }
+  if (muts.includes('calcified')) {
+    // bones showing along its back, and a little skull charm on its head
+    for (let i = 0; i < 4; i++) {
+      const bz = A.back.z + (i - 1.5) * 0.07 * A.scale;
+      const rib = k.mesh(G.cyl, '#b8ae90', [0.028, 0.22 * A.scale, 0.028], [A.back.x, A.top(A.back.x, bz) + 0.012, bz]);
+      rib.rotation.z = Math.PI / 2;
+      body.add(rib);
+    }
+    const spine = k.mesh(G.cyl, '#b8ae90', [0.025, 0.26 * A.scale, 0.025], [A.back.x, A.top(A.back.x, A.back.z) + 0.02, A.back.z]);
+    spine.rotation.x = Math.PI / 2;
+    body.add(spine);
+    const skull = k.ball(0.05, '#fffaf0', [A.head.x + 0.05, A.head.y + 0.02, A.head.z + 0.04], [1, 0.85, 1]);
+    onHead(skull);
+    for (const sgn of [1, -1]) onHead(k.ball(0.012, '#1b2a4a', [A.head.x + 0.05 + sgn * 0.018, A.head.y + 0.025, A.head.z + 0.088]));
+  }
+  if (muts.includes('mummified')) {
+    // wide bandage strips wrapped over its body, from tail to neck
+    const front = A.head.z * 0.7;
+    for (let i = 0; i < 5; i++) {
+      const bz = A.tailZ + ((front - A.tailZ) * (i + 0.5)) / 5;
+      const strip = k.mesh(G.box, i % 2 ? '#f4ecd8' : '#e0d4b0', [A.halfW * 2.3, 0.035, 0.055 * A.scale], [A.back.x, A.top(A.back.x, bz) + 0.008, bz]);
+      strip.rotation.set((i % 2 ? 1 : -1) * 0.12, (i - 2) * 0.18, 0);
+      body.add(strip);
+    }
+  }
+  if (muts.includes('zombified')) {
+    // a line of stitches across its back
+    const yy = A.top(A.back.x, A.back.z) + 0.008;
+    const len = 0.22 * A.scale;
+    const line = k.mesh(G.box, '#2a2a20', [len, 0.014, 0.016], [A.back.x, yy, A.back.z]);
+    line.userData.noOutline = true;
+    body.add(line);
+    for (let i = 0; i < 5; i++) {
+      const st = k.mesh(G.box, '#2a2a20', [0.014, 0.016, 0.07], [A.back.x + (i - 2) * len / 5, yy, A.back.z]);
+      st.userData.noOutline = true;
+      body.add(st);
+    }
+  }
+  if (muts.includes('vampire')) {
+    // little bat wings, a cape over its back and tiny fangs
+    for (const sgn of [1, -1]) {
+      const wing = k.mesh(G.cone, '#2a1430', [0.07 * A.scale, 0.2 * A.scale, 0.02], [A.back.x + sgn * (A.halfW + 0.06 * A.scale), A.back.y - 0.02, A.back.z]);
+      wing.rotation.set(0, 0, sgn * -1.9);
+      body.add(wing);
+      const lining = k.mesh(G.cone, '#c8203a', [0.05 * A.scale, 0.15 * A.scale, 0.012], [A.back.x + sgn * (A.halfW + 0.05 * A.scale), A.back.y - 0.02, A.back.z + 0.012]);
+      lining.rotation.set(0, 0, sgn * -1.9);
+      body.add(lining);
+    }
+    const cape = k.mesh(G.cone, '#2a1430', [0.22 * A.scale, 0.32 * A.scale, 0.1], [A.back.x, A.back.y - 0.04, A.back.z + 0.02]);
+    cape.rotation.x = 0.25;
+    body.add(cape);
+    for (const sgn of [1, -1]) {
+      const fang = k.mesh(G.cone, '#ffffff', [0.014, 0.045, 0.014], [A.head.x + sgn * 0.025, A.head.y - 0.12, A.head.z + 0.1]);
+      fang.rotation.x = Math.PI;
+      onHead(fang);
+    }
+  }
+  if (muts.includes('pumpkin')) {
+    // a jack-o'-lantern hat that glows in the dark
+    const hs = Math.max(1, A.headW * 3);
+    const hat = new THREE.Group();
+    hat.position.set(A.head.x, A.head.y + 0.07 * hs, A.head.z);
+    hat.add(k.ball(0.13 * hs, '#ff8a1a', [0, 0, 0], [1.25, 0.85, 1.25], '#7a3000'));
+    for (const sgn of [1, -1]) {
+      const eye = k.mesh(G.cone, '#3a1a00', [0.025 * hs, 0.035 * hs, 0.01], [sgn * 0.05 * hs, 0.02 * hs, 0.155 * hs], '#ffb030');
+      eye.rotation.x = Math.PI / 2;
+      hat.add(eye);
+    }
+    hat.add(k.mesh(G.box, '#3a1a00', [0.1 * hs, 0.02 * hs, 0.01], [0, -0.04 * hs, 0.155 * hs], '#ffb030'));
+    hat.add(k.mesh(G.cyl, '#3a7a2a', [0.02 * hs, 0.07 * hs, 0.02 * hs], [0, 0.13 * hs, 0]));
+    const face = glowSprite('#ffb030', 0.45 * hs, 0.6);
+    face.position.set(0, 0, 0.12 * hs);
+    face.userData.night = true;
+    hat.add(face);
+    onHead(hat);
   }
   if (muts.includes('golden')) {
     const shine = glowSprite('#ffd23d', 1.6 * A.scale, 0.5);

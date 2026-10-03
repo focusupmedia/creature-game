@@ -11,11 +11,14 @@ export type Trait =
   | 'Amphibian' | 'Reptile' | 'Insect' | 'Bird' | 'Fish' | 'Mammal' | 'Fungus' | 'Spirit' | 'Dragon' | 'Primate' | 'Arachnid'
   // Mutation traits — acquired, never native
   | 'Lunar' | 'Storm' | 'Giant' | 'Prismatic' | 'Starlit' | 'Frost' | 'Angelic' | 'Infernal' | 'Abyssal' | 'Aurora' | 'Misty'
-  | 'Sunkissed' | 'Blossom' | 'Glowing' | 'Breezy' | 'Bubbly' | 'Cosmic' | 'Crystal' | 'Golden';
+  | 'Sunkissed' | 'Blossom' | 'Glowing' | 'Breezy' | 'Bubbly' | 'Cosmic' | 'Crystal' | 'Golden'
+  // Halloween marks
+  | 'Ghostly' | 'Calcified' | 'Mummified' | 'Zombified' | 'Vampire' | 'Pumpkin';
 
 export type SpeciesId = string;
 export type MutationId = 'lunar' | 'storm' | 'giant' | 'prismatic' | 'starlit' | 'frost' | 'angelic' | 'infernal' | 'abyssal' | 'aurora' | 'misty'
-  | 'sunkissed' | 'blossom' | 'glowing' | 'breezy' | 'bubbly' | 'cosmic' | 'crystal' | 'golden';
+  | 'sunkissed' | 'blossom' | 'glowing' | 'breezy' | 'bubbly' | 'cosmic' | 'crystal' | 'golden'
+  | 'ghostly' | 'calcified' | 'mummified' | 'zombified' | 'vampire' | 'pumpkin';
 /** Very rare events that grant a gift and leave one creature with a legendary mutation. Never summoned by ads. */
 export type LegendaryKind = 'angel' | 'infernal' | 'abyssal';
 export type LureId = string;
@@ -26,7 +29,9 @@ export type IslandId = 'home' | 'volcano' | 'lagoon' | 'beach' | 'desert' | 'clo
 export type Personality = 'energetic' | 'lazy' | 'shy' | 'curious' | 'grumpy' | 'friendly';
 export type WandererKind = 'fortune' | 'treasure' | 'chef' | 'gnome' | 'goblin';
 export type EventKind = 'storm' | 'eclipse' | 'starry' | 'fullmoon' | 'blizzard' | 'rainbow' | 'aurora' | 'meteor' | 'fog'
-  | 'heatwave' | 'blossom' | 'firefly' | 'gale' | 'bubbles' | 'comet';
+  | 'heatwave' | 'blossom' | 'firefly' | 'gale' | 'bubbles' | 'comet'
+  // Halloween skies: only during the Halloween season
+  | 'haunting' | 'boneyard' | 'tomb' | 'graveyard' | 'bloodmoon' | 'pumpkinpatch';
 
 export type Rarity = 'common' | 'uncommon' | 'rare' | 'legendary' | 'mythical';
 export type Activity = 'day' | 'night' | 'any';
@@ -130,6 +135,8 @@ export interface EventDef {
   durationMin: [number, number];
   /** A rare sky (a Wild Sky Charm can bring it). */
   rare?: boolean;
+  /** Only during a limited-time season (e.g. Halloween). */
+  season?: 'halloween';
   /** Counts as night for nocturnal creatures. */
   dark: boolean;
   /** How the event reaches down and changes a resident creature. */

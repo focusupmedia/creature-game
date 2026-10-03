@@ -5,6 +5,7 @@
 
 import { EVENTS } from '../content/world';
 import { TUNING } from '../content/tuning';
+import { HALLOWEEN_SKIES, inHalloween } from '../content/seasons';
 import { hash01 } from './rng';
 import type { EventKind, GameState } from './types';
 
@@ -62,7 +63,10 @@ export function eventInWindow(state: Pick<GameState, 'seed' | 'createdAt'>, w: n
     return { key: '0', kind: 'storm', start, end: start + 4 * MIN };
   }
   if (hash01(state.seed, w, 1) > TUNING.eventChancePerWindow) return null;
-  const kind = pickKind(hash01(state.seed, w, 2));
+  // Halloween: every third window brings one of the spooky skies (so at least one an hour)
+  const kind = inHalloween(winStart) && w % 3 === 1
+    ? HALLOWEEN_SKIES[Math.floor(hash01(state.seed, w, 5) * HALLOWEEN_SKIES.length) % HALLOWEEN_SKIES.length]
+    : pickKind(hash01(state.seed, w, 2));
   const [dMin, dMax] = EVENTS[kind].durationMin;
   const dur = (dMin + (dMax - dMin) * hash01(state.seed, w, 3)) * MIN;
   const start = winStart + hash01(state.seed, w, 4) * Math.min(TUNING.eventJitterMin * MIN, winMs - dur - MIN);

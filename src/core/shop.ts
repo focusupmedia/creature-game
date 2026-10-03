@@ -4,6 +4,7 @@
 
 import { DECOR, EGG_TIERS, EVENTS, FOODS, ITEMS, LURES, SKY_ITEMS, TOOLS } from '../content/world';
 import { TUNING } from '../content/tuning';
+import { inHalloween } from '../content/seasons';
 import { mulberry32 } from './rng';
 import type { GameState, IslandId, ShopOffer, ShopState } from './types';
 
@@ -46,7 +47,8 @@ export function generateShop(seed: number, rotation: number, t: number, owned: I
   add({ kind: 'item', ref: s2.id, price: s2.price, currency: 'glimmer', qty: 1, stock: 3 });
 
   // Sky items, for Starshards: two rotating charms, the wild charm and the forecasts
-  const charms = Object.keys(EVENTS).map((k) => `charm-${k}`);
+  // Halloween charms are only in stock during the Halloween season
+  const charms = (Object.keys(EVENTS) as (keyof typeof EVENTS)[]).filter((k) => !EVENTS[k].season || inHalloween(t)).map((k) => `charm-${k}`);
   const c1 = pick(charms);
   const c2 = pick(charms.filter((x) => x !== c1));
   for (const id of [c1, c2, 'wildcharm', 'starchart']) add({ kind: 'sky', ref: id, price: SKY_ITEMS[id].price, currency: 'shards', qty: 1, stock: id === 'starchart' ? 99 : 2 });

@@ -44,6 +44,13 @@ const MOODS: Record<EventKind, { mood: Mood; strength: number; darkness: number 
   gale: { mood: M('#5a8ac8', '#c8dcf0', '#b0c8e4', '#f4f8ff', 1.8, '#e0ecf8', '#5a6a5a', 1.1), strength: 0.6, darkness: 0 },
   bubbles: { mood: M('#4ab8e8', '#c8f4ff', '#a8e8ff', '#f0fcff', 2.1, '#e8faff', '#4a8a8a', 1.2), strength: 0.65, darkness: 0 },
   comet: { mood: M('#08082a', '#2a1a5a', '#30206a', '#d8c8ff', 0.6, '#8a7ad8', '#20183a', 0.85), strength: 0.95, darkness: 0.85 },
+  // Halloween skies: purple-and-orange dusks, green fog, a red moon
+  haunting: { mood: M('#1a1038', '#4a3a7a', '#3a2f6a', '#dfe8ff', 0.6, '#a8a0e0', '#24203a', 0.85), strength: 0.95, darkness: 0.75 },
+  boneyard: { mood: M('#141020', '#3a3048', '#2f2a3a', '#f6f2e4', 0.55, '#a8a0b8', '#201c28', 0.85), strength: 0.95, darkness: 0.8 },
+  tomb: { mood: M('#7a5a30', '#e8c890', '#d8b070', '#ffe8b0', 1.6, '#f0d8a8', '#6a5030', 1.1), strength: 0.75, darkness: 0.15 },
+  graveyard: { mood: M('#1a2a20', '#4a6a48', '#3a5a3a', '#c8f0a8', 0.6, '#8ab07a', '#1a281a', 0.9), strength: 0.95, darkness: 0.7 },
+  bloodmoon: { mood: M('#200814', '#6a1a2a', '#5a1424', '#ff8a8a', 0.8, '#d86a7a', '#2a1018', 0.9), strength: 0.95, darkness: 0.75 },
+  pumpkinpatch: { mood: M('#1a1030', '#6a3a2a', '#7a4020', '#ffb060', 0.8, '#ff9a4a', '#2a1a14', 0.95), strength: 0.95, darkness: 0.7 },
 };
 
 const RAINBOW = ['#ff4a4a', '#ff9a2a', '#ffe23a', '#5ad64a', '#3aa8ff', '#5a5aff', '#b05aff'];
@@ -91,6 +98,7 @@ export class Sky {
   /** 0..1 how much of each event is showing (eases in/out). */
   private mix: Record<EventKind, number> = {
     storm: 0, eclipse: 0, starry: 0, fullmoon: 0, blizzard: 0, rainbow: 0, aurora: 0, meteor: 0, fog: 0,
+    haunting: 0, boneyard: 0, tomb: 0, graveyard: 0, bloodmoon: 0, pumpkinpatch: 0,
     heatwave: 0, blossom: 0, firefly: 0, gale: 0, bubbles: 0, comet: 0,
   };
   /** Petals (Blossom Breeze), motes (fireflies, heat shimmer), bubbles, wind streaks (Gale) and the comet. */
