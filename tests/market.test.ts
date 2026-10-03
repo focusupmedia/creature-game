@@ -106,3 +106,23 @@ describe('wandering keepers', () => {
     expect(wandererDeals(s, s.wanderer)).toEqual([]);
   });
 });
+
+describe('new quests', () => {
+  it('count selling, the market, friendship, feeding and trips', async () => {
+    const { questEvent, DAILY_POOL, LASTING } = await import('../src/core/quests');
+    const s = createGame(10, T);
+    questEvent(s, { kind: 'sold', coins: 400, count: 2 });
+    questEvent(s, { kind: 'market' });
+    questEvent(s, { kind: 'befriend' });
+    questEvent(s, { kind: 'feed' });
+    questEvent(s, { kind: 'trip' });
+    questEvent(s, { kind: 'hatch', species: 'mossfrog', newSpecies: true, newMutations: 0, mutated: true });
+    expect(s.questStats.sold).toBe(2);
+    expect(s.questStats.soldCoins).toBe(400);
+    expect(s.questStats.market).toBe(1);
+    expect(s.questStats.hatchMutated).toBe(1);
+    expect(DAILY_POOL.length).toBeGreaterThanOrEqual(18);
+    expect(LASTING.length).toBeGreaterThanOrEqual(24);
+    expect(LASTING.find((q) => q.id === 'tycoon')!.progress(s)).toBe(400);
+  });
+});

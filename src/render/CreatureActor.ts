@@ -39,7 +39,9 @@ const DIG_LOOK: Record<DigStyle, { emote: string; note: string }> = {
   leaf: { emote: '🫐', note: 'Just foraged something! ✨' },
 };
 
-type State = 'arrive' | 'wander' | 'idle' | 'eat' | 'sleep' | 'nap' | 'shelter' | 'social' | 'squabble' | 'dig' | 'celebrate' | 'lookup' | 'carried' | 'fetch';
+type State = 'arrive' | 'wander' | 'idle' | 'eat' | 'sleep' | 'nap' | 'shelter' | 'social' | 'squabble' | 'dig' | 'celebrate' | 'lookup' | 'carried' | 'fetch'
+  // things pets get up to on their own
+  | 'chase' | 'flee' | 'cuddle' | 'flutter' | 'splash' | 'dance' | 'sunbathe' | 'ball';
 
 const NEUTRAL: Temper = { speed: 1, idle: 0.3, nap: 0.04, social: 0.4, squabble: 0.08, lure: 0.25 };
 
@@ -99,6 +101,9 @@ export class CreatureActor {
   private fetchId: string | null = null;
   private tripT = 0;
   private scaleNow = 1;
+  /** A little toy for the moment: a butterfly, a firefly, a bubble or a ball. */
+  private prop: THREE.Group | null = null;
+  private propKind: 'butterfly' | 'firefly' | 'bubble' | 'ball' | null = null;
   /** Its temper (first personality trait), adjusted by its other traits. */
   private get temper(): Temper {
     const t = temperOf(this.creature);
@@ -218,6 +223,14 @@ export class CreatureActor {
       case 'celebrate': return 'Celebrating ✨';
       case 'lookup': return 'Staring up at the sky';
       case 'fetch': return 'Off to grab something shiny 💰';
+      case 'chase': return this.partner ? `Chasing ${displayName(this.partner.creature)}! 😆` : 'Playing chase';
+      case 'flee': return this.partner ? `Running from ${displayName(this.partner.creature)}! 😆` : 'Playing chase';
+      case 'cuddle': return this.partner ? `Snuggling up with ${displayName(this.partner.creature)} 🥰` : 'Snuggling up';
+      case 'flutter': return this.propKind === 'firefly' ? 'Chasing fireflies ✨' : this.propKind === 'bubble' ? 'Popping bubbles 🫧' : 'Chasing a butterfly 🦋';
+      case 'splash': return 'Splashing about 💦';
+      case 'dance': return 'Dancing 🎵';
+      case 'sunbathe': return 'Sunbathing 😎';
+      case 'ball': return 'Playing with a ball ⚽';
       case 'idle': return this.hungry ? 'Hungry… 🍖' : 'Taking in the view';
       default: return this.isSwimmer ? 'Swimming laps' : this.isFlyer ? 'Fluttering about' : 'Wandering about';
     }
@@ -385,6 +398,50 @@ export class CreatureActor {
         break;
       case 'carried':
         break;
+      case 'chase':
+        if (this.partner) this.target.set(this.partner.p.x, 0, this.partner.p.z);
+        this.moveToward(dt, 1.5);
+        if (this.timer <= 0 || !this.partner) {
+          this.emote('😆', 1.4);
+          this.partner = null;
+          this.decide(ctx, asleepTime);
+        }
+        break;
+      case 'flee':
+        if (this.moveToward(dt, 1.45) || Math.random() < dt * 0.3) this.runAround(2.2);
+        if (this.timer <= 0) {
+          this.emote('😂', 1.4);
+          this.partner = null;
+          this.decide(ctx, asleepTime);
+        }
+        break;
+      case 'cuddle':
+        if (this.moveToward(dt, 0.9) || this.timer < -8) {
+          this.state = 'sleep';
+          this.emote('🥰', 2);
+        }
+        break;
+      case 'flutter':
+      case 'ball':
+        // zig-zag after the toy
+        if (this.moveToward(dt, this.state === 'ball' ? 1.2 : 1.35)) this.runAround(1.4);
+        if (this.timer <= 0) {
+          this.emote(this.state === 'ball' ? '⚽' : '😊', 1.4);
+          this.dropProp();
+          this.decide(ctx, asleepTime);
+        }
+        break;
+      case 'splash':
+        if (this.moveToward(dt, 1.1)) {
+          this.fxTimer -= dt;
+          if (this.fxTimer <= 0) {
+            this.fxTimer = 0.3;
+            ctx.fx('splash', this.p.clone().add(new THREE.Vector3(Math.sin(this.heading) * 0.35, 0.05, Math.cos(this.heading) * 0.35)));
+          }
+          if (Math.random() < dt * 0.6) this.emote('💦', 1);
+          if (this.timer <= 0) this.decide(ctx, asleepTime);
+        } else this.timer = Math.max(this.timer, 2.5);
+        break;
       case 'shelter':
         this.moveToward(dt, 1.1);
         if (ctx.sky !== 'storm' && ctx.sky !== 'blizzard') this.decide(ctx, asleepTime);
@@ -449,7 +506,8 @@ export class CreatureActor {
     // ---- animate
     const mv = m.movement;
     const ground = 0;
-    const moving = (this.state === 'wander' || this.state === 'arrive' || this.state === 'shelter')
+    const moving = (this.state === 'wander' || this.state === 'arrive' || this.state === 'shelter' || this.state === 'chase' || this.state === 'flee'
+      || this.state === 'cuddle' || this.state === 'flutter' || this.state === 'ball' || this.state === 'splash')
       && Math.hypot(this.p.x - this.target.x, this.p.z - this.target.z) > 0.15;
     const body = m.body;
     body.position.y = 0;
@@ -548,6 +606,15 @@ export class CreatureActor {
       if (this.timer <= 0) this.decide(ctx, asleepTime);
     } else if (this.state === 'lookup') {
       body.rotation.x = -0.35;
+    } else if (this.state === 'dance') {
+      body.position.y += Math.abs(Math.sin(this.phase * 6)) * 0.22;
+      body.rotation.z = Math.sin(this.phase * 6) * 0.25;
+      this.heading += dt * 2.5;
+      if (Math.random() < dt * 0.5) this.emote(Math.random() < 0.6 ? '🎵' : '💃', 1.2);
+    } else if (this.state === 'sunbathe') {
+      body.scale.set(1.12, 0.78, 1.12);
+      body.rotation.x = -0.2;
+      if (Math.random() < dt * 0.15) this.emote('😎', 1.6);
     } else if (this.state === 'shelter' && this.isCold && !moving) {
       body.rotation.z = Math.sin(this.phase * 40) * 0.04; // shivering
     }
@@ -570,6 +637,7 @@ export class CreatureActor {
       m.twinkles.children.forEach((s, i) => s.scale.setScalar(0.03 + Math.max(0, Math.sin(this.phase * 4 + i * 1.7)) * 0.05));
     }
     for (const sp of (this.root.userData.spinners ?? []) as THREE.Object3D[]) sp.rotation.y += dt * (sp.userData.spin ?? 1.5);
+    this.animateProp(dt, moving);
     if (this.root.userData.prismatic) animatePrismatic(m, time);
     animateGlow(m, time);
 
@@ -628,6 +696,19 @@ export class CreatureActor {
       return;
     }
     if (asleepTime) {
+      // snuggle up next to a sleeping friend if one is close by
+      const friend = !this.isSwimmer && !this.q('loner') && Math.random() < 0.5
+        ? ctx.actors.find((o) => o !== this && o.geo === this.geo && o.state === 'sleep' && !o.isSwimmer && Math.hypot(o.p.x - this.p.x, o.p.z - this.p.z) < 6)
+        : undefined;
+      if (friend) {
+        const a = Math.random() * Math.PI * 2;
+        this.target.set(friend.p.x + Math.cos(a) * 0.6, 0, friend.p.z + Math.sin(a) * 0.6);
+        this.partner = friend;
+        this.state = 'cuddle';
+        this.timer = 0;
+        this.note(`Snuggling up with ${displayName(friend.creature)} 🥰`);
+        return;
+      }
       this.state = 'sleep';
       this.emote('💤', 2.5);
       return;
@@ -646,12 +727,13 @@ export class CreatureActor {
       return;
     }
     if (badWeather && hardy && Math.random() < 0.3) this.emote(ctx.sky === 'blizzard' ? '❄️' : '🎵', 1.8);
-    if ((ctx.sky === 'eclipse' || ctx.sky === 'fullmoon' || ctx.sky === 'starry') && Math.random() < 0.35) {
+    if ((ctx.sky === 'eclipse' || ctx.sky === 'fullmoon' || ctx.sky === 'starry' || ctx.sky === 'comet' || ctx.sky === 'meteor' || ctx.sky === 'aurora') && Math.random() < 0.35) {
       this.state = 'lookup';
       this.timer = 2 + Math.random() * 2;
-      this.emote(this.traits.includes('Mystic') || this.traits.includes('Spirit') ? '✨' : ctx.sky === 'starry' ? '🌠' : '❓', 2);
+      this.emote(this.traits.includes('Mystic') || this.traits.includes('Spirit') ? '✨' : ctx.sky === 'starry' ? '🌠' : ctx.sky === 'comet' ? '💫' : '❓', 2);
       return;
     }
+    if (this.weatherFun(ctx)) return;
     // Greedy creatures can't leave shiny things on the ground
     if (this.q('greedy') && !this.isSwimmer && ctx.gifts.length && Math.random() < 0.6) {
       const g = ctx.gifts.reduce((b, x) => (this.dist2(x) < this.dist2(b) ? x : b), ctx.gifts[0]);
@@ -697,6 +779,22 @@ export class CreatureActor {
           near.note(`Got into a squabble with ${displayName(this.creature)}`);
           return;
         }
+        // a game of chase, for the lively ones
+        if (r < T.squabble + T.social * 0.35 && !this.isFlyer && !near.isFlyer && T.speed >= 1 && near.creature.personality !== 'lazy') {
+          this.state = 'chase';
+          this.partner = near;
+          this.timer = 4 + Math.random() * 3;
+          this.socialCooldown = 30 + Math.random() * 20;
+          near.state = 'flee';
+          near.partner = this;
+          near.timer = this.timer;
+          near.socialCooldown = this.socialCooldown;
+          near.runAround(2.2);
+          this.emote('😆', 1.4);
+          near.emote('❗', 1.2);
+          this.note(`Chasing ${displayName(near.creature)}! 😆`);
+          return;
+        }
         if (r < T.squabble + T.social) {
           const shared = this.traits.some((t) => near.traits.includes(t));
           for (const [a, b] of [[this, near], [near, this]] as const) {
@@ -711,6 +809,7 @@ export class CreatureActor {
         }
       }
     }
+    if (this.playSomething(ctx, T)) return;
     if (Math.random() < T.idle) {
       this.state = 'idle';
       this.timer = 1.5 + Math.random() * 4;
@@ -748,6 +847,160 @@ export class CreatureActor {
       }
     }
     this.pickWander();
+  }
+
+  /** Pick a nearby spot to dash to (chase, butterflies, ball). */
+  private runAround(reach: number): void {
+    for (let i = 0; i < 6; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const tx = this.p.x + Math.cos(a) * reach;
+      const tz = this.p.z + Math.sin(a) * reach;
+      if (onLand(this.geo, tx, tz, 0.6) && !isBlocked(this.geo, tx, tz) && (this.isFlyer || this.amphibious || !inWater(this.geo, tx, tz, 0.3))) {
+        this.target.set(tx, 0, tz);
+        return;
+      }
+    }
+    this.target.set(this.p.x, 0, this.p.z);
+  }
+
+  /** The sky sets the mood: sunbathing in a heatwave, dancing in a rainbow, chasing fireflies... */
+  private weatherFun(ctx: ActorContext): boolean {
+    const sky = ctx.sky;
+    if (!sky || this.isSwimmer) return false;
+    if (sky === 'heatwave' && Math.random() < (this.traits.includes('Reptile') || this.traits.includes('Sand') ? 0.6 : 0.3)) {
+      this.state = 'sunbathe';
+      this.timer = 5 + Math.random() * 5;
+      this.emote('😎', 1.8);
+      return true;
+    }
+    if ((sky === 'rainbow' || sky === 'blossom') && Math.random() < 0.3) {
+      this.state = 'dance';
+      this.timer = 3 + Math.random() * 2;
+      this.emote('🎵', 1.6);
+      return true;
+    }
+    if ((sky === 'firefly' || sky === 'bubbles' || sky === 'blossom') && Math.random() < 0.3) {
+      this.startToy(sky === 'firefly' ? 'firefly' : sky === 'bubbles' ? 'bubble' : 'butterfly');
+      return true;
+    }
+    return false;
+  }
+
+  /** Every so often, pets amuse themselves. */
+  private playSomething(ctx: ActorContext, T: Temper): boolean {
+    if (this.isSwimmer || this.hungry) return false;
+    const lively = T.speed >= 1;
+    const r = Math.random();
+    if (r < (lively ? 0.07 : 0.03) && ctx.darkness < 0.5) {
+      this.startToy('butterfly');
+      return true;
+    }
+    if (r < (lively ? 0.12 : 0.05) && !this.isFlyer) {
+      this.startToy('ball');
+      return true;
+    }
+    // stargazing on a clear night
+    if (r < 0.16 && ctx.darkness > 0.6 && !ctx.sky) {
+      this.state = 'lookup';
+      this.timer = 2.5 + Math.random() * 2;
+      this.emote(Math.random() < 0.5 ? '🌙' : '✨', 2);
+      this.note('Stargazing ✨');
+      return true;
+    }
+    // a splash at the water's edge
+    const w = this.geo.water.find((c) => Math.hypot(c.x - this.p.x, c.z - this.p.z) < c.r + 4);
+    if (w && r < 0.22 && !this.isFlyer) {
+      const a = Math.atan2(this.p.z - w.z, this.p.x - w.x);
+      const edge = w.r + (this.amphibious ? -0.3 : 0.35);
+      this.target.set(w.x + Math.cos(a) * edge, 0, w.z + Math.sin(a) * edge);
+      this.state = 'splash';
+      this.timer = 2.5 + Math.random() * 1.5;
+      this.fxTimer = 0;
+      return true;
+    }
+    // musical pets and cold-blooded sun-lovers
+    if (r < 0.26 && this.q('musical')) {
+      this.state = 'dance';
+      this.timer = 3 + Math.random() * 2;
+      return true;
+    }
+    if (r < 0.3 && ctx.darkness < 0.15 && (this.traits.includes('Reptile') || this.traits.includes('Sand'))) {
+      this.state = 'sunbathe';
+      this.timer = 4 + Math.random() * 4;
+      return true;
+    }
+    return false;
+  }
+
+  private startToy(kind: 'butterfly' | 'firefly' | 'bubble' | 'ball'): void {
+    this.dropProp();
+    const g = new THREE.Group();
+    if (kind === 'ball') {
+      const ball = new THREE.Mesh(new THREE.SphereGeometry(0.13, 12, 8), new THREE.MeshToonMaterial({ color: ['#ff5a5a', '#3aa8ff', '#ffd23d', '#5ad64a'][Math.floor(Math.random() * 4)] }));
+      ball.add(new THREE.Mesh(new THREE.TorusGeometry(0.13, 0.025, 4, 16), new THREE.MeshToonMaterial({ color: '#ffffff' })));
+      ball.position.y = 0.13;
+      g.add(ball);
+      g.position.set(0, 0, 0.55);
+    } else if (kind === 'butterfly') {
+      const col = ['#ff9ec4', '#ffd23d', '#8ad8ff', '#b88aff'][Math.floor(Math.random() * 4)];
+      for (const s of [1, -1]) {
+        const wing = new THREE.Mesh(new THREE.CircleGeometry(0.09, 8), new THREE.MeshBasicMaterial({ color: col, side: THREE.DoubleSide }));
+        wing.position.x = s * 0.07;
+        wing.userData.side = s;
+        g.add(wing);
+      }
+      g.position.set(0, 0.7, 0.7);
+    } else {
+      const mat = kind === 'firefly'
+        ? new THREE.SpriteMaterial({ color: '#e8ff6a', transparent: true, opacity: 0.95, blending: THREE.AdditiveBlending, depthWrite: false })
+        : new THREE.SpriteMaterial({ color: '#c8f2ff', transparent: true, opacity: 0.6, depthWrite: false });
+      const s = new THREE.Sprite(mat);
+      s.scale.setScalar(kind === 'firefly' ? 0.25 : 0.4);
+      g.add(s);
+      g.position.set(0, 0.8, 0.7);
+    }
+    this.root.add(g);
+    this.prop = g;
+    this.propKind = kind;
+    this.state = kind === 'ball' ? 'ball' : 'flutter';
+    this.timer = 4 + Math.random() * 3;
+    this.runAround(1.4);
+    this.emote(kind === 'ball' ? '⚽' : kind === 'firefly' ? '✨' : kind === 'bubble' ? '🫧' : '🦋', 1.6);
+  }
+
+  private dropProp(): void {
+    if (!this.prop) return;
+    this.root.remove(this.prop);
+    this.prop.traverse((o) => {
+      if (o instanceof THREE.Mesh || o instanceof THREE.Sprite) {
+        if (o instanceof THREE.Mesh) o.geometry.dispose();
+        (o.material as THREE.Material).dispose();
+      }
+    });
+    this.prop = null;
+    this.propKind = null;
+  }
+
+  private animateProp(dt: number, moving: boolean): void {
+    const g = this.prop;
+    if (!g) return;
+    if (this.state !== 'flutter' && this.state !== 'ball') {
+      this.dropProp();
+      return;
+    }
+    if (this.propKind === 'ball') {
+      g.children[0].rotation.x += dt * (moving ? 9 : 0);
+      g.position.y = Math.abs(Math.sin(this.phase * 6)) * (moving ? 0.08 : 0);
+    } else {
+      // the toy flits just ahead of the pet
+      g.position.y = 0.7 + Math.sin(this.phase * 3.1) * 0.15;
+      g.position.x = Math.sin(this.phase * 2.3) * 0.25;
+      for (const w of g.children) if (w.userData.side) w.rotation.y = Math.sin(this.phase * 22) * 1.1 * w.userData.side;
+      if (this.propKind === 'bubble' && Math.random() < dt * 0.15) {
+        // pop! and another one floats along
+        this.emote('🫧', 0.8);
+      }
+    }
   }
 
   /** You petted or played with it: a happy hop and hearts. */
@@ -836,6 +1089,7 @@ export class CreatureActor {
   }
 
   dispose(scene: THREE.Object3D): void {
+    this.dropProp();
     scene.remove(this.root);
     disposeCreature(this.model);
     this.hit.geometry.dispose();

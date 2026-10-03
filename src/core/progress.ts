@@ -7,13 +7,18 @@ import type { SpeciesId } from './types';
 export type PlayEvent =
   | { kind: 'lure' }
   | { kind: 'breed' }
-  | { kind: 'hatch'; species: SpeciesId; newSpecies: boolean; newMutations: number }
+  | { kind: 'hatch'; species: SpeciesId; newSpecies: boolean; newMutations: number; mutated?: boolean }
   | { kind: 'gift'; glimmer: number; shards: number; byCreature: boolean }
   | { kind: 'digSpot' }
   | { kind: 'shopEgg' }
   | { kind: 'blessing' }
   | { kind: 'arrival'; species: SpeciesId; isNew: boolean }
-  | { kind: 'sold'; coins: number };
+  | { kind: 'sold'; coins: number; count?: number }
+  | { kind: 'market' }
+  | { kind: 'befriend' }
+  | { kind: 'feed' }
+  | { kind: 'trip' }
+  | { kind: 'deal' };
 
 export function xpFor(ev: PlayEvent): number {
   const X = TUNING.xp;
@@ -27,5 +32,10 @@ export function xpFor(ev: PlayEvent): number {
     case 'blessing': return X.blessing;
     case 'arrival': return ev.isNew ? X.arrivalNew : 0;
     case 'sold': return 0;
+    case 'market': return X.market ?? 15;
+    case 'befriend': return X.befriend ?? 2;
+    case 'feed': return 0;
+    case 'trip': return X.trip ?? 10;
+    case 'deal': return X.deal ?? 5;
   }
 }

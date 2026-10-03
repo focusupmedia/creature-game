@@ -628,7 +628,7 @@ export class Game {
     }
     this.ui.closeSheet();
     this.ui.hideHud(true);
-    const hatched = { kind: 'hatch' as const, species: r.creature.species, newSpecies: r.newSpecies, newMutations: r.newMutations.length };
+    const hatched = { kind: 'hatch' as const, species: r.creature.species, newSpecies: r.newSpecies, newMutations: r.newMutations.length, mutated: r.creature.mutations.length > 0 };
     this.analytics.track('egg_hatched', { species: r.creature.species, new: r.newSpecies, hybrid: r.hybrid, mutations: r.creature.mutations.join(',') });
     const view = this.ui.showReveal(r.creature, r.newSpecies, r.newMutations, () => {
       this.world.endReveal();
@@ -817,6 +817,7 @@ export class Game {
     this.audio.play('coin');
     this.ui.toast(`${WANDERERS[w.kind].name}: ${r.message}`, 'discovery', undefined, 6000, { priority: 3 });
     this.analytics.track('wanderer_deal', { kind: w.kind, deal: dealId });
+    this.record({ kind: 'deal' });
     this.ui.rerender();
     this.saveSoon();
   }
@@ -870,6 +871,7 @@ export class Game {
     this.audio.play('discover');
     const c = this.state.creatures.find((x) => x.id === id);
     this.ui.showExpeditionHaul(c ?? null, r);
+    this.record({ kind: 'trip' });
     this.analytics.track('expedition_claimed', { coins: r.coins, shards: r.shards, egg: r.egg });
     this.ui.rerender();
     this.saveSoon();
@@ -883,6 +885,7 @@ export class Game {
     const pet = this.state.creatures.find((x) => x.id === id);
     if (pet) this.audio.voice(voiceOf(pet), pet.size, 'happy');
     this.world.cheer(id, how === 'play' || r.newHeart);
+    this.record({ kind: 'befriend' });
     this.ui.toast(r.message, r.newHeart ? 'discovery' : 'info', undefined, r.newHeart ? 4000 : 1800);
     this.analytics.track('befriend', { how, hearts: r.hearts });
     this.ui.rerender();
@@ -892,6 +895,7 @@ export class Game {
   feed(id: string): void {
     if (this.careResult(feedCreature(this.state, id))) {
       this.world.emote(id, '😋');
+      this.record({ kind: 'feed' });
       this.analytics.track('fed', { how: 'one' });
     }
   }
@@ -939,7 +943,7 @@ export class Game {
         : kind === 'store' ? `${n} resting in storage.` : `${n} back on ${ISLANDS[here].name}.`;
     this.ui.toast(`${msg}${r.skipped ? ` (${r.skipped} stayed: ${r.reason})` : ''}`, kind === 'sell' ? 'discovery' : 'info', undefined, 3800, { priority: 3 });
     if (kind === 'sell') {
-      this.record({ kind: 'sold', coins: r.coins });
+      this.record({ kind: 'sold', coins: r.coins, count: r.done });
       this.analytics.track('sold_bulk', { count: r.done, coins: r.coins });
     }
     this.ui.clearPetSelection();
@@ -967,8 +971,10 @@ export class Game {
 
   sell(id: string): void {
     const c = this.state.creatures.find((x) => x.id === id);
+    const before = this.state.glimmer;
     const r = sellCreature(this.state, id, this.now());
     if (this.careResult(r, 'coin')) {
+      this.record({ kind: 'sold', coins: this.state.glimmer - before });
       this.ui.closeSheet();
       this.analytics.track('sold', { species: c?.species ?? '' });
     }
@@ -1018,6 +1024,7 @@ export class Game {
     this.audio.play('fanfare');
     this.ui.toast(`🛒 ${r.message} {coin} +${r.coins.toLocaleString()}  {gem} +${r.shards}`, 'discovery', undefined, 4500, { priority: 3 });
     this.record({ kind: 'sold', coins: r.coins });
+    this.record({ kind: 'market' });
     this.analytics.track('market_sale', { coins: r.coins });
     this.ui.rerender();
     this.saveSoon();

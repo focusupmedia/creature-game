@@ -13,7 +13,8 @@ import type { GameState, Rarity, Trait } from './types';
 export interface QuestReward { coins: number; shards: number; xp: number }
 
 /** Lifetime counters that quests read. */
-export type QuestStat = 'hatch' | 'breed' | 'lure' | 'coinsPicked' | 'creatureCoins' | 'digSpot' | 'finds' | 'shopEgg';
+export type QuestStat = 'hatch' | 'breed' | 'lure' | 'coinsPicked' | 'creatureCoins' | 'digSpot' | 'finds' | 'shopEgg'
+  | 'sold' | 'soldCoins' | 'market' | 'befriend' | 'feed' | 'trip' | 'deal' | 'arrival' | 'hatchMutated' | 'newSpecies';
 
 export interface DailyDef {
   id: string;
@@ -39,6 +40,19 @@ export const DAILY_POOL: DailyDef[] = [
     id: 'd-fetch', stat: 'creatureCoins', target: 120, text: 'Have your creatures fetch 120 coins', reward: { coins: 550, shards: 8, xp: 130 },
     when: (s) => s.creatures.some((c) => !c.stored && hasQuirk(c, 'greedy')),
   },
+  { id: 'd-sell', stat: 'sold', target: 5, text: 'Sell 5 pets', reward: { coins: 450, shards: 6, xp: 110 } },
+  { id: 'd-soldcoins', stat: 'soldCoins', target: 1500, text: 'Earn 1,500 coins from selling pets', reward: { coins: 500, shards: 8, xp: 120 } },
+  { id: 'd-market', stat: 'market', target: 1, text: 'Sell a pet to a buyer on the Market board', reward: { coins: 500, shards: 10, xp: 130 } },
+  { id: 'd-befriend', stat: 'befriend', target: 10, text: 'Pet or play with your creatures 10 times', reward: { coins: 400, shards: 6, xp: 110 } },
+  { id: 'd-feed', stat: 'feed', target: 8, text: 'Feed your creatures by hand 8 times', reward: { coins: 400, shards: 6, xp: 100 } },
+  { id: 'd-trip', stat: 'trip', target: 2, text: 'Welcome 2 explorers home', reward: { coins: 550, shards: 8, xp: 140 } },
+  { id: 'd-arrival', stat: 'arrival', target: 6, text: 'Meet 6 lure visitors', reward: { coins: 450, shards: 6, xp: 120 } },
+  { id: 'd-hatchmut', stat: 'hatchMutated', target: 2, text: 'Hatch 2 eggs that carry a mutation', reward: { coins: 650, shards: 10, xp: 160 } },
+  {
+    id: 'd-new', stat: 'newSpecies', target: 1, text: 'Discover a creature you\'ve never met', reward: { coins: 600, shards: 10, xp: 150 },
+    when: (s) => Object.keys(s.journal.species).length < SPECIES.length,
+  },
+  { id: 'd-deal', stat: 'deal', target: 1, text: 'Take a deal from a wandering keeper', reward: { coins: 400, shards: 8, xp: 100 } },
 ];
 
 export interface LastingDef {
@@ -66,12 +80,12 @@ export const LASTING: LastingDef[] = [
   { id: 'coins', name: 'Coin Collector', icon: '🪙', text: 'Pick up {n} coins from the ground', tiers: [200, 1000, 5000], progress: stat('coinsPicked') },
   { id: 'fetch', name: 'Treasure Team', icon: '💰', text: 'Have your creatures fetch {n} coins', tiers: [50, 300, 1500], progress: stat('creatureCoins') },
   { id: 'dig', name: 'Digger', icon: '⛏️', text: 'Work {n} dig spots', tiers: [5, 25, 100], progress: stat('digSpot') },
-  { id: 'naturalist', name: 'Naturalist', icon: '📖', text: 'Discover {n} kinds of creature', tiers: [10, 20, 30, 45], progress: (s) => Object.keys(s.journal.species).length },
+  { id: 'naturalist', name: 'Naturalist', icon: '📖', text: 'Discover {n} kinds of creature', tiers: [10, 20, 30, 45, 60], progress: (s) => Object.keys(s.journal.species).length },
   { id: 'rare', name: 'Rare Finds', icon: '💎', text: 'Discover {n} rare or rarer creatures', tiers: [3, 8, 15], progress: (s) => discovered(s, (r) => r === 'rare' || r === 'legendary' || r === 'mythical') },
   { id: 'mythic', name: 'Myth Hunter', icon: '✦', text: 'Discover {n} Mythical creatures', tiers: [1, 3, 5], progress: (s) => discovered(s, (r) => r === 'mythical') },
   { id: 'birds', name: 'Bird Watcher', icon: '🐦', text: 'Discover {n} kinds of bird', tiers: [3, 6], progress: (s) => discovered(s, (_, t) => t.includes('Bird')) },
   { id: 'reptiles', name: 'Scale Seeker', icon: '🦎', text: 'Discover {n} kinds of reptile', tiers: [3, 6], progress: (s) => discovered(s, (_, t) => t.includes('Reptile')) },
-  { id: 'mutations', name: 'Changeling', icon: '✨', text: 'See {n} kinds of mutation', tiers: [2, 5, 9], progress: (s) => Object.keys(s.journal.mutations).length },
+  { id: 'mutations', name: 'Changeling', icon: '✨', text: 'See {n} kinds of mutation', tiers: [2, 5, 9, 14, 19], progress: (s) => Object.keys(s.journal.mutations).length },
   {
     id: 'colossal', name: 'Big Love', icon: '⛰️', text: 'Own {n} fully grown Colossal creatures', tiers: [1, 3],
     progress: (s) => s.creatures.filter((c) => c.size > 1.6 && growth(c, s.lastTick) >= 1).length,
@@ -80,6 +94,16 @@ export const LASTING: LastingDef[] = [
     id: 'teeny', name: 'Tiny Friends', icon: '🐜', text: 'Own {n} fully grown Teeny creatures', tiers: [1, 3],
     progress: (s) => s.creatures.filter((c) => isOutlier(c.size) && c.size < 1 && growth(c, s.lastTick) >= 1).length,
   },
+  { id: 'merchant', name: 'Merchant', icon: '🛒', text: 'Sell {n} pets', tiers: [10, 50, 200], progress: stat('sold') },
+  { id: 'tycoon', name: 'Tycoon', icon: '💰', text: 'Earn {n} coins from selling pets', tiers: [2000, 20000, 100000], progress: stat('soldCoins') },
+  { id: 'market', name: 'Market Favourite', icon: '🛒', text: 'Sell to {n} Market buyers', tiers: [3, 15, 50], progress: stat('market') },
+  { id: 'friends', name: 'Best Friends', icon: '💞', text: 'Have {n} best friends (5 hearts)', tiers: [1, 3, 8], progress: (s) => s.creatures.filter((c) => (c.bond ?? 0) >= 100).length },
+  { id: 'explorer', name: 'Explorer', icon: '🧭', text: 'Welcome home {n} explorers', tiers: [5, 25, 100], progress: stat('trip') },
+  { id: 'caretaker', name: 'Caretaker', icon: '🍓', text: 'Feed creatures by hand {n} times', tiers: [25, 150, 500], progress: stat('feed') },
+  { id: 'worlds', name: 'World Builder', icon: '🗺️', text: 'Unlock {n} worlds', tiers: [2, 4, 6], progress: (s) => Object.values(s.islands).filter((i) => i.owned).length },
+  { id: 'shades', name: 'Colour Collector', icon: '🎨', text: 'Own {n} pets with a special shade', tiers: [3, 10], progress: (s) => s.creatures.filter((c) => c.shade && c.shade !== 'classic').length },
+  { id: 'skies', name: 'Sky Watcher', icon: '🌈', text: 'See {n} kinds of sky event', tiers: [4, 9, 15], progress: (s) => Object.keys(s.journal.eventsSeen ?? {}).length },
+  { id: 'stacked', name: 'Masterpiece', icon: '🌟', text: 'Own a pet with {n} mutations at once', tiers: [2, 3, 4], progress: (s) => Math.max(0, ...s.creatures.map((c) => c.mutations.length)) },
 ];
 
 /** Bigger tiers pay more. */
@@ -117,11 +141,25 @@ export function questEvent(state: GameState, ev: PlayEvent): void {
     }
   };
   switch (ev.kind) {
-    case 'hatch': add('hatch'); break;
+    case 'hatch':
+      add('hatch');
+      if (ev.mutated) add('hatchMutated');
+      if (ev.newSpecies) add('newSpecies');
+      break;
     case 'breed': add('breed'); break;
     case 'lure': add('lure'); break;
     case 'digSpot': add('digSpot'); break;
     case 'shopEgg': add('shopEgg'); break;
+    case 'sold':
+      add('sold', ev.count ?? 1);
+      add('soldCoins', ev.coins);
+      break;
+    case 'market': add('market'); break;
+    case 'befriend': add('befriend'); break;
+    case 'feed': add('feed'); break;
+    case 'trip': add('trip'); break;
+    case 'deal': add('deal'); break;
+    case 'arrival': add('arrival'); break;
     case 'gift':
       add('finds');
       if (ev.byCreature) add('creatureCoins', ev.glimmer);
