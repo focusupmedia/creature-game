@@ -102,6 +102,7 @@
 | A80 | **Coming back:** away chest (fills up to 12 h; an ad doubles it), pets bring presents, a welcome-back gift after 1+ day (bigger after 3+) | Approved ("all three"), built |
 | A81 | **Messages:** in-game pop-ups queue by importance, one at a time; real phone notifications wait for the native build (planner ready: rare sky starting, daily gift/contest ready, at most two) | Approved, built |
 | A82 | **Cloud save:** Apple/Google built-in saved games (Game Center on iPhone, Play Games on Android; saves don't move between them), signed in automatically with a Sign in link in Settings, and a side-by-side "pick a save" card when saves disagree. Game side built; native plugins written, wired in at the app-build step (docs/CLOUD_SAVE.md) | Approved, built |
+| A83 | **Branding:** the game is **Pocket Grove** by **Focus Up Media**; app ID `com.focusupmedia.pocketgrove`; axolotl mascot app icon; bright & chunky look; title splash. Save/storage keys keep their old `kindred-grove.*` names so nobody loses progress; the home world keeps its name "Kindred Grove" | Approved, built |
 | A37 | **Build order:** quick wins (A29, A30) → round islands (A31) → drag/breed/dig spots (A32) → creatures, islands, mythicals (A34, A35) → Angel then Infernal/Abyssal (A33) → hunger + economy (A36) | Approved |
 
 ## Where I'm challenging the brief
@@ -124,7 +125,7 @@
 
 | # | Decision | Options | My recommendation |
 |---|---|---|---|
-| D1 | **Game name and bundle ID** (permanent after first store upload) | Kindred Grove (working title) / something else | Keep "Kindred Grove" for playtests. Pick the final name before M2 store setup. |
+| D1 | **Game name and bundle ID** (permanent after first store upload) | Decided (A83): Pocket Grove, com.focusupmedia.pocketgrove | Search both stores for clashes right before the first upload |
 | D2 | Orientation | A: Portrait (built) / B: Landscape | A |
 | D3 | Engine | A: Web + Capacitor (built) / B: Unity | A, with the M2 performance gate as the trigger to revisit |
 | D4 | Monetization rules | Approve C1 (drop ad-for-mutation-chance) and C2 (earnable 3rd nest) | Approve both |

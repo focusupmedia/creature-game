@@ -13,6 +13,7 @@ import { islandCapacity } from '../core/sim';
 import { marketPrice, marketReady, marketWants, wantFilled, wantMatches } from '../core/market';
 import type { WelcomeGift } from '../core/away';
 import type { SaveSummary } from '../core/cloud';
+import { GAME_NAME } from './brand';
 import { wandererDeals } from '../core/wanderers';
 import { activeEvent, dayPhase, daylight, isDark, nextEvent } from '../core/world';
 import type { Game } from '../game/Game';
@@ -1058,7 +1059,7 @@ export class UI {
       m.classList.add('save-choice');
       m.append(h('h2', null, found ? 'We found your save!' : 'Which save do you want?'),
         h('p', { class: 'muted' }, found
-          ? `There's a Kindred Grove save in your ${service}. Pick up where you left off, or keep this new game.`
+          ? `There's a Pocket Grove save in your ${service}. Pick up where you left off, or keep this new game.`
           : `This device and your ${service} have different saves. Pick the one to keep playing; the other is kept as a backup on this device.`),
         h('div', { class: 'save-cards' }, card(local, 'This device', 'local', !cloudBest), card(cloud, service, 'cloud', cloudBest)));
     }, false);
@@ -1922,7 +1923,7 @@ export class UI {
 
   showSettings(): void {
     const g = this.game;
-    this.openSheet('Settings', 'Kindred Grove · prototype', (b) => {
+    this.openSheet('Settings', `${GAME_NAME} · playtest build`, (b) => {
       const volumeRow = (label: string, which: 'sound' | 'music', on: boolean, vol: number, toggle: () => void) => {
         const slider = h('input', { type: 'range', min: '0', max: '100', step: '5', value: String(Math.round(vol * 100)), class: 'vol-slider', disabled: !on, 'aria-label': `${label} volume` }) as HTMLInputElement;
         const pct = h('span', { class: 'vol-pct' }, `${Math.round(vol * 100)}%`);

@@ -1,4 +1,4 @@
-/* Kindred Grove UI: bright, chunky casual-game style.
+/* Pocket Grove UI: bright, chunky casual-game style.
    Thick navy outlines, glossy gradient buttons, outlined display type.
    Deliberately a single look (no dark variant): it sits on top of a lit 3D world. */
 :root {
@@ -685,3 +685,14 @@ input.rename { font-family: var(--display); font-size: 22px; border: var(--outli
 .save-level { font-family: var(--display); font-size: 22px; color: var(--ink); }
 .save-stats { font-size: 13px; line-height: 1.5; }
 .cloud-item .desc { font-size: 13px; }
+
+/* ---- title splash */
+.splash { position: fixed; inset: 0; z-index: 100; display: grid; place-content: center; justify-items: center; gap: 10px; padding: 24px;
+  background: linear-gradient(180deg, #3aa0f5, #9fe0ff); text-align: center; transition: opacity .45s; }
+.splash.out { opacity: 0; pointer-events: none; }
+.splash-icon svg { width: 132px; height: 132px; filter: drop-shadow(0 6px 0 rgba(27, 42, 74, .35)); animation: lv-pop .6s cubic-bezier(.3, 1.6, .5, 1); }
+.splash-logo { display: flex; flex-direction: column; line-height: .9; font-family: var(--display); font-size: 58px; color: #ffd23d;
+  -webkit-text-stroke: 7px var(--ink); paint-order: stroke fill; text-shadow: 0 6px 0 var(--ink); letter-spacing: 1px; }
+.splash-logo span:last-child { color: #7fe05a; }
+.splash-tag { max-width: 300px; font-weight: 800; color: var(--ink); font-size: 15px; }
+.splash-studio { position: absolute; bottom: calc(env(safe-area-inset-bottom, 0px) + 20px); left: 0; right: 0; font-weight: 800; color: rgba(27, 42, 74, .65); font-size: 12px; letter-spacing: 2px; text-transform: uppercase; }

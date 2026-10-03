@@ -1,0 +1,28 @@
+<svg viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+  <defs><clipPath id="pg-round"><rect width="128" height="128" rx="28"/></clipPath></defs>
+  <g clip-path="url(#pg-round)">
+  <defs>
+    <linearGradient id="pg-sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3aa0f5"/><stop offset="1" stop-color="#9fe0ff"/></linearGradient>
+  </defs>
+  <rect width="128" height="128" fill="url(#pg-sky)"/>
+  <ellipse cx="26" cy="26" rx="14" ry="7" fill="#fff" opacity=".85"/><ellipse cx="36" cy="22" rx="10" ry="7" fill="#fff" opacity=".85"/>
+  <circle cx="64" cy="150" r="66" fill="#5fc23f" stroke="#1b2a4a" stroke-width="4"/>
+  <ellipse cx="44" cy="96" rx="14" ry="5" fill="#7fd94f"/><ellipse cx="88" cy="100" rx="10" ry="4" fill="#7fd94f"/>
+  <g stroke="#1b2a4a" stroke-width="2.5">
+    <circle cx="18" cy="112" r="4" fill="#ff9ec4"/><circle cx="24" cy="116" r="3.2" fill="#ffd21a"/>
+    <circle cx="110" cy="114" r="4" fill="#ffd21a"/><circle cx="104" cy="118" r="3.2" fill="#ff9ec4"/>
+  </g>
+  <g transform="translate(-2 6)">
+  <g stroke="#1b2a4a" stroke-width="4" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M30 52c-11-8-17-4-19 1 6 0 12 4 17 8zM27 66c-13-2-17 4-17 9 6-2 13-2 19-2zM32 79c-9 4-11 11-9 15 4-4 9-7 15-9z" fill="#ff5f9a"/>
+    <path d="M98 52c11-8 17-4 19 1-6 0-12 4-17 8zM101 66c13-2 17 4 17 9-6-2-13-2-19-2zM96 79c9 4 11 11 9 15-4-4-9-7-15-9z" fill="#ff5f9a"/>
+    <ellipse cx="64" cy="70" rx="38" ry="30" fill="#ffb3d0"/>
+  </g>
+  <ellipse cx="64" cy="81" rx="24" ry="13" fill="#ffe0ec"/>
+  <circle cx="47" cy="63" r="7" fill="#1b2a4a"/><circle cx="81" cy="63" r="7" fill="#1b2a4a"/>
+  <circle cx="49.5" cy="60.5" r="2.6" fill="#fff"/><circle cx="83.5" cy="60.5" r="2.6" fill="#fff"/>
+  <ellipse cx="38" cy="75" rx="6" ry="3.6" fill="#ff7ab0" opacity=".85"/><ellipse cx="90" cy="75" rx="6" ry="3.6" fill="#ff7ab0" opacity=".85"/>
+  <path d="M52 76q12 12 24 0" fill="none" stroke="#1b2a4a" stroke-width="4" stroke-linecap="round"/>
+  <path d="M42 48q10-7 21-7" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" opacity=".85"/></g>
+  <path d="M106 18l3 7 7 3-7 3-3 7-3-7-7-3 7-3z" fill="#ffd21a" stroke="#1b2a4a" stroke-width="3" stroke-linejoin="round"/></g>
+  <rect x="2" y="2" width="124" height="124" rx="27" fill="none" stroke="#1b2a4a" stroke-width="4"/></svg>

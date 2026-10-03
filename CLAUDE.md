@@ -1,6 +1,6 @@
-# Kindred Grove: handoff notes for new sessions
+# Pocket Grove: handoff notes for new sessions
 
-Cozy mobile creature-discovery game (working title **Kindred Grove**). TypeScript + three.js + Vite, wrapped for iOS/Android with Capacitor. Work on branch `claude/mobile-game-dev-0nsqvl`.
+Cozy mobile creature-discovery game **Pocket Grove** by Focus Up Media (formerly the working title Kindred Grove; storage keys still use `kindred-grove.*` on purpose). TypeScript + three.js + Vite, wrapped for iOS/Android with Capacitor. Work on branch `claude/mobile-game-dev-0nsqvl`.
 
 ## Working rules (from the owner)
 - **Confirm before any major addition or change.** Explain the decision, give 2–3 options with tradeoffs and a recommendation, and wait for the owner's OK. Small fixes: just do them and report.
@@ -17,8 +17,8 @@ Playable link (private artifact, republish to the same URL): https://claude.ai/a
 - `src/content/`: data (species, world: lures/spots/events/mutations/egg tiers, decor (96-piece catalog), wanderers, islands, globe (map ↔ sphere wrap), layout, tuning)
 - `src/platform/`: cloudSave.ts (Game Center / Play Games saved games via a native "CloudSave" plugin; Test cloud on web; see docs/CLOUD_SAVE.md and `native/`), audio.ts (SFX + ambience), composer.ts + music.ts (generative music), services (storage, ads, IAP stubs)
 - `src/render/`: World (multi-island, only the current island's actors animate), CreatureActor (AI, personalities, digging), creatureModels (procedural, outlined), sanctuary (island builders; trees are choppable), decor (catalog models), sky (9 events, follows the current globe)
-- `src/ui/`: UI.ts (sheets, HUD, widget, islands, pets), Labels.ts (world pins and name bubble), icons.ts (SVG incl. axolotl mascot), emoji.ts (every emoji redrawn as SVG; text is auto-converted), styles.css (chunky casual style)
-- `docs/`: GAME_DESIGN, MVP_SCOPE, ARCHITECTURE, ROADMAP, DECISIONS (approved decisions A1–A82)
+- `src/ui/`: brand.ts (name, app icon SVG, title splash; exported icons in `public/` and `resources/`), UI.ts (sheets, HUD, widget, islands, pets), Labels.ts (world pins and name bubble), icons.ts (SVG incl. axolotl mascot), emoji.ts (every emoji redrawn as SVG; text is auto-converted), styles.css (chunky casual style)
+- `docs/`: GAME_DESIGN, MVP_SCOPE, ARCHITECTURE, ROADMAP, DECISIONS (approved decisions A1–A83)
 
 ## Built so far
 Lures, combining (trait-based hybrids), eggs and reveal, 19 mutations (common/rare/epic/legendary tiers), 15 sky events (Storm, Eclipse, Rainbow, Misty Fog, Heatwave, Blossom Breeze, Gale, Firefly Night, plus rare Starry Night, Full Moon, Blizzard, Aurora, Meteor Shower, Bubble Rain, Great Comet), 3 legendary events (Angels, Eruption, Deep Tide; `core/legendary.ts`, `render/legendaryFx.ts`) with a claimable gift and legendary mutations (Angelic, Infernal, Abyssal), ad-summoned events (6 ads/day), generative cozy music (kalimba/marimba/bells; moods for day, night and each sky event; Music toggle in Settings), stacking mutation looks with rarity glow (rim, aura, sparkles), rotating shop with category tabs and Mango the monkey shopkeeper, egg tiers (coin eggs + premium gem Starry Egg), coins (8-bit) + Starshards, decor, journal, away report, tutorial with axolotl coach, pick up and carry creatures (press and hold; drop on another to breed, on a dig spot to dig/fish/forage), dig spots, growth to random size (with obvious Teeny/Colossal outliers), behaviour traits (2-5 per creature, `content/quirks.ts` + `core/quirks.ts`, Trait Deleter/Wiper), squabbles, digging finds, first-3-eggs-always-new, 25 species including dragons and the legendary Axolotl, fully round globe islands (game logic uses flat map x/z; `content/globe.ts` wraps it onto a sphere; render things with World.at/place, never raw x/y/z), drag-to-roll globe camera, archipelago (Home, Ember Peak, Coral Lagoon, Sunny Shore, Dune Hollow, Cloud Isle with rainbow bridges), island sizes S/M/L, in-game widget, keeper levels 1-100 (Star Keeper badge past 50) with a rewards list and 15 level-only creatures (`core/levels.ts`; player actions report to `Game.record()` for XP and quests), daily + lasting quests (`core/quests.ts`), gentle hunger, food (Berry Trees, snacks, feasts, feedbags), storage, selling and the travelling Collector (`core/care.ts`).
@@ -42,4 +42,4 @@ Quick fixes (Worlds button, pet card, shop tabs, volume sliders, rarer storms, f
 Nothing approved is waiting. Ask the owner what's next (ideas: final art pass, real ads/IAP, native builds).
 
 ## Open / later
-Real ads/IAP SDKs, native builds (then wire in the cloud-save plugins), real phone home-screen widgets, final art and audio, final game name and bundle ID.
+Real ads/IAP SDKs, native builds (then wire in the cloud-save plugins), real phone home-screen widgets, final art and audio.

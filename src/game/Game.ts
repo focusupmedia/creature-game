@@ -226,7 +226,7 @@ export class Game {
       switch (d.kind) {
         case 'update-needed':
           this.cloudBlocked = true;
-          this.ui.toast('Your cloud save comes from a newer version of Kindred Grove. Update the game to load it.', 'info', undefined, 6000, { priority: 3 });
+          this.ui.toast('Your cloud save comes from a newer version of Pocket Grove. Update the game to load it.', 'info', undefined, 6000, { priority: 3 });
           break;
         case 'download':
           if (d.quiet) this.useCloudSave(blob!);
