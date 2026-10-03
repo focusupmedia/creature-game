@@ -398,6 +398,8 @@ export interface GameState {
   collections?: Record<string, number>;
   /** Daily login calendar: the last day claimed (UTC date) and how many days claimed in all. */
   login?: { day: string; claimed: number };
+  /** The away chest, filled while you were gone and waiting to be opened. */
+  awayChest?: { coins: number; shards: number; items: Record<string, number>; hours: number } | null;
   /** Market board: which of today's buyers you've sold to. */
   market?: { day: string; filled: string[] };
   /** Sky charms (summon an event) by charm id. */

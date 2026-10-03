@@ -5,6 +5,11 @@ import { species } from '../content/species';
 import { EXPEDITIONS, type ExpeditionId } from '../content/expeditions';
 import { displayName } from './creatures';
 import { nextHungryAt } from './care';
+import { EVENTS } from '../content/world';
+import { eventInWindow, windowAt } from './world';
+import { canClaimLogin } from './login';
+import { weekEnds } from './contests';
+import type { EventKind } from './types';
 import type { GameState } from './types';
 
 export interface PlannedNote { id: string; at: number; title: string; body: string; priority: number }
@@ -25,8 +30,23 @@ export function outsideQuietHours(at: number): number {
   return d.getTime();
 }
 
+const RARE_SKIES: EventKind[] = ['starry', 'fullmoon', 'blizzard', 'aurora', 'meteor', 'bubbles', 'comet'];
+
 export function planNotifications(state: GameState, now: number): PlannedNote[] {
   const out: PlannedNote[] = [];
+  // the most important: a rare sky is about to start (only if it isn't the middle of the night)
+  for (let w = windowAt(state, now); w < windowAt(state, now) + 96; w++) {
+    const e = eventInWindow(state, w);
+    if (!e || e.start <= now || !RARE_SKIES.includes(e.kind) || outsideQuietHours(e.start) !== e.start) continue;
+    out.push({ id: 'sky', at: e.start, priority: 6, title: `${EVENTS[e.kind].name} starting!`, body: 'A rare sky is beginning. Some creatures only visit, or change, while it lasts.' });
+    break;
+  }
+  // the daily gift and the weekly contest
+  const nextDay = new Date(now);
+  nextDay.setUTCHours(24, 5, 0, 0);
+  if (canClaimLogin(state, now)) out.push({ id: 'daily', at: now + 3 * HOUR, priority: 4.5, title: 'Your daily gift is waiting', body: 'Pop in to collect today\'s present on your login calendar.' });
+  else out.push({ id: 'daily', at: nextDay.getTime(), priority: 4.5, title: 'A new daily gift is ready', body: 'Today\'s present is waiting on your login calendar.' });
+  if (state.contest?.entry && !state.contest.claimed) out.push({ id: 'contest', at: Math.max(now + 10 * 60_000, weekEnds(state.contest.week)), priority: 4.5, title: 'The pet contest results are in!', body: `See how ${state.contest.name ?? 'your pet'} did and collect your prize.` });
   // a rare (or rarer) visitor is waiting at a lure
   const rare = state.visitors
     .filter((v) => ['rare', 'legendary', 'mythical'].includes(species(v.creature.species).rarity) && v.until - now > HOUR)

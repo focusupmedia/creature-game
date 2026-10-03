@@ -20,6 +20,7 @@ import { dismissWanderer, meetWanderer, takeDeal } from '../core/wanderers';
 import { StateRng } from '../core/rng';
 import { refreshShop } from '../core/shop';
 import { fillWant } from '../core/market';
+import { fillAwayChest, openAwayChest, welcomeBackGift } from '../core/away';
 import { NESTS } from '../content/layout';
 import { TUNING } from '../content/tuning';
 import * as A from '../core/actions';
@@ -102,7 +103,7 @@ export class Game {
     this.offerLogin();
     // older saves: hand over any level-only creatures the keeper already earned
     if (grantMissingLevelCreatures(this.state, this.now()).length) this.saveSoon();
-    if (away > AWAY_REPORT_MS) this.ui.showAwayReport(events, away, awayFinds(this.state, away));
+    this.welcomeBack(events, away);
     this.analytics.track('session_start', { creatures: this.state.creatures.length, away_min: Math.round(away / 60000) });
     this.world.start();
     if (!this.storage.load(SPIN_HINT_KEY)) {
@@ -192,7 +193,7 @@ export class Game {
       this.hiddenAt = 0;
       const events = tick(this.state, this.now(), { maxStepMs: TUNING.offlineStepSec * 1000 });
       this.dispatch(events, false);
-      if (away > AWAY_REPORT_MS) this.ui.showAwayReport(events, away, awayFinds(this.state, away));
+      this.welcomeBack(events, away);
       this.offerLogin();
     }
   }
@@ -1010,7 +1011,7 @@ export class Game {
     this.state.clockOffset += ms;
     const events = tick(this.state, this.now(), { maxStepMs: TUNING.offlineStepSec * 1000 });
     this.dispatch(events, false);
-    if (ms >= 30 * 60_000) this.ui.showAwayReport(events, ms, awayFinds(this.state, ms));
+    if (ms >= 30 * 60_000) this.welcomeBack(events, ms);
     else this.ui.toast(`⏩ ${Math.round(ms / 60000)} minute${Math.round(ms / 60000) === 1 ? '' : 's'} passed.`);
   }
 
@@ -1026,6 +1027,34 @@ export class Game {
     this.record({ kind: 'sold', coins: r.coins });
     this.record({ kind: 'market' });
     this.analytics.track('market_sale', { coins: r.coins });
+    this.ui.rerender();
+    this.saveSoon();
+  }
+
+  /** Back after a while: presents from your pets, the away chest, and a gift after a day or more. */
+  private welcomeBack(events: GameEvent[], away: number): void {
+    if (away <= AWAY_REPORT_MS) return;
+    const finds = awayFinds(this.state, away);
+    fillAwayChest(this.state, away);
+    const gift = welcomeBackGift(this.state, away, this.now());
+    if (gift) this.analytics.track('welcome_back', { days: gift.days });
+    this.ui.showAwayReport(events, away, finds, gift);
+    this.saveSoon();
+  }
+
+  /** Open the away chest (an ad doubles it). */
+  async openChest(double: boolean): Promise<void> {
+    if (!this.state.awayChest) return;
+    if (double) {
+      const ok = await this.ads.showRewarded('away_chest');
+      if (!ok) return;
+      this.analytics.track('ad_rewarded', { placement: 'away_chest' });
+    }
+    const c = openAwayChest(this.state, double);
+    if (!c) return;
+    this.audio.play('fanfare');
+    const items = Object.entries(c.items).map(([id, n]) => `${n > 1 ? `${n} ` : ''}${id === 'snack' ? 'snacks' : ITEMS[id]?.name ?? id}`);
+    this.ui.toast(`🎁 Away chest: {coin} +${c.coins.toLocaleString()}${c.shards ? `  {gem} +${c.shards}` : ''}${items.length ? ` and ${items.join(', ')}` : ''}!`, 'discovery', undefined, 5000, { priority: 3 });
     this.ui.rerender();
     this.saveSoon();
   }

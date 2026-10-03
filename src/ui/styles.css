@@ -667,3 +667,10 @@ input.rename { font-family: var(--display); font-size: 22px; border: var(--outli
 .market-done { margin-top: 6px; color: #2a8a3a; font-weight: 800; }
 .market-want .item { margin-top: 6px; }
 .market-hint { margin-top: 8px; width: 100%; border: 2px dashed #3aaa4a; background: #f2fff0; border-radius: 12px; padding: 6px 8px; font: inherit; font-size: 13px; font-weight: 700; color: var(--ink); text-align: left; cursor: pointer; }
+
+/* ---- welcome back */
+.welcome-gift, .away-chest { display: flex; align-items: center; gap: 10px; padding: 10px; margin: 8px 0; border: var(--outline); border-radius: 16px; box-shadow: 0 3px 0 var(--ink); }
+.welcome-gift { background: linear-gradient(180deg, #fff0f6, #ffd8ec); }
+.away-chest { background: linear-gradient(180deg, #fff6c8, #ffe08a); }
+.wg-icon { font-size: 34px; flex: none; }
+.wg-icon .icon { width: 40px; height: 40px; }

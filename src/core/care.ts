@@ -9,6 +9,7 @@ import { TUNING } from '../content/tuning';
 import { displayName, isOutlier } from './creatures';
 import { addBond, hearts } from './friendship';
 import { StateRng } from './rng';
+import { layEgg, rollEggTier } from './actions';
 import type { Creature, GameEvent, GameState, IslandId, Rarity, Trait } from './types';
 
 const MIN = 60_000;
@@ -229,14 +230,20 @@ export function awayFinds(state: GameState, awayMs: number): AwayFind[] {
     const shards = rng.chance(lucky ? 0.2 : 0.08) ? 1 : 0;
     const item = rng.chance(explorer ? 0.15 : 0.05) ? rng.pick(['warmstone', 'rootswell']) : undefined;
     if (item) coins = Math.round(coins * 0.5);
+    // presents: a snack it saved for you, and once in a while an egg it found
+    const snack = rng.chance(0.25) ? 1 : 0;
+    const egg = rng.chance(0.012 * hours * (explorer ? 2 : 1)) && state.eggs.filter((e) => e.nest === null).length < TUNING.basketSize;
     const name = displayName(c);
-    const what = [coins ? `${coins} coins` : '', shards ? 'a Starshard' : '', item === 'warmstone' ? 'a Warm Stone' : item === 'rootswell' ? 'a Rootswell Tonic' : '']
+    const what = [coins ? `${coins} coins` : '', shards ? 'a Starshard' : '', item === 'warmstone' ? 'a Warm Stone' : item === 'rootswell' ? 'a Rootswell Tonic' : '',
+      snack ? 'a snack it saved for you' : '', egg ? 'an egg! 🥚' : '']
       .filter(Boolean).join(' and ');
     const text = explorer ? `${name} went on a journey around the world and came back with ${what}.`
       : rng.chance(0.5) ? `${name} found ${what}.` : `${name} dug around and turned up ${what}.`;
     state.glimmer += coins;
     state.shards += shards;
     if (item) state.items[item] = (state.items[item] ?? 0) + 1;
+    if (snack) state.food.snack = (state.food.snack ?? 0) + 1;
+    if (egg) layEgg(state, rollEggTier(state, 'wild'), 'gift', state.lastTick);
     out.push({ creatureId: c.id, text, coins, shards, item });
   }
   return out;

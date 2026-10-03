@@ -11,6 +11,7 @@ import { nestOccupant } from '../core/state';
 import type { Creature, DecorDef, Egg, GameEvent, IslandId, LegendaryKind, MutationId, SpotId, Trait } from '../core/types';
 import { islandCapacity } from '../core/sim';
 import { marketPrice, marketReady, marketWants, wantFilled, wantMatches } from '../core/market';
+import type { WelcomeGift } from '../core/away';
 import { wandererDeals } from '../core/wanderers';
 import { activeEvent, dayPhase, daylight, isDark, nextEvent } from '../core/world';
 import type { Game } from '../game/Game';
@@ -1909,9 +1910,10 @@ export class UI {
   }
 
   /** "While you were away" — the answer to "what happened here?". */
-  showAwayReport(events: GameEvent[], awayMs: number, finds: AwayFind[] = []): void {
+  showAwayReport(events: GameEvent[], awayMs: number, finds: AwayFind[] = [], gift: WelcomeGift | null = null): void {
     const s = this.game.state;
     const lines: HTMLElement[] = [];
+    if (finds.length) lines.push(h('div', { class: 'section-title' }, '🎁 Presents from your pets'));
     for (const f of finds) {
       const c = s.creatures.find((x) => x.id === f.creatureId);
       lines.push(h('div', { class: 'happen' }, c ? this.portrait(c, '') : h('span', { class: 'e' }, I.icon(I.COIN)), h('span', null, f.text)));
@@ -1944,13 +1946,36 @@ export class UI {
       const d = EXPEDITIONS[e.dest as ExpeditionId];
       if (c && d) lines.push(h('div', { class: 'happen' }, this.portrait(c, ''), h('span', null, `${displayName(c)} is back from the ${d.name}! Welcome them home in Pets → Trips.`)));
     }
-    if (!lines.length) return;
+    const chest = s.awayChest;
+    if (!lines.length && !chest && !gift) return;
     if (!arrivals.length && !Object.values(s.spots).some(Boolean)) {
       lines.push(h('div', { class: 'happen' }, h('span', { class: 'e' }, '🌿'), h('span', { class: 'muted' }, 'Tip: set out a lure before you leave. Visitors will be waiting when you return.')));
     }
     this.modal((m, close) => {
-      m.append(h('h2', null, 'While you were away'), h('p', { class: 'muted' }, `${fmtDuration(awayMs)} passed in the sanctuary.`), ...lines,
-        h('button', { class: 'btn wide', style: 'margin-top:14px', onClick: close }, 'Let\'s see'));
+      m.append(h('h2', null, gift ? 'Welcome back!' : 'While you were away'), h('p', { class: 'muted' }, `${fmtDuration(awayMs)} passed in the sanctuary.`));
+      if (gift) {
+        m.append(h('div', { class: 'welcome-gift' }, h('div', { class: 'wg-icon' }, '💞'),
+          h('div', { class: 'grow' }, h('b', null, gift.text),
+            h('div', { class: 'lv-rewards' }, rich(`{coin} +${gift.coins.toLocaleString()}  {gem} +${gift.shards}`)),
+            h('div', { class: 'muted' }, `Plus a Wild Sky Charm${gift.egg ? ' and a Starry Egg' : ''}!`))));
+      }
+      if (chest) {
+        const items = Object.entries(chest.items).map(([id, n]) => `${n > 1 ? `${n} ` : ''}${id === 'snack' ? 'snacks' : ITEMS[id]?.name ?? id}`);
+        const box = h('div', { class: 'away-chest' }, h('div', { class: 'wg-icon' }, '🎁'),
+          h('div', { class: 'grow' }, h('b', null, `Your away chest (${Math.round(chest.hours * 10) / 10} h)`),
+            h('div', { class: 'lv-rewards' }, rich(`{coin} ${chest.coins.toLocaleString()}${chest.shards ? `  {gem} ${chest.shards}` : ''}`)),
+            items.length ? h('div', { class: 'muted' }, `and ${items.join(', ')}`) : null),
+          h('div', { class: 'col', style: 'gap:6px' },
+            h('button', { class: 'btn small ad', onClick: async () => { await this.game.openChest(true); box.remove(); } }, '▶ Double'),
+            h('button', { class: 'btn small', onClick: () => { void this.game.openChest(false); box.remove(); } }, 'Open')));
+        m.append(box);
+      }
+      m.append(...lines,
+        h('button', { class: 'btn wide', style: 'margin-top:14px', onClick: () => {
+          // closing without opening still gives you the chest
+          if (this.game.state.awayChest) void this.game.openChest(false);
+          close();
+        } }, 'Let\'s see'));
     });
   }
 
