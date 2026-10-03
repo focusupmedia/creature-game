@@ -89,9 +89,18 @@
 | A67 | **Daily login calendar:** 7-day reward calendar that grows each day, big day-7 reward | Approved |
 | A68 | **Collection rewards:** finishing a journal page (a world's creatures, all mutations...) pays a big one-time reward + badge | Approved |
 | A69 | **Pet contests:** a weekly show; enter a pet judged on rarity, size and looks; prizes for placing | Approved |
-| A70 | **Content:** ~10 new creatures (incl. 2 Mythicals with secret recipes), levels 51-100 (prestige), a 6th world: Cloud Isle (sky island, rainbow bridges, bird + spirit creatures, Breeze lure) | Approved |
+| A70 | **Content (built):** ~10 new creatures (incl. 2 Mythicals with secret recipes), levels 51-100 (prestige), a 6th world: Cloud Isle (sky island, rainbow bridges, bird + spirit creatures, Breeze lure) | Approved |
 | A71 | **Immersion:** friendship hearts (pet/feed/play; best friends follow you, dig better), gentle phone notifications (egg ready, rare visitor, Collector; max a couple a day), creature voices + world/weather ambience | Approved |
 | A72 | **Build order:** colors → friendship → expeditions → login calendar → collections → notifications → voices → contests → new creatures → levels 51-100 → new world | Approved |
+| A73 | **Quick fixes (Oct 3):** "Worlds" button; pet card: only Feed beside the hunger bar, heart on the picture, Store/Explore/Sell in one row; "go to shop" opens the right tab; spray text says it goes on eggs; Sound and Music volume sliders; storms rarer (22%, then 16% with the new skies); halos, wings, horns and frost fitted to each body; cleaner breed prompt | Approved, built |
+| A74 | **Pets:** storage 10 free (up to 30), world chips and world groups, press-and-hold or Select to sell/store/move/release several at once | Approved, built |
+| A75 | **Selling:** size (squared) and mutations (multiplied) raise prices; a daily Market board of three buyers paying ×2-3 plus a bonus | Approved ("Prices + Market board"), built |
+| A76 | **Ads and packs:** free-coin ads come 8 at a time and quietly refill 30 min after the last watch (no visible timer); $19.99/$49.99/$99.99 coin and shard packs | Approved, built |
+| A77 | **Sky items (Starshards):** a charm per sky, a Wild Sky Charm (random rare sky), a Star Chart (24 h forecast of the next 3 skies) and the Sky Telescope (forever) | Approved, built |
+| A78 | **Keepers:** only the Goblin is chased off; the Fortune Teller, Treasure Hunter, Chef and Gnome open menus with a free kindness and role-fitting deals (once per visit) | Approved, built |
+| A79 | **Large content round:** 6 skies (Heatwave, Blossom Breeze, Firefly Night, Gale, rare Bubble Rain and Great Comet), 8 mutations (one per new sky, plus Crystal from Crystal Caves trips and Golden for some best friends), 20 quests, 8 pet activities (chase, cuddle, butterflies/fireflies/bubbles, stargaze, splash, dance, sunbathe, ball) | Approved ("Large"), built |
+| A80 | **Coming back:** away chest (fills up to 12 h; an ad doubles it), pets bring presents, a welcome-back gift after 1+ day (bigger after 3+) | Approved ("all three"), built |
+| A81 | **Messages:** in-game pop-ups queue by importance, one at a time; real phone notifications wait for the native build (planner ready: rare sky starting, daily gift/contest ready, at most two) | Approved, built |
 | A37 | **Build order:** quick wins (A29, A30) → round islands (A31) → drag/breed/dig spots (A32) → creatures, islands, mythicals (A34, A35) → Angel then Infernal/Abyssal (A33) → hunger + economy (A36) | Approved |
 
 ## Where I'm challenging the brief
