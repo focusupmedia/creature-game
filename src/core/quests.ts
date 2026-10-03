@@ -159,7 +159,10 @@ export function questEvent(state: GameState, ev: PlayEvent): void {
     case 'feed': add('feed'); break;
     case 'trip': add('trip'); break;
     case 'deal': add('deal'); break;
-    case 'arrival': add('arrival'); break;
+    case 'arrival':
+      add('arrival');
+      if (ev.isNew) add('newSpecies');
+      break;
     case 'gift':
       add('finds');
       if (ev.byCreature) add('creatureCoins', ev.glimmer);

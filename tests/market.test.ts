@@ -96,7 +96,7 @@ describe('wandering keepers', () => {
     s.food.fruit = 4;
     const coins = s.glimmer;
     expect(takeDeal(s, 'berries', T, rng).ok).toBe(true);
-    expect(s.glimmer).toBe(coins + 60);
+    expect(s.glimmer).toBe(coins + 40);
     s.wanderer = { kind: 'treasure', island: 'home', x: 0, z: 0, arrivedAt: T, until: T + 6 * MIN };
     for (let i = 0; i < 3; i++) s.creatures.push({ ...s.creatures[0], id: `w${i}`, favorite: false });
     const eggs = s.eggs.length;

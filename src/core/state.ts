@@ -5,7 +5,7 @@ import { recordSpecies } from './journal';
 import { generateShop } from './shop';
 import type { GameState } from './types';
 
-export const SAVE_VERSION = 12;
+export const SAVE_VERSION = 13;
 
 export function createGame(now: number, seed = Math.floor(Math.random() * 2 ** 31)): GameState {
   const state: GameState = {
@@ -26,6 +26,7 @@ export function createGame(now: number, seed = Math.floor(Math.random() * 2 ** 3
     food: { snack: 3 },
     feedbags: {},
     storageSlots: TUNING.storageBase,
+    levelPaid: 1,
     visitors: [],
     wanderer: null,
     expeditions: [],

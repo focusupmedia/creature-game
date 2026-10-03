@@ -5,7 +5,6 @@
 
 import { SPECIES, species } from '../content/species';
 import { MUTATIONS } from '../content/world';
-import { SHADES } from '../content/shades';
 import { canSell, sellPrice } from './care';
 import { displayName } from './creatures';
 import { hash01 } from './rng';
@@ -34,6 +33,14 @@ const TYPES: Trait[] = ['Grove', 'Tide', 'Bloom', 'Mystic', 'Ember', 'Reef', 'Sa
 /** Today's three wants. The same all day; something new tomorrow. */
 export function marketWants(state: GameState, t: number): MarketWant[] {
   const day = today(t);
+  // decided once per day and remembered, so new discoveries don't swap a buyer mid-day
+  if (state.market?.day === day && state.market.wants?.length) return state.market.wants as MarketWant[];
+  const wants = pickWants(state, day);
+  state.market = { day, filled: state.market?.day === day ? state.market.filled : [], wants };
+  return wants;
+}
+
+function pickWants(state: GameState, day: string): MarketWant[] {
   const d = Number(day.replace(/-/g, '')) || 0;
   const h = (i: number) => hash01(state.seed, d, 77 + i);
   const pickFrom = <T,>(a: T[], i: number) => a[Math.floor(h(i) * a.length) % a.length];
@@ -58,7 +65,7 @@ export function marketWants(state: GameState, t: number): MarketWant[] {
     const m = pickFrom(seenMuts, 4);
     out.push({ id: `${day}-3`, kind: 'mutation', target: m, text: `Any ${MUTATIONS[m].name} pet`, mult: 3, bonusCoins: 250, bonusShards: 5, buyer: buyer(3) });
   } else if (special === 1) {
-    out.push({ id: `${day}-3`, kind: 'shade', target: 'any', text: 'Any pet with a special shade (not Classic)', mult: 2.5, bonusCoins: 200, bonusShards: 4, buyer: buyer(3) });
+    out.push({ id: `${day}-3`, kind: 'shade', target: 'any', text: 'A Pastel or Shiny pet', mult: 3, bonusCoins: 250, bonusShards: 5, buyer: buyer(3) });
   } else {
     out.push({ id: `${day}-3`, kind: 'big', target: '1.3', text: 'A Big or Colossal pet', mult: 2.5, bonusCoins: 200, bonusShards: 4, buyer: buyer(3) });
   }
@@ -71,7 +78,7 @@ export function wantMatches(w: MarketWant, c: Creature): boolean {
     case 'type': return species(c.species).traits.includes(w.target as Trait);
     case 'mutation': return c.mutations.includes(w.target as MutationId);
     case 'big': return c.size * (c.mutations.includes('giant') ? 1.6 : 1) >= Number(w.target);
-    case 'shade': return !!c.shade && c.shade !== 'classic' && !!SHADES[c.shade as keyof typeof SHADES];
+    case 'shade': return c.shade === 'pastel' || c.shade === 'shiny';
   }
 }
 
@@ -98,7 +105,7 @@ export function fillWant(state: GameState, wantId: string, creatureId: string, t
   state.glimmer += coins;
   state.shards += w.bonusShards;
   if (state.market?.day !== today(t)) state.market = { day: today(t), filled: [] };
-  state.market.filled.push(w.id);
+  state.market!.filled.push(w.id);
   return { ok: true, coins, shards: w.bonusShards, message: `${w.buyer} is thrilled with ${displayName(c)}!` };
 }
 

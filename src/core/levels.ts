@@ -101,6 +101,25 @@ export function grantMissingLevelCreatures(state: GameState, t: number): string[
   return out;
 }
 
+/**
+ * Levels reached but never paid: saves that banked XP past the old cap of 50
+ * jump straight to 51+ when the cap rises. Pay those coins and Starshards once.
+ */
+export function payOwedLevels(state: GameState, t: number): LevelUp[] {
+  const now = levelOf(state.xp);
+  if (state.levelPaid === undefined) state.levelPaid = Math.min(now, 50);
+  const ups: LevelUp[] = [];
+  for (let l = state.levelPaid + 1; l <= now; l++) {
+    const r: LevelUp = levelReward(l);
+    state.glimmer += r.coins;
+    state.shards += r.shards;
+    if (r.creature && !state.creatures.some((c) => c.species === r.creature) && !state.journal.species[r.creature]) r.creatureId = giveLevelCreature(state, r.creature, l, t);
+    ups.push(r);
+  }
+  state.levelPaid = Math.max(state.levelPaid, now);
+  return ups;
+}
+
 export function addXp(state: GameState, amount: number, t: number): LevelUp[] {
   if (amount <= 0) return [];
   const before = levelOf(state.xp);
@@ -114,5 +133,6 @@ export function addXp(state: GameState, amount: number, t: number): LevelUp[] {
     if (r.creature) r.creatureId = giveLevelCreature(state, r.creature, l, t);
     ups.push(r);
   }
+  state.levelPaid = Math.max(state.levelPaid ?? 0, after);
   return ups;
 }

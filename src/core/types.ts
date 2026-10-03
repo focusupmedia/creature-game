@@ -340,6 +340,8 @@ export interface Wanderer {
   until: number;
   /** Deals already taken this visit (each is once per visit). */
   done?: string[];
+  /** The gnome's decor picks, fixed for the visit. */
+  picks?: string[];
 }
 
 export interface PlacedDecor {
@@ -398,10 +400,12 @@ export interface GameState {
   collections?: Record<string, number>;
   /** Daily login calendar: the last day claimed (UTC date) and how many days claimed in all. */
   login?: { day: string; claimed: number };
+  /** Highest keeper level whose coin and Starshard reward has been paid. */
+  levelPaid?: number;
   /** The away chest, filled while you were gone and waiting to be opened. */
   awayChest?: { coins: number; shards: number; items: Record<string, number>; hours: number } | null;
   /** Market board: which of today's buyers you've sold to. */
-  market?: { day: string; filled: string[] };
+  market?: { day: string; filled: string[]; wants?: unknown[] };
   /** Sky charms (summon an event) by charm id. */
   charms?: Record<string, number>;
   /** The Star Chart shows upcoming sky events until this time; the Telescope shows them forever. */

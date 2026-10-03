@@ -39,6 +39,11 @@ const MIGRATIONS: Record<number, Migration> = {
   2: (raw) => {
     raw.digSpots = [];
   },
+  // v12 → v13: saves that reached v12 before the storage bump still get it (the old maximum was 9).
+  12: (raw) => {
+    const n = Number(raw.storageSlots ?? 4);
+    if (n < 10) raw.storageSlots = n + 6;
+  },
   // v11 → v12: Cloud Isle.
   11: (raw) => {
     const islands = (raw.islands ?? {}) as Record<string, unknown>;
@@ -47,8 +52,6 @@ const MIGRATIONS: Record<number, Migration> = {
     const spots = (raw.spots ?? {}) as Record<string, unknown>;
     for (const k of ['cloudtop', 'mistpool', 'windmill', 'skyshrine']) spots[k] ??= null;
     raw.spots = spots;
-    // storage got roomier: everyone gets the new free slots on top of what they bought
-    raw.storageSlots = Number(raw.storageSlots ?? 4) + 6;
   },
   // v10 → v11: expeditions.
   10: (raw) => {

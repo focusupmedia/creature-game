@@ -152,7 +152,7 @@ export function wandererDeals(state: GameState, w: NonNullable<GameState['wander
       { id: 'cook', label: 'Cook for everyone', desc: 'A stew for every pet on this world (bring 2 berries and it\'s a full feast).', free: true },
       { id: 'feast', label: 'Feast Basket, cheap', desc: `A Feast Basket for less than Mango's ${FOODS.feast.price}.`, coins: Math.round(FOODS.feast.price * 0.7) },
       { id: 'snacks', label: 'Bag of 5 snacks', desc: 'Crunchy snacks from his pot, a bargain.', coins: Math.round(FOODS.snack.price * 5 * 0.7) },
-      { id: 'berries', label: 'Sell him your berries', desc: `He pays 15 coins a berry. You have ${state.food.fruit ?? 0}.` },
+      { id: 'berries', label: 'Sell him your berries', desc: `He pays 10 coins a berry. You have ${state.food.fruit ?? 0}.` },
     ];
     case 'gnome': {
       const picks = gnomeDecor(state, w);
@@ -168,12 +168,16 @@ export function wandererDeals(state: GameState, w: NonNullable<GameState['wander
 
 /** Two nature decorations the gnome brought this visit (unlocked ones only). */
 function gnomeDecor(state: GameState, w: NonNullable<GameState['wanderer']>) {
+  // chosen once per visit, so a level-up mid-visit doesn't reshuffle the menu
+  if (w.picks) return w.picks.map((id) => DECOR_LIST.find((d) => d.id === id)!).filter(Boolean);
   const lvl = levelOf(state.xp);
   const pool = DECOR_LIST.filter((d) => d.cat === 'nature' && d.currency !== 'shards' && (d.level ?? 1) <= lvl && d.id !== 'fruittree');
   if (!pool.length) return [];
   const a = pool[Math.floor(hash01(w.arrivedAt, 1) * pool.length) % pool.length];
   const b = pool.filter((d) => d !== a)[Math.floor(hash01(w.arrivedAt, 2) * (pool.length - 1)) % Math.max(1, pool.length - 1)];
-  return b ? [a, b] : [a];
+  const picks = b ? [a, b] : [a];
+  w.picks = picks.map((d) => d.id);
+  return picks;
 }
 
 export type DealResult = { ok: true; message: string; eggId?: string } | { ok: false; error: string };
@@ -260,8 +264,8 @@ export function takeDeal(state: GameState, dealId: string, t: number, rng: State
       const n = state.food.fruit ?? 0;
       if (!n) return { ok: false, error: 'You have no berries. Pick some from a Berry Tree.' };
       state.food.fruit = 0;
-      state.glimmer += n * 15;
-      message = `He bought ${n} ${n === 1 ? 'berry' : 'berries'} for ${n * 15} coins.`;
+      state.glimmer += n * 10;
+      message = `He bought ${n} ${n === 1 ? 'berry' : 'berries'} for ${n * 10} coins.`;
       break;
     }
     case 'gnome:decor': {

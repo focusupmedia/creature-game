@@ -1,7 +1,7 @@
 import { species } from '../content/species';
 import { DIG_KINDS, EVENTS, ITEMS, LEGENDARY, LURES, MUTATIONS, SPOTS } from '../content/world';
 import { claimBlessing, startLegendary } from '../core/legendary';
-import { addXp, grantMissingLevelCreatures } from '../core/levels';
+import { addXp, grantMissingLevelCreatures, payOwedLevels } from '../core/levels';
 import { petCreature, playWith } from '../core/friendship';
 import { claimExpedition, sendOnExpedition } from '../core/expeditions';
 import { canClaimLogin, claimLogin } from '../core/login';
@@ -103,6 +103,11 @@ export class Game {
     this.offerLogin();
     // older saves: hand over any level-only creatures the keeper already earned
     if (grantMissingLevelCreatures(this.state, this.now()).length) this.saveSoon();
+    const owed = payOwedLevels(this.state, this.now());
+    if (owed.length) {
+      this.ui.toast(`★ Levels ${owed[0].level}-${owed[owed.length - 1].level} rewards: {coin} +${owed.reduce((n, u) => n + u.coins, 0).toLocaleString()}  {gem} +${owed.reduce((n, u) => n + u.shards, 0)}`, 'discovery', undefined, 6000);
+      this.saveSoon();
+    }
     this.welcomeBack(events, away);
     this.analytics.track('session_start', { creatures: this.state.creatures.length, away_min: Math.round(away / 60000) });
     this.world.start();

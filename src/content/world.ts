@@ -81,7 +81,7 @@ export const MUTATIONS: Record<MutationId, MutationDef> = {
   },
   golden: {
     id: 'golden', trait: 'Golden', name: 'Golden', inheritChance: 0.2, tier: 'legendary', glow: '#ffd23d',
-    blurb: 'So loved it turned to gold. Only ever happens to a best friend.',
+    blurb: 'So loved it turned to gold. It starts with a best friend, and sometimes its babies carry it on.',
   },
 };
 
@@ -586,7 +586,7 @@ export interface SkyItemDef { id: string; name: string; icon: string; blurb: str
 const RARE_SKIES: EventKind[] = ['starry', 'fullmoon', 'blizzard', 'aurora', 'meteor'];
 
 function charmPrice(k: EventKind): number {
-  return k === 'storm' ? 25 : RARE_SKIES.includes(k) ? 70 : 40;
+  return k === 'storm' ? 25 : RARE_SKIES.includes(k) || EVENTS[k].rare ? 70 : 40;
 }
 
 export const SKY_ITEMS: Record<string, SkyItemDef> = {

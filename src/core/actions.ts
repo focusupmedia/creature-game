@@ -408,7 +408,7 @@ export function canAdHatch(state: GameState, egg: Egg, t: number): boolean {
 }
 
 export function consumeAd(state: GameState, t: number): void {
-  if (state.ads.day !== today(t)) state.ads = { day: today(t), count: 0 };
+  if (state.ads.day !== today(t)) state.ads = { ...state.ads, day: today(t), count: 0 };
   state.ads.count += 1;
 }
 
