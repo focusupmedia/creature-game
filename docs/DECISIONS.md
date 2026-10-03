@@ -78,6 +78,12 @@
 | A56 | **One journal with world filters** | ✅ Built |
 | A57 | **Replace every emoji with drawn icons**, menus and creature bubbles alike. Built: `ui/emoji.ts`; a test fails if an emoji has no drawn icon | ✅ Built |
 | A58 | **Personal history:** card shows date met, sky event at the time, how obtained (lure, egg bred from X × Y, shop egg tier, level gift, dig find...). **Away finds:** creatures bring back coins/items while you're away ("Axolotl found 30 coins"). **Cross-world alerts:** ! on the Islands button/world when an egg is ready or an Epic+ visitor waits. **Inventory:** Wandering and Storage tabs, sort, favourites; full-world prompt offers Make space (store/release); level gifts ask place now or store | ✅ Built |
+| A59 | **Growing worlds opens lure spots:** Medium and Large each open one new lure spot on every world (10 new spots); nests stay limited | ✅ Built |
+| A60 | **Graphics clean-up:** new shaded coin to match the Starshard gem; hands drawn as clean silhouettes; gesture drawings on the controls card; tutorial coach card with Lotl the axolotl and step dots, never shown over a pop-up | ✅ Built |
+| A61 | **Economy rebalance** (measured with `tests/economy.test.ts`, a bot playing four 20-min sessions a day): level 20 in about a week, 50 in about six weeks; worlds 1.5k/4k/9k/16k coins at Lv 4/8/14/20; growing 2.5k then 7k; selling pays less and mutation bonuses add up (capped) instead of multiplying; daily quests bigger (400-600 coins, 6-10 Starshards each) | ✅ Built |
+| A62 | **Ads:** 12 rewarded ads a day for events/hatching/shop refresh; 5 free-coin ads a day in the shop's coins tab (60 + 15 per level) | ✅ Built |
+| A63 | **Decor:** placement rebuilt (drag with arrows, Turn, green/red ring, only on open ground, on any world); scenery trees can be chopped (stump stays, a few coins); 96-piece catalog in six groups unlocked by keeper level (Magic set for Starshards) with thumbnails | ✅ Built |
+| A64 | **Small fixes:** "Favorite" spelling and a heart that fills in; Feed button in the Pets list; islands spaced ~1.5x further apart; weather and sky follow the world you're on | ✅ Built |
 | A37 | **Build order:** quick wins (A29, A30) → round islands (A31) → drag/breed/dig spots (A32) → creatures, islands, mythicals (A34, A35) → Angel then Infernal/Abyssal (A33) → hunger + economy (A36) | Approved |
 
 ## Where I'm challenging the brief

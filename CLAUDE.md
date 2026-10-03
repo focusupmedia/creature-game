@@ -8,17 +8,17 @@ Cozy mobile creature-discovery game (working title **Kindred Grove**). TypeScrip
 - North Star: every session should make the player wonder what they'll discover next.
 
 ## Commands
-`npm run dev` · `npm test` (70 tests, includes a pacing bot and music checks) · `npx tsc --noEmit` · `npm run build:single` (one-file build)
+`npm run dev` · `npm test` (87 tests, includes a pacing bot, an economy sim (`ECON=1 npx vitest run tests/economy.test.ts` prints the day-by-day table), music checks and an every-emoji-is-drawn check) · `npx tsc --noEmit` · `npm run build:single` (one-file build)
 
 Playable link (private artifact, republish to the same URL): https://claude.ai/artifact/Vp8BW1soCF5jXTZ76FZ3hP. To republish, convert `dist-single/index.html` to artifact format (no doctype/html/head/body; keep title, styles, body divs, scripts) and publish it with the Artifact tool. Visual checks: Playwright with `executablePath: '/opt/pw-browsers/chromium'` against `npx vite preview --port 4173`, and `?debug` exposes `window.game`.
 
 ## Code map
-- `src/core/`: pure, deterministic simulation (sim tick, actions, genetics, lures, world/events, shop, save + migrations, levels, quirks, progress; save version 8)
-- `src/content/`: data (species, world: lures/spots/events/mutations/egg tiers, islands, globe (map ↔ sphere wrap), layout, tuning)
+- `src/core/`: pure, deterministic simulation (sim tick, actions, genetics, lures, world/events, shop, save + migrations, levels, quirks, progress, care, wanderers; save version 10)
+- `src/content/`: data (species, world: lures/spots/events/mutations/egg tiers, decor (96-piece catalog), wanderers, islands, globe (map ↔ sphere wrap), layout, tuning)
 - `src/platform/`: audio.ts (SFX + ambience), composer.ts + music.ts (generative music), services (storage, ads, IAP stubs)
-- `src/render/`: World (multi-island, only the current island's actors animate), CreatureActor (AI, personalities, digging), creatureModels (procedural, outlined), sanctuary (island builders), sky (5 events)
+- `src/render/`: World (multi-island, only the current island's actors animate), CreatureActor (AI, personalities, digging), creatureModels (procedural, outlined), sanctuary (island builders; trees are choppable), decor (catalog models), sky (9 events, follows the current globe)
 - `src/ui/`: UI.ts (sheets, HUD, widget, islands, pets), Labels.ts (world pins and name bubble), icons.ts (SVG incl. axolotl mascot), emoji.ts (every emoji redrawn as SVG; text is auto-converted), styles.css (chunky casual style)
-- `docs/`: GAME_DESIGN, MVP_SCOPE, ARCHITECTURE, ROADMAP, DECISIONS (approved decisions A1–A48)
+- `docs/`: GAME_DESIGN, MVP_SCOPE, ARCHITECTURE, ROADMAP, DECISIONS (approved decisions A1–A64)
 
 ## Built so far
 Lures, combining (trait-based hybrids), eggs and reveal, 11 mutations (common/rare/epic/legendary tiers), 9 sky events (Storm, Eclipse, Rainbow, Misty Fog, plus rare Starry Night, Full Moon, Blizzard, Aurora, Meteor Shower), 3 legendary events (Angels, Eruption, Deep Tide; `core/legendary.ts`, `render/legendaryFx.ts`) with a claimable gift and legendary mutations (Angelic, Infernal, Abyssal), ad-summoned events (6 ads/day), generative cozy music (kalimba/marimba/bells; moods for day, night and each sky event; Music toggle in Settings), stacking mutation looks with rarity glow (rim, aura, sparkles), rotating shop with category tabs and Mango the monkey shopkeeper, egg tiers (coin eggs + premium gem Starry Egg), coins (8-bit) + Starshards, decor, journal, away report, tutorial with axolotl coach, pick up and carry creatures (press and hold; drop on another to breed, on a dig spot to dig/fish/forage), dig spots, growth to random size (with obvious Teeny/Colossal outliers), behaviour traits (2-5 per creature, `content/quirks.ts` + `core/quirks.ts`, Trait Deleter/Wiper), squabbles, digging finds, first-3-eggs-always-new, 25 species including dragons and the legendary Axolotl, fully round globe islands (game logic uses flat map x/z; `content/globe.ts` wraps it onto a sphere; render things with World.at/place, never raw x/y/z), drag-to-roll globe camera, archipelago (Home, Ember Peak, Coral Lagoon, Sunny Shore, Dune Hollow), island sizes S/M/L, in-game widget, keeper levels 1-50 with a rewards list and 10 level-only creatures (`core/levels.ts`; player actions report to `Game.record()` for XP and quests), daily + lasting quests (`core/quests.ts`), gentle hunger, food (Berry Trees, snacks, feasts, feedbags), storage, selling and the travelling Collector (`core/care.ts`).
@@ -26,8 +26,11 @@ Lures, combining (trait-based hybrids), eggs and reveal, 11 mutations (common/ra
 ## Latest round (A49-A58, all built)
 Breeding variety, dig finds auto-collect, capacity per island size/world, rarity shares (`core/lures.ts` RARITY_SHARE), level-gated worlds, bigger globes, lure visitors waiting with a ! (Keep / Send away / Make space), cross-world ! alerts, Pets sheet (Wandering/Storage, sort, favourites), how-you-met card, away finds, 4 new sky events (Rainbow, Aurora, Meteor Shower, Misty Fog; 1.5x as common), egg sprays, wanderers + Goblin, journal world filters, all emoji replaced by drawn icons.
 
+## Round after that (A59-A64, all built)
+Lure spots open as worlds grow, graphics clean-up (coin, hands, coach), economy rebalance with an economy sim, more ads + free-coin ads, decor placement rework + tree chopping + 96-piece decor catalog, Favorite heart, Feed in Pets, islands spaced out.
+
 ## Next up
-Nothing approved is waiting. Ask the owner what's next (ideas: final art pass, real ads/IAP, native builds).
+Waiting on the owner's answers about creature color variants, more ways to earn, more creatures/levels, and launch prep.
 
 ## Open / later
 Real ads/IAP SDKs, native builds, real phone home-screen widgets, cloud save, final art and audio, final game name and bundle ID.
