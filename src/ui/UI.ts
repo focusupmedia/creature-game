@@ -133,6 +133,10 @@ export class UI {
       dockBtn(I.DECOR, 'DECOR', () => this.showDecor()),
     );
     this.root.append(top, this.banner, this.toasts, this.coachEl, this.dock, this.sheetHost, this.placeHost, this.modalHost, this.revealHost);
+    // a finger down on a sheet pauses its live refresh until it lifts (so taps always land)
+    this.sheetHost.addEventListener('pointerdown', () => { this.pressing = true; });
+    window.addEventListener('pointerup', () => { this.pressing = false; }, true);
+    window.addEventListener('pointercancel', () => { this.pressing = false; }, true);
     mount.append(this.root);
     this.seenShopRotation = game.state.shop.rotation;
     this.seenNotes = game.state.journal.notes.length;
@@ -206,8 +210,7 @@ export class UI {
     this.journalDot.classList.toggle('hidden', s.journal.notes.length === this.seenNotes);
 
     this.refreshTimer -= dt;
-    const typing = document.activeElement instanceof HTMLInputElement && this.sheetHost.contains(document.activeElement);
-    if (this.refreshTimer <= 0 && this.sheetRender && !typing) {
+    if ((this.refreshTimer <= 0 || this.pendingRender) && this.sheetRender) {
       this.refreshTimer = 1;
       this.rerender();
     }
@@ -250,9 +253,12 @@ export class UI {
     this.sheetHost.append(scrim, sheet);
     this.sheetRender = () => {
       const scroll = body.scrollTop;
+      // sideways-scrolling chip rows keep their place too
+      const rows = [...body.querySelectorAll<HTMLElement>('.world-filter, .tabs')].map((el) => el.scrollLeft);
       body.replaceChildren();
       render(body);
       body.scrollTop = scroll;
+      body.querySelectorAll<HTMLElement>('.world-filter, .tabs').forEach((el, i) => { el.scrollLeft = rows[i] ?? 0; });
     };
     this.sheetRender();
     this.refreshTimer = 1;
@@ -267,9 +273,22 @@ export class UI {
     }
   }
 
+  /**
+   * Rebuild the open sheet with fresh numbers. Never while a finger is down on it
+   * (that would swallow the tap) or while typing a name: it catches up right after.
+   */
   rerender(): void {
+    const typing = document.activeElement instanceof HTMLInputElement && this.sheetHost.contains(document.activeElement);
+    if (this.pressing || typing) {
+      this.pendingRender = true;
+      return;
+    }
+    this.pendingRender = false;
     this.sheetRender?.();
   }
+
+  private pressing = false;
+  private pendingRender = false;
 
   get sheetOpen(): boolean {
     return !!this.sheetRender;
@@ -309,7 +328,7 @@ export class UI {
   showSpot(spotId: SpotId): void {
     const spot = SPOTS[spotId];
     if (this.game.world.current !== spot.island) this.game.world.travelTo(spot.island, true);
-    this.game.world.focus(spot, 14);
+    this.game.world.focus(spot, 14, spot.island);
     const subs: Record<string, string> = { glade: 'A quiet ring of mossy stones.', pond: 'Where land meets water.', vent: 'Warm air rises from the rocks.', ash: 'Soft grey ash, still warm.', reef: 'Bright coral just under the surface.', shallows: 'Warm, clear, knee-deep water.' };
     this.openSheet(spot.name, subs[spotId] ?? '', (b) => b.append(this.spotBlock(spotId, true)), ISLANDS[spot.island].icon);
   }
@@ -373,7 +392,11 @@ export class UI {
             ? (() => {
               const input = h('input', { class: 'rename', value: c.nickname ?? '', placeholder: speciesTitle(c), maxLength: 18 });
               input.addEventListener('keydown', (e) => { if (e.key === 'Enter') input.blur(); });
-              input.addEventListener('blur', () => { A.rename(this.game.state, c.id, input.value); renaming = false; this.game.saveSoon(); this.showCreature(c.id); });
+              input.addEventListener('blur', () => { A.rename(this.game.state, c.id, input.value); renaming = false; this.game.saveSoon();
+                const title = this.sheetHost.querySelector('.sheet header h2');
+                if (title) title.textContent = displayName(c);
+                this.rerender();
+              });
               setTimeout(() => input.focus(), 50);
               return input;
             })()
@@ -886,7 +909,7 @@ export class UI {
   showFont(): void {
     const s = this.game.state;
     this.ensureHome();
-    this.game.world.focus(FONT, 15);
+    this.game.world.focus(FONT, 15, 'home');
     if (s.tutorial === 3) this.game.setTutorial(3.5);
     this.openSheet('Kindred Font', 'Two creatures who share something can make an egg together.', (b) => {
       const [aId, bId] = this.fontPick;
@@ -938,7 +961,7 @@ export class UI {
     const s = this.game.state;
     const n = NESTS[index];
     this.ensureHome();
-    this.game.world.focus(n, 12);
+    this.game.world.focus(n, 12, 'home');
     if (index >= s.nests) {
       const price = A.nestPrice(s);
       this.openSheet('Empty pedestal', 'Room for another nest.', (b) => {

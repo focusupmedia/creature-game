@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import type { LegendaryKind } from '../core/types';
 import { buildCherub } from './creatureModels';
-import { glowSprite } from './materials';
+import { glowSprite, disposeTree } from './materials';
 
 // The 3D side of a legendary event: angels spiralling down, a volcano
 // spitting glowing rocks, or glowing bubbles rising from the deep.
@@ -55,8 +55,14 @@ export class LegendaryFx {
   }
 
   stop(): void {
-    for (const c of this.cherubs) this.scene.remove(c);
-    for (const b of this.bits) this.scene.remove(b.obj);
+    for (const c of this.cherubs) {
+      this.scene.remove(c);
+      disposeTree(c);
+    }
+    for (const b of this.bits) {
+      this.scene.remove(b.obj);
+      disposeTree(b.obj);
+    }
     this.cherubs = [];
     this.bits = [];
     this.kind = null;

@@ -82,6 +82,7 @@ export class Game {
     const away = this.now() - this.state.lastTick;
     const events = tick(this.state, this.now(), { maxStepMs: TUNING.offlineStepSec * 1000 });
     this.world.sync(this.state, this.now(), activeEvent(this.state, this.now())?.kind ?? null);
+    this.dispatch(events, false);
     if (away > AWAY_REPORT_MS) this.ui.showAwayReport(events, away, awayFinds(this.state, away));
     this.analytics.track('session_start', { creatures: this.state.creatures.length, away_min: Math.round(away / 60000) });
     this.world.start();
@@ -220,7 +221,11 @@ export class Game {
         case 'arrival': {
           if (live) this.record({ kind: 'arrival', species: ev.creature.species, isNew: ev.discovered });
           this.analytics.track('creature_arrived', { species: ev.creature.species, spot: ev.spot, mutations: ev.creature.mutations.length, new: ev.discovered });
-          if (!live) break;
+          // the tutorial moves on even if the first visitor came while you were away
+          if (!live) {
+            if (this.state.tutorial <= 1) this.setTutorial(2);
+            break;
+          }
           const pic = this.world.portraits.get(ev.creature.species, ev.creature.mutations);
           const where = SPOTS[ev.spot].island === this.world.current ? `the ${SPOTS[ev.spot].name}` : ISLANDS[SPOTS[ev.spot].island].name;
           if (ev.discovered) {
@@ -232,7 +237,7 @@ export class Game {
           }
           if (this.state.tutorial <= 1) {
             this.setTutorial(2);
-            this.world.focus(SPOTS[ev.spot], 13);
+            this.world.focus(SPOTS[ev.spot], 13, SPOTS[ev.spot].island);
           }
           break;
         }
@@ -309,8 +314,8 @@ export class Game {
           break;
         }
         case 'legendaryEnd':
-          if (!live) break;
-          this.ui.toast(`${LEGENDARY[ev.kind].icon} ${LEGENDARY[ev.kind].leave}`);
+          // always clear the overlay, even if it ended while the app was in the background
+          if (live) this.ui.toast(`${LEGENDARY[ev.kind].icon} ${LEGENDARY[ev.kind].leave}`);
           this.ui.legendaryOverlayEnd();
           this.world.legendaryEnd();
           break;
@@ -501,7 +506,7 @@ export class Game {
     this.ui.toast(`You set out a ${LURES[lure].name}. Now… wait and see.`);
     if (this.state.tutorial === 0) this.setTutorial(1);
     this.ui.closeSheet();
-    this.world.focus(SPOTS[spot], 15);
+    this.world.focus(SPOTS[spot], 15, SPOTS[spot].island);
     this.saveSoon();
   }
 
@@ -517,7 +522,7 @@ export class Game {
     if (this.state.tutorial < 4) this.setTutorial(4);
     this.ui.closeSheet();
     const nest = NESTS[r.egg.nest ?? 0];
-    this.world.focus(nest, 12);
+    this.world.focus(nest, 12, 'home');
     this.world.burst(this.world.at(nest.x, nest.z, 0.8, 'home'), '#bff4ff', 24);
     this.ui.toast('A new egg settles into a warm nest. What could be inside?', 'discovery');
     for (const n of r.notes) this.ui.toast(`📝 Journal: ${n}`);

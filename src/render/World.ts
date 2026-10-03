@@ -12,7 +12,7 @@ import { ripeFruit } from '../core/care';
 import { buildDecor } from './decor';
 import { animateShopkeeper, animateWanderer, buildWanderer } from './creatureModels';
 import { buildEgg, disposeEgg, type EggModel } from './eggModel';
-import { emoteTexture, glowSprite, toon } from './materials';
+import { disposeTree, emoteTexture, glowSprite, toon } from './materials';
 import { Portraits } from './portraits';
 import { Reveal, type RevealPhase } from './Reveal';
 import { buildIsland, type IslandView } from './sanctuary';
@@ -228,7 +228,12 @@ export class World {
       const key = `${isl.owned}:${isl.size}:${chopped.join(',')}`;
       const view = this.islands.get(id);
       if (view && view.key === key) continue;
-      if (view) this.scene.remove(view.group);
+      if (view) {
+        this.scene.remove(view.group);
+        disposeTree(view.group);
+      }
+      // only a tree came down: keep the camera where it is
+      const choppedOnly = !!view && view.key.split(':').slice(0, 2).join(':') === `${isl.owned}:${isl.size}`;
       const fresh = buildIsland(id, isl.size, isl.owned, chopped);
       // chopped trees no longer block the way or shelter anyone from the rain
       const geo = islandGeo(id, isl.size) as ReturnType<typeof islandGeo> & { base?: { shelters: Geo['shelters']; obstacles: Geo['obstacles'] } };
@@ -238,7 +243,7 @@ export class World {
       geo.shelters = geo.base.shelters.filter((sh) => !stump(sh));
       geo.obstacles = geo.base.obstacles.filter((o) => !stump(o));
       // a tree just came down: a puff of leaves where it stood
-      if (view && view.key.split(':').slice(0, 2).join(':') === `${isl.owned}:${isl.size}`) {
+      if (choppedOnly) {
         for (const i of chopped) {
           const t = fresh.trees[i];
           if (t && !view.chopped.has(i)) this.burst(this.at(t.x, t.z, 1.6 * t.s, id), '#7fd94f', 30, 2.2, 0.45);
@@ -246,11 +251,11 @@ export class World {
       }
       this.islands.set(id, fresh);
       this.scene.add(fresh.group);
-      if (view && isl.owned) {
+      if (view && isl.owned && !choppedOnly) {
         const g = islandGeo(id, isl.size);
         this.burst(this.at(g.ox, g.oz, 1, id), '#fff6c8', 40, 3);
       }
-      if (id === this.current) this.travelTo(id, true);
+      if (id === this.current && !choppedOnly) this.travelTo(id, true);
     }
 
     // creatures (rebuild when mutations, island or island size change)
@@ -262,10 +267,12 @@ export class World {
       const actor = this.actors.get(c.id);
       if (!actor) {
         this.addActor(c);
-      } else if (this.actorKeys.get(c.id) !== key) {
+      } else if (this.actorKeys.get(c.id) !== key && !actor.carried) {
+        // (a creature you're holding is rebuilt after you put it down)
         const sameIsland = actor.geo.id === c.island;
         const pos = actor.position.clone();
         const mutated = this.actorKeys.get(c.id)?.split('|')[0] !== c.mutations.join(',');
+        actor.flushPending();
         actor.dispose(this.scene);
         const fresh = this.addActor(c);
         if (sameIsland) {
@@ -298,6 +305,7 @@ export class World {
     for (const [id, a] of this.actors) {
       if (!alive.has(id)) {
         if (a.root.visible) this.burst(this.above(a.position, 0.5, a.geo.id), '#ffffff', 14);
+        a.flushPending();
         a.dispose(this.scene);
         this.actors.delete(id);
       }
@@ -383,6 +391,7 @@ export class World {
       if (!giftAlive.has(id)) {
         if (group.visible) this.burst(this.at(group.userData.x, group.userData.z, 0.4, group.userData.island), '#ffe58a', 10);
         this.scene.remove(group);
+        disposeTree(group);
         this.gifts.delete(id);
         this.hiddenGifts.delete(id);
       } else {
@@ -421,6 +430,7 @@ export class World {
     for (const [id, g] of this.decor) {
       if (!decorAlive.has(id)) {
         this.scene.remove(g);
+        disposeTree(g);
         this.decor.delete(id);
       }
     }
@@ -487,6 +497,7 @@ export class World {
     if (this.wanderer && this.wanderer.key !== key) {
       this.burst(this.at(this.wanderer.x, this.wanderer.z, 0.6, this.wanderer.island), '#ffffff', 16);
       this.scene.remove(this.wanderer.group);
+      disposeTree(this.wanderer.group);
       this.wanderer = null;
     }
     if (w && !this.wanderer) {
@@ -603,7 +614,7 @@ export class World {
           this.sky.strike(at);
           this.burst(at, '#fff27a', 22, 2);
         } else if (ev.event === 'eclipse' || ev.event === 'fullmoon') {
-          this.sky.moonbeam(a.worldPosition);
+          this.sky.moonbeam(a.worldPosition, globeNormal(a.geo, a.position.x, a.position.z));
         } else if (ev.event === 'starry') {
           this.sky.fallingStar(at, () => this.burst(at, '#fff1a8', 26, 1.8));
         } else {
@@ -720,7 +731,9 @@ export class World {
   }
 
   /** Turn the globe to show a map point (distances are from the surface). */
-  focus(p: { x: number; z: number }, distance?: number): void {
+  /** Turn the globe to look at a point. Points on another world are ignored (they'd aim at this globe's underside). */
+  focus(p: { x: number; z: number }, distance?: number, island: IslandId = this.current): void {
+    if (island !== this.current) return;
     const n = globeNormal(this.geoOf(), p.x, p.z);
     this.rig.lookAtDir(n, distance === undefined ? this.rig.distance : this.rig.radius + distance * 0.85);
   }
@@ -822,7 +835,7 @@ export class World {
     if (!hover) {
       best = 1.1;
       for (const a of this.actors.values()) {
-        if (a === actor || !a.root.visible) continue;
+        if (a === actor || !a.root.visible || a.waitAt) continue;
         const d = Math.hypot(a.position.x - p.x, a.position.z - p.z);
         if (d < best) { best = d; hover = { kind: 'creature', id: a.id }; }
       }
@@ -1004,7 +1017,10 @@ export class World {
   }
 
   cancelPlacement(): void {
-    if (this.ghost) this.scene.remove(this.ghost);
+    if (this.ghost) {
+      this.scene.remove(this.ghost);
+      disposeTree(this.ghost);
+    }
     this.ghost = null;
     this.placing = null;
   }
@@ -1078,7 +1094,9 @@ export class World {
       if (r < bestRank) {
         bestRank = r;
         if (p.kind === 'ground') {
-          best = p.island && p.island !== this.current ? { kind: 'island', id: p.island } : { kind: 'ground', x: h.point.x, z: h.point.z };
+          // ground taps report map coordinates (the 3D hit point is on the curved globe)
+          const g = p.island && p.island !== this.current ? null : this.pointerGround(x, y);
+          best = !g ? { kind: 'island', id: p.island as IslandId } : { kind: 'ground', x: g.x, z: g.z };
         } else best = p;
       }
     }

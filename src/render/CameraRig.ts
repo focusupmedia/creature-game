@@ -103,6 +103,12 @@ export class CameraRig {
     this.startFly(this.center.clone(), Math.abs(n.x) + Math.abs(n.z) < 0.05 ? this.yaw : yaw, pitch, THREE.MathUtils.clamp(distance, this.minDist, this.maxDist));
   }
 
+  /** Touching the screen mid-flight takes over the view, but always lands on the target globe. */
+  private stopFly(): void {
+    if (this.fly) this.center.copy(this.fly.c1);
+    this.fly = null;
+  }
+
   private startFly(c1: THREE.Vector3, yaw: number, pitch: number, distance: number): void {
     let y1 = yaw;
     while (y1 - this.yaw > Math.PI) y1 -= Math.PI * 2;
@@ -116,7 +122,7 @@ export class CameraRig {
     this.el.setPointerCapture(e.pointerId);
     this.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
     this.vel.set(0, 0);
-    this.fly = null;
+    this.stopFly();
     if (this.pointers.size === 1) {
       this.downAt = performance.now();
       this.downPos = { x: e.clientX, y: e.clientY };
@@ -213,7 +219,7 @@ export class CameraRig {
 
   private wheel = (e: WheelEvent) => {
     e.preventDefault();
-    this.fly = null;
+    this.stopFly();
     this.distance = THREE.MathUtils.clamp(this.distance * (1 + Math.sign(e.deltaY) * 0.1), this.minDist, this.maxDist);
   };
 

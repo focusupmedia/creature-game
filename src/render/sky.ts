@@ -443,13 +443,16 @@ export class Sky {
   }
 
   /** Moonbeam: a soft column of light onto a creature (eclipse, full moon). */
-  moonbeam(target: THREE.Vector3): void {
+  moonbeam(target: THREE.Vector3, normal: THREE.Vector3Like = { x: 0, y: 1, z: 0 }): void {
     const geo = new THREE.CylinderGeometry(0.5, 1.1, 12, 16, 1, true);
     const mat = new THREE.MeshBasicMaterial({
       color: '#d4dcff', transparent: true, opacity: 0.5, side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending,
     });
     const mesh = new THREE.Mesh(geo, mat);
-    mesh.position.set(target.x, 6, target.z);
+    // a column of light standing straight up from the creature's patch of globe
+    const n = new THREE.Vector3(normal.x, normal.y, normal.z).normalize();
+    mesh.position.copy(target).addScaledVector(n, 6);
+    mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), n);
     this.add(mesh, 5, (k) => (mat.opacity = Math.min(0.5, (1 - k) * 1.5)));
   }
 

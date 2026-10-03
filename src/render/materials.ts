@@ -176,3 +176,18 @@ export function addOutlines(root: THREE.Object3D, thickness = 3): void {
     o.add(hull);
   }
 }
+
+/**
+ * Free the GPU memory of something removed from the scene: every geometry, and
+ * every material that isn't one of the shared cached toon materials. Textures are
+ * shared (glow, emotes, ramps) and are left alone.
+ */
+export function disposeTree(root: THREE.Object3D): void {
+  const shared = new Set<THREE.Material>(cache.values());
+  root.traverse((o) => {
+    const m = o as THREE.Mesh;
+    if (m.geometry) m.geometry.dispose();
+    const mats = m.material ? (Array.isArray(m.material) ? m.material : [m.material]) : [];
+    for (const mat of mats) if (!shared.has(mat)) mat.dispose();
+  });
+}

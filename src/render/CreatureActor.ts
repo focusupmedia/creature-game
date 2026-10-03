@@ -263,6 +263,19 @@ export class CreatureActor {
   }
 
   /** Lifted by the player. Whatever it was doing is dropped (a pending dig still finishes later). */
+  /** Finish anything waiting on this actor (a find it was digging up) before it goes away. */
+  flushPending(): void {
+    if (this.onArrived) {
+      this.onArrived();
+      this.onArrived = null;
+    }
+    if (this.onDug) {
+      const done = this.onDug;
+      this.onDug = null;
+      done();
+    }
+  }
+
   pickUp(): void {
     if (this.onArrived) {
       this.onArrived();

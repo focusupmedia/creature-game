@@ -114,9 +114,15 @@ function validate(s: GameState): void {
 
 /** Keep only recent event bookkeeping so saves stay small. */
 function pruneEvents(state: GameState): void {
-  const keys = Object.keys(state.eventsApplied).map(Number).sort((a, b) => a - b);
-  for (const k of keys.slice(0, Math.max(0, keys.length - 4))) {
-    if (state.eventsApplied[k].ended) delete state.eventsApplied[k];
+  // Keys are window numbers ("12") for scheduled events and "s<start>" for summoned ones.
+  // Keep the four newest of each kind; drop older ones that have finished.
+  const ev = state.eventsApplied;
+  const order = (k: string) => Number(k.startsWith('s') ? k.slice(1) : k);
+  for (const summoned of [false, true]) {
+    const keys = Object.keys(ev).filter((k) => k.startsWith('s') === summoned).sort((a, b) => order(a) - order(b));
+    for (const k of keys.slice(0, Math.max(0, keys.length - 4))) {
+      if (ev[k]?.ended) delete ev[k];
+    }
   }
 }
 

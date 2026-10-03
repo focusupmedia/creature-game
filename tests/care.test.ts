@@ -192,3 +192,20 @@ describe('decor and trees', () => {
     expect(s.chopped?.home).toEqual([3]);
   });
 });
+
+describe('saving', () => {
+  it('keeps saving after many ad-summoned sky events', async () => {
+    const { summonEvent } = await import('../src/core/actions');
+    const { serialize, deserialize } = await import('../src/core/save');
+    const s = createGame(21, 0);
+    let t = 60_000;
+    for (let i = 0; i < 8; i++) {
+      // wait for a clear sky, then summon
+      while (!summonEvent(s, t).ok) t += 60_000;
+      t += 10 * 60_000;
+      tick(s, t, { maxStepMs: 5000 });
+      expect(() => deserialize(serialize(s, t))).not.toThrow();
+    }
+    expect(Object.keys(s.eventsApplied).filter((k) => k.startsWith('s')).length).toBeLessThanOrEqual(5);
+  });
+});

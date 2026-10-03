@@ -24,6 +24,7 @@ export function disposeDigSpot(v: DigSpotView): void {
   v.root.traverse((o) => {
     const mats = (o as THREE.Mesh | THREE.Sprite).material as THREE.Material | undefined;
     if (mats?.userData?.own || o instanceof THREE.Sprite) mats?.dispose();
+    if (o instanceof THREE.Mesh) o.geometry.dispose();
   });
 }
 

@@ -462,8 +462,10 @@ function buildHome(view: IslandView, M: Merger, g: Geo, rand: () => number, clea
   for (const t of TREES) tree(view, M, t, rand);
   // larger islands get a few extra trees around the new rim
   if (g.r > 10) {
+    // each extra tree keeps its own spot as the island grows (golden-angle spacing),
+    // so a chopped one stays chopped in the same place after an upgrade
     for (let i = 0; i < Math.round((g.r - 9.5) * 2.5); i++) {
-      const a = -Math.PI * 0.95 + (i / Math.max(1, (g.r - 9.5) * 2.5)) * Math.PI * 1.9 + rand() * 0.2;
+      const a = -Math.PI * 0.95 + ((i * 0.618034) % 1) * Math.PI * 1.9 + rand() * 0.2;
       tree(view, M, { x: Math.cos(a) * (g.r - 1.4), z: Math.sin(a) * (g.r - 1.4) - 0.5, s: 0.7 + rand() * 0.3 }, rand);
     }
   }
