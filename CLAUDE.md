@@ -18,7 +18,7 @@ Playable link (private artifact, republish to the same URL): https://claude.ai/a
 - `src/platform/`: audio.ts (SFX + ambience), composer.ts + music.ts (generative music), services (storage, ads, IAP stubs)
 - `src/render/`: World (multi-island, only the current island's actors animate), CreatureActor (AI, personalities, digging), creatureModels (procedural, outlined), sanctuary (island builders; trees are choppable), decor (catalog models), sky (9 events, follows the current globe)
 - `src/ui/`: UI.ts (sheets, HUD, widget, islands, pets), Labels.ts (world pins and name bubble), icons.ts (SVG incl. axolotl mascot), emoji.ts (every emoji redrawn as SVG; text is auto-converted), styles.css (chunky casual style)
-- `docs/`: GAME_DESIGN, MVP_SCOPE, ARCHITECTURE, ROADMAP, DECISIONS (approved decisions A1–A64)
+- `docs/`: GAME_DESIGN, MVP_SCOPE, ARCHITECTURE, ROADMAP, DECISIONS (approved decisions A1–A72)
 
 ## Built so far
 Lures, combining (trait-based hybrids), eggs and reveal, 11 mutations (common/rare/epic/legendary tiers), 9 sky events (Storm, Eclipse, Rainbow, Misty Fog, plus rare Starry Night, Full Moon, Blizzard, Aurora, Meteor Shower), 3 legendary events (Angels, Eruption, Deep Tide; `core/legendary.ts`, `render/legendaryFx.ts`) with a claimable gift and legendary mutations (Angelic, Infernal, Abyssal), ad-summoned events (6 ads/day), generative cozy music (kalimba/marimba/bells; moods for day, night and each sky event; Music toggle in Settings), stacking mutation looks with rarity glow (rim, aura, sparkles), rotating shop with category tabs and Mango the monkey shopkeeper, egg tiers (coin eggs + premium gem Starry Egg), coins (8-bit) + Starshards, decor, journal, away report, tutorial with axolotl coach, pick up and carry creatures (press and hold; drop on another to breed, on a dig spot to dig/fish/forage), dig spots, growth to random size (with obvious Teeny/Colossal outliers), behaviour traits (2-5 per creature, `content/quirks.ts` + `core/quirks.ts`, Trait Deleter/Wiper), squabbles, digging finds, first-3-eggs-always-new, 25 species including dragons and the legendary Axolotl, fully round globe islands (game logic uses flat map x/z; `content/globe.ts` wraps it onto a sphere; render things with World.at/place, never raw x/y/z), drag-to-roll globe camera, archipelago (Home, Ember Peak, Coral Lagoon, Sunny Shore, Dune Hollow), island sizes S/M/L, in-game widget, keeper levels 1-50 with a rewards list and 10 level-only creatures (`core/levels.ts`; player actions report to `Game.record()` for XP and quests), daily + lasting quests (`core/quests.ts`), gentle hunger, food (Berry Trees, snacks, feasts, feedbags), storage, selling and the travelling Collector (`core/care.ts`).
@@ -29,8 +29,8 @@ Breeding variety, dig finds auto-collect, capacity per island size/world, rarity
 ## Round after that (A59-A64, all built)
 Lure spots open as worlds grow, graphics clean-up (coin, hands, coach), economy rebalance with an economy sim, more ads + free-coin ads, decor placement rework + tree chopping + 96-piece decor catalog, Favorite heart, Feed in Pets, islands spaced out.
 
-## Next up
-Waiting on the owner's answers about creature color variants, more ways to earn, more creatures/levels, and launch prep.
+## Next up (approved, A65-A72; build in this order)
+1. Pet color shades (common / Pastel / Shiny, inherited; mutations tint on top). 2. Friendship hearts. 3. Expeditions. 4. Daily login calendar. 5. Collection rewards. 6. Phone notifications (gentle). 7. Creature voices + ambience. 8. Weekly pet contests. 9. ~10 new creatures incl. 2 Mythicals. 10. Levels 51-100. 11. A 6th world (ask the owner which theme).
 
 ## Open / later
 Real ads/IAP SDKs, native builds, real phone home-screen widgets, cloud save, final art and audio, final game name and bundle ID.

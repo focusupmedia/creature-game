@@ -84,6 +84,14 @@
 | A62 | **Ads:** 12 rewarded ads a day for events/hatching/shop refresh; 5 free-coin ads a day in the shop's coins tab (60 + 15 per level) | ✅ Built |
 | A63 | **Decor:** placement rebuilt (drag with arrows, Turn, green/red ring, only on open ground, on any world); scenery trees can be chopped (stump stays, a few coins); 96-piece catalog in six groups unlocked by keeper level (Magic set for Starshards) with thumbnails | ✅ Built |
 | A64 | **Small fixes:** "Favorite" spelling and a heart that fills in; Feed button in the Pets list; islands spaced ~1.5x further apart; weather and sky follow the world you're on | ✅ Built |
+| A65 | **Pet colors:** every pet rolls a color shade (common shades, rare Pastel, very rare Shiny); babies tend to inherit a parent's shade; color mutations tint on top. No patterns or accessories for now | Approved |
+| A66 | **Expeditions:** send a pet away for 1-8 hours; it returns with coins/items/sometimes a rare egg and a short story | Approved |
+| A67 | **Daily login calendar:** 7-day reward calendar that grows each day, big day-7 reward | Approved |
+| A68 | **Collection rewards:** finishing a journal page (a world's creatures, all mutations...) pays a big one-time reward + badge | Approved |
+| A69 | **Pet contests:** a weekly show; enter a pet judged on rarity, size and looks; prizes for placing | Approved |
+| A70 | **Content:** ~10 new creatures (incl. 2 Mythicals with secret recipes), levels 51-100 (prestige), a 6th world | Approved |
+| A71 | **Immersion:** friendship hearts (pet/feed/play; best friends follow you, dig better), gentle phone notifications (egg ready, rare visitor, Collector; max a couple a day), creature voices + world/weather ambience | Approved |
+| A72 | **Build order:** colors → friendship → expeditions → login calendar → collections → notifications → voices → contests → new creatures → levels 51-100 → new world | Approved |
 | A37 | **Build order:** quick wins (A29, A30) → round islands (A31) → drag/breed/dig spots (A32) → creatures, islands, mythicals (A34, A35) → Angel then Infernal/Abyssal (A33) → hunger + economy (A36) | Approved |
 
 ## Where I'm challenging the brief
