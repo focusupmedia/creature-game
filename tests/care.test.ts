@@ -267,3 +267,26 @@ describe('friendship', () => {
     expect(other.bond).toBe(2);
   });
 });
+
+describe('expeditions', () => {
+  it('a grown, fed pet goes exploring, is away from its world, and comes home with treasure', async () => {
+    const { sendOnExpedition, claimExpedition } = await import('../src/core/expeditions');
+    const { startCombine } = await import('../src/core/actions');
+    const s = createGame(51, 0);
+    const c = s.creatures[0];
+    c.fullness = 1;
+    expect(sendOnExpedition(s, c.id, 'farshores', 1000).ok).toBe(false); // level too low
+    expect(sendOnExpedition(s, c.id, 'berryhill', 1000).ok).toBe(true);
+    expect(c.trip).toBeGreaterThan(0);
+    expect(startCombine(s, c.id, s.creatures[1].id, 2000).ok).toBe(false);
+    expect(claimExpedition(s, c.id, 2000).ok).toBe(false);
+    const evs = tick(s, HOUR + 2000, { maxStepMs: 60_000 });
+    expect(evs.some((e) => e.type === 'expeditionBack')).toBe(true);
+    const coins = s.glimmer;
+    const r = claimExpedition(s, c.id, HOUR + 2000);
+    expect(r.ok).toBe(true);
+    expect(s.glimmer).toBeGreaterThan(coins);
+    expect(c.trip).toBeUndefined();
+    expect(s.expeditions).toHaveLength(0);
+  });
+});

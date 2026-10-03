@@ -578,3 +578,4 @@ input.rename { font-family: var(--display); font-size: 22px; border: var(--outli
 .wl-bubble-hearts { display: flex; gap: 1px; margin: 1px 0; }
 .wl-bubble-hearts .hr .icon { width: 13px; height: 13px; }
 .wl-pet { background: linear-gradient(180deg, #ffd0e6, #ff9fcf) !important; }
+.haul { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin: 8px 0; }

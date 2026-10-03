@@ -17,6 +17,7 @@ import { hasQuirk, temperOf } from './quirks';
 import { stepCare } from './care';
 import { stepWanderer } from './wanderers';
 import { findBonus } from './friendship';
+import { stepExpeditions } from './expeditions';
 import { freeNest } from './state';
 import type { DigKind, EventKind, GameEvent, GameState, Gift, IslandId } from './types';
 import { activeEvent, isDark } from './world';
@@ -160,7 +161,7 @@ function step(state: GameState, t: number, dt: number, out: GameEvent[], live = 
   // ---- digging: residents dig things up, more or less often depending on personality
   if (state.creatures.length) {
     // hungry creatures don't dig; stored ones are away
-    const diggers = state.creatures.filter((c) => !c.stored && growth(c, t) >= 0.5 && c.fullness >= TUNING.hungry);
+    const diggers = state.creatures.filter((c) => !c.stored && !c.trip && growth(c, t) >= 0.5 && c.fullness >= TUNING.hungry);
     const rate1 = (c: (typeof diggers)[number]) => (TUNING.digRate[temperOf(c) ?? ''] ?? 1) * (hasQuirk(c, 'digger') ? 2 : 1) * (c.fullness >= TUNING.wellFed ? 1.25 : 1);
     const total = diggers.reduce((s, c) => s + rate1(c), 0);
     // Capped so hoarding creatures isn't an income strategy.
@@ -210,6 +211,9 @@ function step(state: GameState, t: number, dt: number, out: GameEvent[], live = 
   // ---- legendary events (very rare)
   stepLegendary(state, t, dt, rng, out);
 
+  // ---- pets coming home from expeditions
+  stepExpeditions(state, t, out);
+
   // ---- wanderers (only while you're playing)
   stepWanderer(state, t, rng, out, live, here);
 
@@ -233,7 +237,7 @@ function skyTouch(
   const rate = touch.perEvent / (durMs * 0.8);
   if (!rng.chance(1 - Math.exp(-rate * dt))) return;
   rec.touches += 1;
-  const target = rng.weighted(state.creatures.filter((c) => !c.stored).map((c) => [c, touch.favor && creatureTraits(c).includes(touch.favor) ? 4 : 1] as [typeof c, number]));
+  const target = rng.weighted(state.creatures.filter((c) => !c.stored && !c.trip).map((c) => [c, touch.favor && creatureTraits(c).includes(touch.favor) ? 4 : 1] as [typeof c, number]));
   if (!target) return;
   const trait = MUTATIONS[def.mutation].trait;
   const changed = !creatureTraits(target).includes(trait) && rng.chance(touch.chance);

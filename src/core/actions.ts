@@ -49,6 +49,7 @@ export function startCombine(state: GameState, aId: string, bId: string, t: numb
   if (!compat.ok) return fail(compat.reason ?? 'Not kindred.');
   for (const c of [a, b]) if (c.fullness < TUNING.hungry) return fail(`${displayName(c)} is too hungry to breed. Feed it first!`);
   for (const c of [a, b]) if (c.stored) return fail(`${displayName(c)} is in storage.`);
+  for (const c of [a, b]) if (c.trip) return fail(`${displayName(c)} is away exploring.`);
   const nest = freeNest(state);
   if (nest === null) return fail('Every nest is full. Hatch an egg first, or add a nest.');
   const rng = new StateRng(state);
@@ -151,6 +152,7 @@ export function hatch(state: GameState, eggId: string, t: number): Result<HatchR
 }
 
 export function release(state: GameState, creatureId: string): Result {
+  if (state.creatures.find((c) => c.id === creatureId)?.trip) return fail('It\'s away exploring. Welcome it home first.');
   if (state.creatures.length <= 2) return fail('Your sanctuary would feel empty. Keep at least two creatures.');
   const idx = state.creatures.findIndex((c) => c.id === creatureId);
   if (idx < 0) return fail('No such creature.');
@@ -194,6 +196,7 @@ export function workDigSpot(state: GameState, spotId: string, creatureId: string
   const c = state.creatures.find((x) => x.id === creatureId);
   if (!d) return fail('That spot has faded away.');
   if (!c) return fail('Who?');
+  if (c.trip) return fail('It\'s away exploring.');
   if (c.island !== d.island) return fail('That creature lives on another island.');
   const kind = DIG_KINDS[d.kind];
   if (species(c.species).movement === 'swim' && d.kind !== 'puddle') return fail(`${displayName(c)} can't do that on dry land.`);
@@ -221,7 +224,7 @@ export function rollEggTier(state: GameState, tierId: string): SpeciesId {
   return rng.weighted(pool) ?? 'mossfrog';
 }
 
-function layEgg(state: GameState, sp: SpeciesId, source: Egg['source'], t: number): Egg {
+export function layEgg(state: GameState, sp: SpeciesId, source: Egg['source'], t: number): Egg {
   const rng = new StateRng(state);
   const muts: MutationId[] = rng.chance(TUNING.prismaticChance) ? ['prismatic'] : [];
   const egg: Egg = {
@@ -267,6 +270,7 @@ export function upgradeIsland(state: GameState, id: IslandId, currency: 'glimmer
 
 export function moveCreature(state: GameState, creatureId: string, to: IslandId, t: number): Result {
   const c = state.creatures.find((x) => x.id === creatureId);
+  if (c?.trip) return fail('It\'s away exploring. Welcome it home first.');
   if (!c) return fail('No such creature.');
   if (!state.islands[to]?.owned) return fail('You don\'t own that island yet.');
   if (c.island === to) return fail('It already lives there.');

@@ -264,7 +264,7 @@ export class World {
     // creatures (rebuild when mutations, island or island size change)
     const alive = new Set<string>();
     for (const c of state.creatures) {
-      if (c.stored) continue;
+      if (c.stored || c.trip) continue;
       alive.add(c.id);
       const key = `${c.mutations.join(',')}|${c.island}|${this.sizes[c.island] ?? 0}`;
       const actor = this.actors.get(c.id);

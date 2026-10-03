@@ -111,6 +111,7 @@ export function storeCreature(state: GameState, id: string, t: number): Result {
   const c = state.creatures.find((x) => x.id === id);
   if (!c) return fail('Who?');
   if (c.stored) return fail('Already in storage.');
+  if (c.trip) return fail('It\'s away exploring. Welcome it home first.');
   if (storedCount(state) >= state.storageSlots) return fail('Storage is full. Buy another slot, or bring someone back.');
   if (state.creatures.filter((x) => !x.stored).length <= 2) return fail('Keep at least two creatures out on your islands.');
   c.stored = true;
@@ -150,6 +151,7 @@ export function buyStorageSlot(state: GameState): Result {
 const BASE: Record<Rarity, number> = { common: 15, uncommon: 35, rare: 100, legendary: 350, mythical: 900 };
 
 export function canSell(state: GameState, c: Creature): string | null {
+  if (c.trip) return 'It\'s away exploring.';
   if (c.favorite) return 'Favorites can\'t be sold. Unmark it first.';
   if (species(c.species).origin === 'reward') return 'Level gifts can\'t be sold.';
   if (state.creatures.filter((x) => !x.stored && x.id !== c.id).length < 2) return 'Keep at least two creatures.';
@@ -272,6 +274,7 @@ export function sendAwayVisitor(state: GameState, id: string): Result {
 export function releaseCreature(state: GameState, id: string): Result {
   const c = state.creatures.find((x) => x.id === id);
   if (!c) return fail('Who?');
+  if (c.trip) return fail('It\'s away exploring. Welcome it home first.');
   if (c.favorite) return fail('Favorites can\'t be released. Unmark it first.');
   if (state.creatures.filter((x) => !x.stored && x.id !== id).length < 2) return fail('Keep at least two creatures.');
   state.creatures = state.creatures.filter((x) => x !== c);

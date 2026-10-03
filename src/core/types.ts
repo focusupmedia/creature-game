@@ -191,6 +191,8 @@ export interface Creature {
   bond?: number;
   pettedAt?: number;
   playedAt?: number;
+  /** Away on an expedition until this time (not on its world meanwhile). */
+  trip?: number;
   nickname?: string;
   history: HistoryEntry[];
   /** Arrived but still walking in / eating at a lure. Purely presentational. */
@@ -315,6 +317,15 @@ export interface ShopState {
   nextRefreshAt: number;
 }
 
+export interface Expedition {
+  creatureId: string;
+  dest: string;
+  start: number;
+  end: number;
+  /** The "back home" notice was shown. */
+  announced?: boolean;
+}
+
 export interface Wanderer {
   kind: WandererKind;
   island: IslandId;
@@ -372,6 +383,8 @@ export interface GameState {
   storageSlots: number;
   /** Lure visitors waiting for you to Keep them or Send them away. */
   visitors: Visitor[];
+  /** Pets away exploring. */
+  expeditions: Expedition[];
   /** A traveller visiting one of your worlds right now (only while you're playing). */
   wanderer: Wanderer | null;
   wandererNextAt: number;
@@ -429,6 +442,7 @@ export type GameEvent =
   | { type: 'collector'; wants: Trait; until: number; t: number }
   | { type: 'visitorLeft'; creature: Creature; t: number }
   | { type: 'wanderer'; wanderer: Wanderer; t: number }
+  | { type: 'expeditionBack'; creatureId: string; dest: string; t: number }
   | { type: 'wandererLeft'; kind: WandererKind; t: number }
   | { type: 'goblin'; did: 'coins' | 'lure' | 'nothing'; coins?: number; spot?: SpotId; t: number }
   | { type: 'shopRefresh'; t: number }

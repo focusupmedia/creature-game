@@ -39,6 +39,10 @@ const MIGRATIONS: Record<number, Migration> = {
   2: (raw) => {
     raw.digSpots = [];
   },
+  // v10 → v11: expeditions.
+  10: (raw) => {
+    raw.expeditions = [];
+  },
   // v9 → v10: wanderers.
   9: (raw) => {
     raw.wanderer = null;

@@ -3,6 +3,8 @@ import { DIG_KINDS, EVENTS, ITEMS, LEGENDARY, LURES, MUTATIONS, SPOTS } from '..
 import { claimBlessing, startLegendary } from '../core/legendary';
 import { addXp, grantMissingLevelCreatures } from '../core/levels';
 import { petCreature, playWith } from '../core/friendship';
+import { claimExpedition, sendOnExpedition } from '../core/expeditions';
+import { EXPEDITIONS, type ExpeditionId } from '../content/expeditions';
 import { claimDaily, claimLasting, questEvent, refreshDailies } from '../core/quests';
 import { awayFinds, buyStorageSlot, findVisitor, keepVisitor, releaseCreature, sendAwayVisitor, feastIsland, feedCreature, hangFeedbag, harvestTree, nextHungryAt, retrieveCreature, sellCreature, storeCreature } from '../core/care';
 import { islandCapacity } from '../core/sim';
@@ -262,6 +264,16 @@ export class Game {
             : ev.did === 'lure' ? `The Goblin spoiled your lure at the ${SPOTS[ev.spot!].name}! Tap him quicker next time.`
               : 'The Goblin found nothing worth taking and slunk off.', 'info', undefined, 5000);
           break;
+        case 'expeditionBack': {
+          if (!live) break;
+          const c = this.state.creatures.find((x) => x.id === ev.creatureId);
+          const def = EXPEDITIONS[ev.dest as ExpeditionId];
+          if (c && def) {
+            this.audio.play('chime');
+            this.ui.toast(`${displayName(c)} is back from the ${def.name}! Welcome them home in Pets → Trips.`, 'discovery', this.world.portraits.of(c), 5000);
+          }
+          break;
+        }
         case 'visitorLeft':
           if (live) this.ui.toast(`${speciesTitle(ev.creature)} got tired of waiting and wandered off.`, 'info', this.world.portraits.of(ev.creature));
           break;
@@ -739,6 +751,25 @@ export class Game {
     this.ui.rerender();
     this.saveSoon();
     return true;
+  }
+
+  sendExploring(id: string, dest: ExpeditionId): void {
+    const r = sendOnExpedition(this.state, id, dest, this.now());
+    if (!this.careResult(r)) return;
+    this.ui.closeSheet();
+    this.analytics.track('expedition_sent', { dest });
+  }
+
+  /** A pet is back from exploring: collect what it found. */
+  welcomeHome(id: string): void {
+    const r = claimExpedition(this.state, id, this.now());
+    if (!r.ok) return this.ui.toast(r.error);
+    this.audio.play('discover');
+    const c = this.state.creatures.find((x) => x.id === id);
+    this.ui.showExpeditionHaul(c ?? null, r);
+    this.analytics.track('expedition_claimed', { coins: r.coins, shards: r.shards, egg: r.egg });
+    this.ui.rerender();
+    this.saveSoon();
   }
 
   /** Pet or play with a creature to grow your friendship. */

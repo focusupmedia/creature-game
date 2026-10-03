@@ -16,7 +16,7 @@ export function startLegendary(state: GameState, kind: LegendaryKind, t: number)
   const def = LEGENDARY[kind];
   const rng = new StateRng(state);
   state.legendary = { kind, start: t, end: t + def.durationMin * MIN };
-  const pool = state.creatures.filter((c) => !c.stored && (!def.island || c.island === def.island) && !hasMutation(c, def.mutation) && growth(c, t) >= 0.5);
+  const pool = state.creatures.filter((c) => !c.stored && !c.trip && (!def.island || c.island === def.island) && !hasMutation(c, def.mutation) && growth(c, t) >= 0.5);
   const c = pool.length ? rng.pick(pool) : null;
   let discovered = false;
   if (c) {

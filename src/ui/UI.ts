@@ -18,6 +18,8 @@ import { WorldLabels } from './Labels';
 import { QUIRKS } from '../content/quirks';
 import { SHADES, type ShadeId } from '../content/shades';
 import { PET_COOLDOWN_MIN, PLAY_COOLDOWN_MIN, hearts } from '../core/friendship';
+import { EXPEDITIONS, EXPEDITION_ORDER, expeditionSlots, type ExpeditionId } from '../content/expeditions';
+import type { ExpeditionHaul } from '../core/expeditions';
 import { DECOR_CATS, DECOR_LIST } from '../content/decor';
 import { WANDERERS } from '../content/wanderers';
 import { deleteQuirk, wipeQuirks } from '../core/quirks';
@@ -59,7 +61,7 @@ export class UI {
   private questTile = h('button', { class: 'hud-tile quests', 'aria-label': 'Quests', onClick: () => { this.game.audio.play('tap'); this.showQuests(); } },
     h('span', { class: 'emoji' }, '📜'), h('span', { class: 'lbl' }, 'QUESTS'), this.questBadge);
   private questTab: 'daily' | 'lasting' = 'daily';
-  private petsTab: 'wandering' | 'storage' = 'wandering';
+  private petsTab: 'wandering' | 'storage' | 'trips' = 'wandering';
   private heartPop: { id: string; at: number } | null = null;
   private petsSort: PetsSort = 'newest';
   private collectorTile = h('button', { class: 'hud-tile collector hidden', 'aria-label': 'The Collector is visiting', onClick: () => { this.game.audio.play('tap'); this.showCollector(); } },
@@ -81,6 +83,7 @@ export class UI {
   private dock: HTMLElement;
   private shopDot = h('span', { class: 'dot hidden' });
   private journalDot = h('span', { class: 'dot hidden' });
+  private petsDot = h('span', { class: 'dot hidden' });
   private sheetRender: (() => void) | null = null;
   private lastGlimmer = -1;
   private lastShards = -1;
@@ -130,7 +133,7 @@ export class UI {
     this.dock = h('nav', { class: 'dock' },
       dockBtn(I.LURE, 'LURES', () => this.showLures()),
       dockBtn(I.CREATE, 'CREATE', () => this.showFont()),
-      dockBtn(I.PAW, 'PETS', () => this.showPets()),
+      dockBtn(I.PAW, 'PETS', () => this.showPets(this.game.state.expeditions.some((e) => e.end <= this.game.now()) ? 'trips' : undefined), this.petsDot),
       dockBtn(I.JOURNAL, 'JOURNAL', () => this.showJournal(), this.journalDot),
       dockBtn(I.SHOP, 'SHOP', () => this.showShop(), this.shopDot),
       dockBtn(I.DECOR, 'DECOR', () => this.showDecor()),
@@ -212,6 +215,7 @@ export class UI {
     const ads = A.adsLeft(s, t);
     if (this.adsBadge.textContent !== String(ads)) this.adsBadge.textContent = String(ads);
     this.journalDot.classList.toggle('hidden', s.journal.notes.length === this.seenNotes);
+    this.petsDot.classList.toggle('hidden', !s.expeditions.some((e) => e.end <= t));
 
     this.refreshTimer -= dt;
     if ((this.refreshTimer <= 0 || this.pendingRender) && this.sheetRender) {
@@ -430,6 +434,7 @@ export class UI {
         h('div', { class: 'btns', style: 'margin-top:8px' },
           this.heartToggle(c),
           h('button', { class: 'btn small secondary', onClick: () => g.store(c.id) }, '📦 Store'),
+          h('button', { class: 'btn small secondary', onClick: () => this.showExpeditionPicker(c) }, '🧭 Explore'),
           h('button', { class: 'btn small secondary', disabled: !!noSell, title: noSell ?? '', onClick: () => this.confirmSell(c) }, rich(here ? `🎩 Sell · {coin} ${price}` : `Sell · {coin} ${price}`))),
         noSell ? h('div', { class: 'muted' }, noSell) : null));
       b.append(h('div', { class: 'stats' },
@@ -545,6 +550,45 @@ export class UI {
 
   // ---- storage and the Collector
 
+  // ---- expeditions
+
+  /** Where should this pet go exploring? */
+  showExpeditionPicker(c: Creature): void {
+    const s = this.game.state;
+    const lvl = levelOf(s.xp);
+    const slots = expeditionSlots(lvl);
+    this.modal((m, close) => {
+      m.append(h('h2', null, `Send ${displayName(c)} exploring`),
+        h('p', { class: 'muted' }, `It's away for a while and comes back with treasure and a story. ${s.expeditions.length} of ${slots} explorers out.`));
+      const list = h('div', { class: 'list' });
+      for (const id of EXPEDITION_ORDER) {
+        const d = EXPEDITIONS[id];
+        const locked = lvl < d.level;
+        list.append(h('div', { class: `item ${locked ? 'locked' : ''}` }, h('div', { class: 'swatch' }, d.icon),
+          h('div', { class: 'grow' }, h('div', { class: 'name' }, `${d.name} · ${d.hours} h`),
+            h('div', { class: 'desc' }, locked ? `🔒 Keeper level ${d.level}` : d.blurb),
+            h('div', { class: 'muted' }, rich(`{coin} ${d.coins[0]}-${d.coins[1]}${d.shardChance >= 0.3 ? ' · often {gem}' : ''}${d.eggChance ? ' · sometimes an egg' : ''}`))),
+          h('button', { class: 'btn small', disabled: locked, onClick: () => { close(); this.game.sendExploring(c.id, id); } }, 'Go!')));
+      }
+      m.append(list, h('div', { class: 'btns' }, h('button', { class: 'btn secondary', onClick: close }, 'Not now')));
+    });
+  }
+
+  /** The pet is home: what it found, and the story it tells. */
+  showExpeditionHaul(c: Creature | null, r: ExpeditionHaul): void {
+    this.modal((m, close) => {
+      m.append(h('h2', null, c ? `${displayName(c)} is home!` : 'Welcome home!'),
+        c ? h('div', { class: 'visitor-pic' }, this.portrait(c, '')) : '',
+        h('p', null, r.story),
+        h('div', { class: 'haul' },
+          h('span', { class: 'quirk' }, rich(`{coin} +${r.coins}`)),
+          r.shards ? h('span', { class: 'quirk' }, rich(`{gem} +${r.shards}`)) : '',
+          r.item ? h('span', { class: 'quirk' }, `${ITEM_ICON[ITEMS[r.item]?.effect ?? ''] ?? '🧪'} ${ITEMS[r.item]?.name ?? r.item}`) : '',
+          r.egg ? h('span', { class: 'quirk' }, '🥚 An egg! (in your basket)') : ''),
+        h('div', { class: 'btns' }, h('button', { class: 'btn', onClick: close }, 'Yay!')));
+    });
+  }
+
   /** Friendship: five hearts, with Pet and Play buttons. */
   private friendBlock(c: Creature): HTMLElement {
     const g = this.game;
@@ -594,7 +638,7 @@ export class UI {
   }
 
   /** Every creature you have: out on your worlds, or resting in storage. Sortable, with favorites. */
-  showPets(tab?: 'wandering' | 'storage'): void {
+  showPets(tab?: 'wandering' | 'storage' | 'trips'): void {
     const g = this.game;
     const s = g.state;
     if (tab) this.petsTab = tab;
@@ -607,19 +651,32 @@ export class UI {
       { id: 'hunger', label: 'Hungriest', cmp: (a, b) => a.fullness - b.fullness },
     ];
     this.openSheet('Pets', 'Everyone you keep. Tap ♥ to make one a Favorite: favorites can\'t be sold or released by mistake.', (b) => {
-      const out = s.creatures.filter((c) => !c.stored);
+      const out = s.creatures.filter((c) => !c.stored && !c.trip);
       const stored = s.creatures.filter((c) => c.stored);
       const tabBtn = (id: typeof this.petsTab, label: string) =>
         h('button', { class: this.petsTab === id ? 'on' : '', onClick: () => { this.petsTab = id; this.rerender(); } }, label);
       const sort = SORTS.find((x) => x.id === this.petsSort) ?? SORTS[0];
       b.append(h('div', { class: 'tabs pets-tabs' },
-        tabBtn('wandering', `Wandering (${out.length})`), tabBtn('storage', `Storage (${stored.length}/${s.storageSlots})`)),
+        tabBtn('wandering', `Out ${out.length}`), tabBtn('storage', `Stored ${stored.length}/${s.storageSlots}`),
+        tabBtn('trips', `${s.expeditions.some((e) => e.end <= g.now()) ? '❗ ' : ''}Trips ${s.expeditions.length}`)),
         h('div', { class: 'sort-row' }, h('span', { class: 'muted' }, 'Favorites first, then'),
           h('button', { class: 'sort-btn', onClick: () => { this.petsSort = SORTS[(SORTS.indexOf(sort) + 1) % SORTS.length].id; this.rerender(); } }, `Sort: ${sort.label} ▾`)));
       const heart = (c: Creature) => this.heartToggle(c);
       const list = h('div', { class: 'list pets' });
       const favFirst = (a: Creature, b2: Creature) => Number(!!b2.favorite) - Number(!!a.favorite) || sort.cmp(a, b2);
-      if (this.petsTab === 'wandering') {
+      if (this.petsTab === 'trips') {
+        if (!s.expeditions.length) b.append(h('p', { class: 'muted' }, 'Nobody is exploring. Open a pet\'s card and tap 🧭 Explore to send it on a trip.'));
+        for (const e of [...s.expeditions].sort((a, b2) => a.end - b2.end)) {
+          const c = s.creatures.find((x) => x.id === e.creatureId);
+          const d = EXPEDITIONS[e.dest as ExpeditionId];
+          if (!c || !d) continue;
+          const back = e.end <= g.now();
+          list.append(h('div', { class: `item ${back ? 'wanted' : ''}` }, this.portrait(c, 'swatch-img'),
+            h('div', { class: 'grow' }, h('div', { class: 'name' }, displayName(c)), h('div', { class: 'desc' }, `${d.icon} ${d.name}`),
+              h('div', { class: 'muted' }, back ? 'Back home and bursting with news!' : `Back in ${fmtDuration(e.end - g.now())}`)),
+            h('button', { class: 'btn small', disabled: !back, onClick: () => g.welcomeHome(c.id) }, back ? 'Welcome home' : 'Exploring…')));
+        }
+      } else if (this.petsTab === 'wandering') {
         for (const c of out.sort(favFirst)) {
           const isl = ISLANDS[c.island];
           list.append(h('div', { class: 'item tappable', onClick: () => { this.closeSheet(false); this.focusCreature(c.id); } },
@@ -1475,6 +1532,11 @@ export class UI {
     if (touched.length) lines.push(h('div', { class: 'happen' }, h('span', { class: 'e' }, '🥚'), h('span', null, `${touched.length === 1 ? 'An egg' : `${touched.length} eggs`} glowed strangely as the sky changed.`)));
     if (ready.length) lines.push(h('div', { class: 'happen' }, h('span', { class: 'e' }, '🐣'), h('span', null, `${ready.length === 1 ? 'An egg is' : `${ready.length} eggs are`} ready to hatch!`)));
     if (gifts) lines.push(h('div', { class: 'happen' }, h('span', { class: 'e' }, I.icon(I.COIN)), h('span', null, `Your creatures dug up ${gifts} thing${gifts === 1 ? '' : 's'}. Go find them!`)));
+    for (const e of events.filter((x) => x.type === 'expeditionBack') as Extract<GameEvent, { type: 'expeditionBack' }>[]) {
+      const c = s.creatures.find((x) => x.id === e.creatureId);
+      const d = EXPEDITIONS[e.dest as ExpeditionId];
+      if (c && d) lines.push(h('div', { class: 'happen' }, this.portrait(c, ''), h('span', null, `${displayName(c)} is back from the ${d.name}! Welcome them home in Pets → Trips.`)));
+    }
     if (!lines.length) return;
     if (!arrivals.length && !Object.values(s.spots).some(Boolean)) {
       lines.push(h('div', { class: 'happen' }, h('span', { class: 'e' }, '🌿'), h('span', { class: 'muted' }, 'Tip: set out a lure before you leave. Visitors will be waiting when you return.')));
