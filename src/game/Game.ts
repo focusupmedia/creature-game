@@ -16,7 +16,7 @@ import { islandCapacity } from '../core/sim';
 import { xpFor, type PlayEvent } from '../core/progress';
 import { ISLANDS } from '../content/islands';
 import { WANDERERS } from '../content/wanderers';
-import { meetWanderer } from '../core/wanderers';
+import { dismissWanderer, meetWanderer, takeDeal } from '../core/wanderers';
 import { StateRng } from '../core/rng';
 import { refreshShop } from '../core/shop';
 import { fillWant } from '../core/market';
@@ -784,16 +784,50 @@ export class Game {
     this.saveSoon();
   }
 
-  /** You tapped the wanderer: a friendly one helps out; the Goblin runs for it. */
+  /** You tapped the wanderer: the Goblin runs for it; anyone else opens their menu. */
   meetWanderer(): void {
     const w = this.state.wanderer;
     if (!w) return;
+    if (w.kind !== 'goblin') {
+      this.audio.play('chime');
+      // they wait while you browse
+      w.until = Math.max(w.until, this.now() + 2 * 60_000);
+      this.ui.showWanderer();
+      this.analytics.track('wanderer_met', { kind: w.kind });
+      return;
+    }
     const r = meetWanderer(this.state, this.now(), new StateRng(this.state));
     if (!r.ok) return this.ui.fail(r.error);
-    this.world.wandererLeaves(w, r.kind === 'goblin');
-    this.audio.play(r.kind === 'goblin' ? 'coin' : 'chime');
-    this.ui.toast(r.kind === 'goblin' ? `{coin} ${r.message}` : `${WANDERERS[r.kind].name}: ${r.message}`, 'discovery', undefined, 5500);
+    this.world.wandererLeaves(w, true);
+    this.audio.play('coin');
+    this.ui.toast(`{coin} ${r.message}`, 'discovery', undefined, 5500, { priority: 3 });
     this.analytics.track('wanderer_met', { kind: r.kind });
+    this.saveSoon();
+  }
+
+  /** Take one of a wanderer's deals (from their menu). */
+  takeDeal(dealId: string, petId?: string): void {
+    const w = this.state.wanderer;
+    if (!w) return;
+    const r = takeDeal(this.state, dealId, this.now(), new StateRng(this.state), petId);
+    if (!r.ok) {
+      this.audio.play('error');
+      return this.ui.fail(r.error);
+    }
+    this.audio.play('coin');
+    this.ui.toast(`${WANDERERS[w.kind].name}: ${r.message}`, 'discovery', undefined, 6000, { priority: 3 });
+    this.analytics.track('wanderer_deal', { kind: w.kind, deal: dealId });
+    this.ui.rerender();
+    this.saveSoon();
+  }
+
+  /** Wave a friendly wanderer goodbye. */
+  sayGoodbye(): void {
+    const w = this.state.wanderer;
+    if (!w) return;
+    dismissWanderer(this.state, this.now(), new StateRng(this.state));
+    this.world.wandererLeaves(w, false);
+    this.ui.closeSheet();
     this.saveSoon();
   }
 

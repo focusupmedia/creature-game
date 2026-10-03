@@ -74,3 +74,35 @@ describe('sky items', () => {
     expect(upcomingEvents(s, free, 3)).toHaveLength(3);
   });
 });
+
+describe('wandering keepers', () => {
+  it('friendly ones have a menu of once-per-visit deals; the Goblin has none', async () => {
+    const { wandererDeals, takeDeal } = await import('../src/core/wanderers');
+    const { StateRng } = await import('../src/core/rng');
+    const s = createGame(8, T);
+    s.glimmer = 5000;
+    s.shards = 100;
+    s.wanderer = { kind: 'chef', island: 'home', x: 0, z: 0, arrivedAt: T, until: T + 6 * MIN };
+    const deals = wandererDeals(s, s.wanderer);
+    expect(deals[0].free).toBe(true);
+    expect(deals.length).toBeGreaterThanOrEqual(3);
+    const rng = new StateRng(s);
+    expect(takeDeal(s, 'cook', T, rng).ok).toBe(true);
+    expect(s.wanderer).not.toBeNull();
+    expect(takeDeal(s, 'cook', T, rng).ok).toBe(false);
+    const snacks = s.food.snack ?? 0;
+    expect(takeDeal(s, 'snacks', T, rng).ok).toBe(true);
+    expect(s.food.snack).toBe(snacks + 5);
+    s.food.fruit = 4;
+    const coins = s.glimmer;
+    expect(takeDeal(s, 'berries', T, rng).ok).toBe(true);
+    expect(s.glimmer).toBe(coins + 60);
+    s.wanderer = { kind: 'treasure', island: 'home', x: 0, z: 0, arrivedAt: T, until: T + 6 * MIN };
+    for (let i = 0; i < 3; i++) s.creatures.push({ ...s.creatures[0], id: `w${i}`, favorite: false });
+    const eggs = s.eggs.length;
+    expect(takeDeal(s, 'trade', T, rng, 'w0').ok).toBe(true);
+    expect(s.eggs.length).toBe(eggs + 1);
+    s.wanderer = { kind: 'goblin', island: 'home', x: 0, z: 0, arrivedAt: T, until: T + MIN };
+    expect(wandererDeals(s, s.wanderer)).toEqual([]);
+  });
+});

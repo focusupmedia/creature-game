@@ -333,6 +333,8 @@ export interface Wanderer {
   z: number;
   arrivedAt: number;
   until: number;
+  /** Deals already taken this visit (each is once per visit). */
+  done?: string[];
 }
 
 export interface PlacedDecor {

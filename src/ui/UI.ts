@@ -11,6 +11,7 @@ import { nestOccupant } from '../core/state';
 import type { Creature, DecorDef, Egg, GameEvent, IslandId, LegendaryKind, MutationId, SpotId, Trait } from '../core/types';
 import { islandCapacity } from '../core/sim';
 import { marketPrice, marketReady, marketWants, wantFilled, wantMatches } from '../core/market';
+import { wandererDeals } from '../core/wanderers';
 import { activeEvent, dayPhase, daylight, isDark, nextEvent } from '../core/world';
 import type { Game } from '../game/Game';
 import { fmtDuration, h, img, rich, setText } from './dom';
@@ -971,6 +972,49 @@ export class UI {
       }
       b.append(card);
     }
+  }
+
+  /** A friendly wanderer's menu: a free kindness and a few deals. */
+  showWanderer(): void {
+    const g = this.game;
+    const w0 = g.state.wanderer;
+    if (!w0 || w0.kind === 'goblin') return;
+    const def = WANDERERS[w0.kind];
+    this.openSheet(def.name, def.blurb, (b) => {
+      const s = g.state;
+      const w = s.wanderer;
+      if (!w) {
+        b.append(h('p', { class: 'muted' }, 'They\'ve gone on their way. They\'ll be back another day.'));
+        return;
+      }
+      b.append(h('p', { class: 'muted' }, `Staying a little longer on ${ISLANDS[w.island].name}: about ${fmtDuration(Math.max(0, w.until - g.now()))}.`));
+      const list = h('div', { class: 'list' });
+      for (const d of wandererDeals(s, w)) {
+        const done = w.done?.includes(d.id);
+        const price = d.coins ? rich(`{coin} ${d.coins.toLocaleString()}`) : d.shards ? rich(`{gem} ${d.shards}`) : d.free ? 'Free' : 'Sell';
+        const short = (d.coins ?? 0) > s.glimmer || (d.shards ?? 0) > s.shards;
+        list.append(h('div', { class: `item ${d.free ? 'wanted' : ''}` },
+          h('div', { class: 'grow' }, h('div', { class: 'name' }, d.label), h('div', { class: 'desc' }, d.desc)),
+          done ? h('span', { class: 'chip on' }, '✓ Done')
+            : h('button', { class: `btn small ${d.shards ? 'shard' : ''}`, disabled: short, onClick: () => (d.needsPet ? this.pickPetForTrade(d.id) : g.takeDeal(d.id)) }, d.needsPet ? 'Pick a pet' : price)));
+      }
+      b.append(list, h('button', { class: 'btn secondary wide', style: 'margin-top:12px', onClick: () => g.sayGoodbye() }, '👋 Say goodbye'));
+    }, def.icon);
+  }
+
+  /** Which pet will Digby take in trade? */
+  private pickPetForTrade(dealId: string): void {
+    const s = this.game.state;
+    const pets = s.creatures.filter((c) => !c.trip && !canSell(s, c));
+    this.modal((m, close) => {
+      m.append(h('h2', null, 'Trade which pet?'),
+        h('p', { class: 'muted' }, 'Commons get a Wanderer Egg; anything rarer gets a Starry Egg. Favorites and level gifts stay home.'),
+        pets.length ? h('div', { class: 'list' }, ...pets.map((c) => h('div', { class: 'item' }, this.portrait(c, 'swatch-img'),
+          h('div', { class: 'grow' }, h('div', { class: 'name' }, displayName(c)), h('div', { class: 'desc' }, rarityTag(species(c.species).rarity))),
+          h('button', { class: 'btn small', onClick: () => { close(); this.game.takeDeal(dealId, c.id); } }, species(c.species).rarity === 'common' ? 'For a Wanderer Egg' : 'For a Starry Egg'))))
+          : h('p', null, 'Nobody can be traded right now.'),
+        h('div', { class: 'btns' }, h('button', { class: 'btn secondary', onClick: close }, 'Cancel')));
+    });
   }
 
   clearPetSelection(): void {
