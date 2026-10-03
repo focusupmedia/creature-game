@@ -6,6 +6,7 @@ import { petCreature, playWith } from '../core/friendship';
 import { claimExpedition, sendOnExpedition } from '../core/expeditions';
 import { canClaimLogin, claimLogin } from '../core/login';
 import { claimCollection } from '../core/collections';
+import { claimContest, enterContest } from '../core/contests';
 import { planNotifications } from '../core/notify';
 import { voiceOf } from '../render/voices';
 import { EXPEDITIONS, type ExpeditionId } from '../content/expeditions';
@@ -198,6 +199,22 @@ export class Game {
     this.audio.play('fanfare');
     this.ui.toast(`🏅 ${r.def.name} complete! {coin} +${r.def.reward.coins.toLocaleString()}  {gem} +${r.def.reward.shards}`, 'discovery', undefined, 5000);
     this.analytics.track('collection_claimed', { id });
+    this.ui.rerender();
+    this.saveSoon();
+  }
+
+  enterContest(id: string): void {
+    const r = enterContest(this.state, id, this.now());
+    if (!this.careResult(r.ok ? { ok: true, message: r.message } : r, 'chime')) return;
+    this.analytics.track('contest_entered', { score: r.ok ? r.score : 0 });
+  }
+
+  claimContest(): void {
+    const r = claimContest(this.state, this.now());
+    if (!r.ok) return this.ui.toast(r.error);
+    this.audio.play(r.place <= 3 ? 'fanfare' : 'coin');
+    this.ui.toast(`${r.place === 1 ? '🏆 First place!' : r.place <= 3 ? `🏅 Place ${r.place}!` : `Thanks for entering!`} {coin} +${r.coins}  {gem} +${r.shards}`, 'discovery', undefined, 5000);
+    this.analytics.track('contest_claimed', { place: r.place });
     this.ui.rerender();
     this.saveSoon();
   }

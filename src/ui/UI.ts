@@ -23,6 +23,7 @@ import type { ExpeditionHaul } from '../core/expeditions';
 import { voiceOf } from '../render/voices';
 import { LOGIN_REWARDS, canClaimLogin, loginDay } from '../core/login';
 import { COLLECTIONS, claimableCollections } from '../core/collections';
+import { THEMES, contestReady, placeFor, rivals, scorePet, themeOf, weekEnds, weekOf } from '../core/contests';
 import { DECOR_CATS, DECOR_LIST } from '../content/decor';
 import { WANDERERS } from '../content/wanderers';
 import { deleteQuirk, wipeQuirks } from '../core/quirks';
@@ -63,7 +64,7 @@ export class UI {
   private islandsBadge = h('span', { class: 'count alert hidden' }, '!');
   private questTile = h('button', { class: 'hud-tile quests', 'aria-label': 'Quests', onClick: () => { this.game.audio.play('tap'); this.showQuests(); } },
     h('span', { class: 'emoji' }, '📜'), h('span', { class: 'lbl' }, 'QUESTS'), this.questBadge);
-  private questTab: 'daily' | 'lasting' = 'daily';
+  private questTab: 'daily' | 'lasting' | 'contest' = 'daily';
   private petsTab: 'wandering' | 'storage' | 'trips' = 'wandering';
   private heartPop: { id: string; at: number } | null = null;
   private petsSort: PetsSort = 'newest';
@@ -194,7 +195,7 @@ export class UI {
     }
     this.collectorTile.classList.toggle('hidden', !collectorHere(s, t));
     this.islandsBadge.classList.toggle('hidden', this.worldAlerts().size === 0);
-    const ready = claimable(s);
+    const ready = claimable(s) + (contestReady(s, t) ? 1 : 0) + (canClaimLogin(s, t) && s.tutorial >= 5 ? 1 : 0);
     this.questBadge.textContent = String(ready);
     this.questBadge.classList.toggle('hidden', ready === 0);
     this.giftTile.classList.toggle('hidden', !(s.blessing && t < s.blessing.expiresAt));
@@ -555,6 +556,51 @@ export class UI {
 
   // ---- storage and the Collector
 
+  // ---- weekly pet contest
+
+  private contestTab(b: HTMLElement): void {
+    const g = this.game;
+    const s = g.state;
+    const t = g.now();
+    const week = weekOf(t);
+    const theme = THEMES[themeOf(week)];
+    const ordinal = (n: number) => `${n}${n === 1 ? 'st' : n === 2 ? 'nd' : n === 3 ? 'rd' : 'th'}`;
+    // last week's results
+    if (contestReady(s, t) && s.contest) {
+      const place = placeFor(s.contest.score ?? 0, s.contest.week);
+      b.append(h('div', { class: 'contest-result' }, h('b', null, `Results are in! ${s.contest.name} placed ${ordinal(place)}.`),
+        h('button', { class: 'btn small', onClick: () => g.claimContest() }, 'Collect prize')));
+    }
+    b.append(h('div', { class: 'contest-head' }, h('span', { class: 'contest-ico' }, theme.icon),
+      h('div', null, h('div', { class: 'name' }, `This week: ${theme.name}`), h('div', { class: 'muted' }, theme.blurb),
+        h('div', { class: 'muted' }, `Judging in ${fmtDuration(weekEnds(week) - t)} · ${s.trophies ?? 0} trophies so far`))));
+    b.append(h('p', { class: 'muted' }, rich(`Prizes: 1st {coin} 1,500 {gem} 20 · 2nd {coin} 800 {gem} 10 · 3rd {coin} 500 {gem} 6 · everyone else {coin} 150`)));
+    const entered = s.contest?.week === week && s.contest.entry;
+    const board: { name: string; score: number; you?: boolean }[] = rivals(week);
+    if (entered) board.push({ name: `${s.contest!.name} (yours)`, score: s.contest!.score ?? 0, you: true });
+    board.sort((a, b2) => b2.score - a.score);
+    const lb = h('div', { class: 'list' });
+    board.forEach((r, i) => lb.append(h('div', { class: `item ${r.you ? 'wanted' : ''}` }, h('b', { class: 'lb-place' }, `${i + 1}`),
+      h('div', { class: 'grow name' }, r.name), h('b', null, `${r.score}`))));
+    const showBoard = () => b.append(h('div', { class: 'section-title' }, 'Leaderboard'), lb);
+    if (entered) {
+      showBoard();
+      return;
+    }
+    b.append(h('div', { class: 'section-title' }, 'Enter a pet (one per week)'));
+    const list = h('div', { class: 'list' });
+    const grown = s.creatures.filter((c) => !c.trip && growth(c, t) >= 1)
+      .map((c) => ({ c, score: scorePet(c, themeOf(week), week) })).sort((a, b2) => b2.score - a.score);
+    if (!grown.length) b.append(h('p', { class: 'muted' }, 'Only grown-up pets can enter.'));
+    for (const { c, score } of grown.slice(0, 12)) {
+      list.append(h('div', { class: 'item' }, this.portrait(c, 'swatch-img'),
+        h('div', { class: 'grow' }, h('div', { class: 'name' }, displayName(c)), h('div', { class: 'desc' }, `Judges' guess: about ${score} points (${ordinal(placeFor(score, week))} place)`)),
+        h('button', { class: 'btn small', onClick: () => g.enterContest(c.id) }, 'Enter')));
+    }
+    b.append(list);
+    showBoard();
+  }
+
   // ---- daily login calendar
 
   showLoginCalendar(): void {
@@ -885,10 +931,14 @@ export class UI {
     this.openSheet('Quests', 'Finish them for coins, Starshards and XP.', (b) => {
       const tab = (id: typeof this.questTab, label: string) =>
         h('button', { class: this.questTab === id ? 'on' : '', onClick: () => { this.questTab = id; this.rerender(); } }, label);
-      b.append(h('div', { class: 'tabs' }, tab('daily', '☀️ Daily'), tab('lasting', '🏆 Lasting'),
+      b.append(h('div', { class: 'tabs' }, tab('daily', '☀️ Daily'), tab('lasting', '🏆 Lasting'), tab('contest', `🏅 Contest${contestReady(s, this.game.now()) ? ' ❗' : ''}`),
         h('button', { class: canClaimLogin(s, this.game.now()) ? 'on' : '', onClick: () => this.showLoginCalendar() }, `📅 Gifts${canClaimLogin(s, this.game.now()) ? ' ❗' : ''}`)));
       const list = h('div', { class: 'list' });
       const reward = (r: { coins: number; shards: number; xp: number }) => rich(`{coin} ${r.coins}  ·  {gem} ${r.shards}  ·  ★ ${r.xp} XP`);
+      if (this.questTab === 'contest') {
+        this.contestTab(b);
+        return;
+      }
       if (this.questTab === 'daily') {
         const left = Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), new Date().getUTCDate() + 1) - Date.now();
         b.append(h('p', { class: 'muted' }, `New daily quests in ${fmtDuration(left)}.`));

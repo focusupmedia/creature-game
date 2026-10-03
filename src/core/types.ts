@@ -383,6 +383,10 @@ export interface GameState {
   storageSlots: number;
   /** Lure visitors waiting for you to Keep them or Send them away. */
   visitors: Visitor[];
+  /** This week's (or last week's) contest entry: the score is fixed when you enter. */
+  contest?: { week: number; entry?: string; name?: string; species?: string; score?: number; claimed?: boolean };
+  /** Contest podium finishes. */
+  trophies?: number;
   /** Journal pages finished and claimed (collection id → when). */
   collections?: Record<string, number>;
   /** Daily login calendar: the last day claimed (UTC date) and how many days claimed in all. */

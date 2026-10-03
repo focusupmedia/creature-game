@@ -590,3 +590,10 @@ input.rename { font-family: var(--display); font-size: 22px; border: var(--outli
 .cal-day.today { border-color: var(--ink); box-shadow: 0 0 0 3px #ffd21a; animation: bump .6s ease infinite alternate; }
 .cal-day.done { opacity: .55; }
 .cal-check { position: absolute; top: 2px; right: 4px; width: 18px; height: 18px; }
+
+/* pet contest */
+.contest-head { display: flex; gap: 10px; align-items: center; background: #fff8e0; border: 3px solid #f2d49a; border-radius: 16px; padding: 10px; margin-bottom: 8px; }
+.contest-ico { font-size: 34px; width: 52px; height: 52px; display: grid; place-items: center; background: #fff; border-radius: 14px; border: 3px solid var(--ink); flex: none; }
+.contest-ico .icon { width: 36px; height: 36px; }
+.contest-result { display: flex; gap: 8px; align-items: center; justify-content: space-between; background: linear-gradient(90deg, #fff3a0, #ffe08a); border: 3px solid var(--ink); border-radius: 14px; padding: 10px; margin-bottom: 8px; }
+.lb-place { width: 26px; height: 26px; border-radius: 13px; display: grid; place-items: center; background: #ffd21a; border: 2px solid var(--ink); flex: none; font-family: var(--display); }

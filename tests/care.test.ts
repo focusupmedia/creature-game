@@ -343,3 +343,24 @@ describe('reminders', () => {
     for (const n of late) { const h = new Date(n.at).getHours(); expect(h >= 8 && h < 21).toBe(true); }
   });
 });
+
+describe('pet contests', () => {
+  it('one entry a week, scored on the theme, prize collected after the week ends', async () => {
+    const { enterContest, claimContest, weekOf, weekEnds, themeOf } = await import('../src/core/contests');
+    const s = createGame(91, 0);
+    const t = Date.UTC(2026, 5, 3, 12);
+    const c = s.creatures[0];
+    c.bornAt = 0;
+    const r = enterContest(s, c.id, t);
+    expect(r.ok).toBe(true);
+    expect(enterContest(s, s.creatures[1].id, t).ok).toBe(false);
+    expect(claimContest(s, t).ok).toBe(false);
+    const after = weekEnds(weekOf(t)) + 1000;
+    const coins = s.glimmer;
+    const prize = claimContest(s, after);
+    expect(prize.ok).toBe(true);
+    expect(s.glimmer).toBeGreaterThan(coins);
+    expect(claimContest(s, after).ok).toBe(false);
+    expect(themeOf(weekOf(t))).not.toBe(themeOf(weekOf(t) + 1));
+  });
+});
