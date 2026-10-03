@@ -458,3 +458,40 @@ export const EGG_TIERS: Record<string, EggTier> = {
     blurb: 'Always uncommon or rarer, with a small chance of something legendary.',
   },
 };
+
+// ---------------------------------------------------------------- sky items (Starshards)
+// Charms summon a sky event on the spot; the Star Chart and Telescope show
+// what the sky has planned. Pricey on purpose: the free path is still the ad
+// summon and simply waiting.
+
+export interface SkyItemDef { id: string; name: string; icon: string; blurb: string; price: number; kind?: EventKind }
+
+const RARE_SKIES: EventKind[] = ['starry', 'fullmoon', 'blizzard', 'aurora', 'meteor'];
+
+function charmPrice(k: EventKind): number {
+  return k === 'storm' ? 25 : RARE_SKIES.includes(k) ? 70 : 40;
+}
+
+export const SKY_ITEMS: Record<string, SkyItemDef> = {
+  ...Object.fromEntries((Object.keys(EVENTS) as EventKind[]).map((k) => [`charm-${k}`, {
+    id: `charm-${k}`, name: `${EVENTS[k].name} Charm`, icon: EVENTS[k].icon, kind: k, price: charmPrice(k),
+    blurb: `Break it and a ${EVENTS[k].name.toLowerCase()} rolls in right away, wherever you are.`,
+  }])),
+  wildcharm: {
+    id: 'wildcharm', name: 'Wild Sky Charm', icon: '✨', price: 55,
+    blurb: 'Break it for a random rare sky: Starry Night, Full Moon, Blizzard, Aurora, Meteor Shower or rarer.',
+  },
+  starchart: {
+    id: 'starchart', name: 'Star Chart', icon: '🗺️', price: 40,
+    blurb: 'For one day, see the next three sky events: what they are and when they arrive.',
+  },
+  telescope: {
+    id: 'telescope', name: 'Sky Telescope', icon: '🔭', price: 400,
+    blurb: 'Yours forever: always see the next three sky events coming, and when.',
+  },
+};
+
+/** The rare skies a Wild Sky Charm can bring. */
+export function wildSkies(): EventKind[] {
+  return (Object.keys(EVENTS) as EventKind[]).filter((k) => RARE_SKIES.includes(k) || (EVENTS[k] as { rare?: boolean }).rare);
+}

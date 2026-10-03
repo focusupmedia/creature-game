@@ -1,5 +1,5 @@
 import { SPECIES, species } from '../content/species';
-import { DECOR, EGG_TIERS, EVENTS, FOODS, GIFTABLE_MUTATIONS, TOOLS, ITEMS, LEGENDARY, LEGENDARY_ORDER, LURES, MUTATIONS, SPOTS, spotOpen } from '../content/world';
+import { DECOR, EGG_TIERS, EVENTS, FOODS, GIFTABLE_MUTATIONS, TOOLS, ITEMS, LEGENDARY, LEGENDARY_ORDER, LURES, MUTATIONS, SKY_ITEMS, SPOTS, spotOpen } from '../content/world';
 import { ISLANDS, ISLAND_ORDER, SIZE_NAMES, SIZE_PRICE } from '../content/islands';
 import { TUNING } from '../content/tuning';
 import { NESTS, FONT, SHOP_STALL } from '../content/layout';
@@ -10,6 +10,7 @@ import { arrivalWeights } from '../core/lures';
 import { nestOccupant } from '../core/state';
 import type { Creature, DecorDef, Egg, GameEvent, IslandId, LegendaryKind, MutationId, SpotId, Trait } from '../core/types';
 import { islandCapacity } from '../core/sim';
+import { marketPrice, marketReady, marketWants, wantFilled, wantMatches } from '../core/market';
 import { activeEvent, dayPhase, daylight, isDark, nextEvent } from '../core/world';
 import type { Game } from '../game/Game';
 import { fmtDuration, h, img, rich, setText } from './dom';
@@ -80,7 +81,7 @@ export class UI {
   private questTile = h('button', { class: 'hud-tile quests', 'aria-label': 'Quests', onClick: () => { this.game.audio.play('tap'); this.showQuests(); } },
     h('span', { class: 'emoji' }, '📜'), h('span', { class: 'lbl' }, 'QUESTS'), this.questBadge);
   private questTab: 'daily' | 'lasting' | 'contest' = 'daily';
-  private petsTab: 'wandering' | 'storage' | 'trips' = 'wandering';
+  private petsTab: 'wandering' | 'storage' | 'trips' | 'market' = 'wandering';
   /** Pets → Select: the pets picked for a bulk action (null when not selecting). */
   private petSel: Set<string> | null = null;
   /** Pets → which world to show ('all' groups them by world). */
@@ -508,6 +509,7 @@ export class UI {
       const here = collectorHere(g.state, g.now());
       const price = sellPrice(g.state, c, here);
       const noSell = canSell(g.state, c);
+      const want = marketWants(g.state, g.now()).find((w) => !wantFilled(g.state, w, g.now()) && wantMatches(w, c));
       const foodLeft = (g.state.food.fruit ?? 0) + (g.state.food.snack ?? 0);
       b.append(h('div', { class: 'care' },
         h('div', { class: 'hunger-row' },
@@ -519,7 +521,8 @@ export class UI {
           h('button', { class: 'btn small secondary', onClick: () => g.store(c.id) }, '📦 Store'),
           h('button', { class: 'btn small secondary', onClick: () => this.showExpeditionPicker(c) }, '🧭 Explore'),
           h('button', { class: 'btn small secondary', disabled: !!noSell, title: noSell ?? '', onClick: () => this.confirmSell(c) }, rich(`${here ? '🎩 ' : ''}Sell {coin} ${price.toLocaleString()}`))),
-        noSell ? h('div', { class: 'muted' }, noSell) : null));
+        noSell ? h('div', { class: 'muted' }, noSell) : null,
+        want && !noSell ? h('button', { class: 'market-hint', onClick: () => this.showPets('market') }, rich(`🛒 ${want.buyer} on the Market wants this! Sell there for {coin} ${marketPrice(g.state, want, c).toLocaleString()}`)) : null));
       b.append(this.friendBlock(c));
       b.append(this.metBlock(c));
       b.append(h('div', { class: 'stats' },
@@ -798,7 +801,7 @@ export class UI {
   }
 
   /** Every creature you have: out on your worlds, or resting in storage. Sortable, with favorites. */
-  showPets(tab?: 'wandering' | 'storage' | 'trips'): void {
+  showPets(tab?: 'wandering' | 'storage' | 'trips' | 'market'): void {
     const g = this.game;
     const s = g.state;
     if (tab) this.petsTab = tab;
@@ -818,9 +821,10 @@ export class UI {
         h('button', { class: this.petsTab === id ? 'on' : '', onClick: () => { this.petsTab = id; this.rerender(); } }, label);
       const sort = SORTS.find((x) => x.id === this.petsSort) ?? SORTS[0];
       b.append(h('div', { class: 'tabs pets-tabs' },
-        tabBtn('wandering', `Out ${out.length}`), tabBtn('storage', `Stored ${stored.length}/${s.storageSlots}`),
-        tabBtn('trips', `${s.expeditions.some((e) => e.end <= g.now()) ? '❗ ' : ''}Trips ${s.expeditions.length}`)),
-        h('div', { class: 'sort-row' }, h('span', { class: 'muted' }, this.petSel ? 'Tap pets to pick them' : 'Favorites first, then'),
+        tabBtn('wandering', `Out ${out.length}`), tabBtn('storage', `Stored ${stored.length}`),
+        tabBtn('trips', `${s.expeditions.some((e) => e.end <= g.now()) ? '❗ ' : ''}Trips ${s.expeditions.length}`),
+        tabBtn('market', `${marketReady(s, g.now()) ? '❗ ' : ''}Market`)),
+        this.petsTab === 'market' ? '' : h('div', { class: 'sort-row' }, h('span', { class: 'muted' }, this.petSel ? 'Tap pets to pick them' : 'Favorites first, then'),
           h('button', { class: 'sort-btn', onClick: () => { this.petsSort = SORTS[(SORTS.indexOf(sort) + 1) % SORTS.length].id; this.rerender(); } }, `Sort: ${sort.label} ▾`),
           this.petsTab !== 'trips' ? h('button', { class: `sort-btn ${this.petSel ? 'on' : ''}`, onClick: () => { this.petSel = this.petSel ? null : new Set(); this.rerender(); } }, this.petSel ? 'Cancel' : 'Select') : null));
       const heart = (c: Creature) => this.heartToggle(c);
@@ -853,7 +857,10 @@ export class UI {
         if (sel) row.prepend(h('span', { class: `pick ${sel.has(c.id) ? 'on' : ''}` }, sel.has(c.id) ? '✓' : ''));
         return row;
       };
-      if (this.petsTab === 'trips') {
+      if (this.petsTab === 'market') {
+        this.petSel = null;
+        this.marketTab(b);
+      } else if (this.petsTab === 'trips') {
         this.petSel = null;
         if (!s.expeditions.length) b.append(h('p', { class: 'muted' }, 'Nobody is exploring. Open a pet\'s card and tap 🧭 Explore to send it on a trip.'));
         for (const e of [...s.expeditions].sort((a, b2) => a.end - b2.end)) {
@@ -897,6 +904,7 @@ export class UI {
           }
         } else {
           shown = stored.sort(favFirst);
+          b.append(h('p', { class: 'muted' }, `${stored.length} of ${s.storageSlots} storage slots used.`));
           if (!stored.length) b.append(h('p', { class: 'muted' }, 'Nobody is in storage. Store a creature to rest it here: no hunger, no growing, and it frees a spot on its world.'));
           for (const c of shown) {
             const row = h('div', { class: `item tappable ${sel?.has(c.id) ? 'picked' : ''}` }, this.portrait(c, 'swatch-img'),
@@ -936,6 +944,33 @@ export class UI {
         }
       }
     }, I.PAW);
+  }
+
+  /** Today's Market board: three buyers, each paying well over the usual price for what they want. */
+  private marketTab(b: HTMLElement): void {
+    const g = this.game;
+    const s = g.state;
+    const t = g.now();
+    b.append(h('p', { class: 'muted' }, 'Three buyers visit each day. Sell them what they want for much more than the usual price, plus a bonus. New buyers tomorrow.'));
+    for (const w of marketWants(s, t)) {
+      const done = wantFilled(s, w, t);
+      const matches = s.creatures.filter((c) => !c.trip && wantMatches(w, c))
+        .sort((a, b2) => marketPrice(s, w, b2) - marketPrice(s, w, a));
+      const card = h('div', { class: `market-want ${done ? 'done' : ''}` },
+        h('div', { class: 'market-head' }, h('div', { class: 'grow' }, h('div', { class: 'name' }, w.text), h('div', { class: 'muted' }, `${w.buyer} pays ×${w.mult} the usual price`)),
+          h('div', { class: 'market-bonus' }, rich(`+{coin} ${w.bonusCoins}`), h('br'), rich(`+{gem} ${w.bonusShards}`))));
+      if (done) card.append(h('div', { class: 'market-done' }, '✓ Sold! Back tomorrow with something new.'));
+      else if (!matches.length) card.append(h('div', { class: 'muted', style: 'margin-top:6px' }, 'None of your pets fit yet. Breed or lure one, then come back.'));
+      else {
+        for (const c of matches.slice(0, 4)) {
+          const why = canSell(s, c);
+          card.append(h('div', { class: 'item' }, this.portrait(c, 'swatch-img'),
+            h('div', { class: 'grow' }, h('div', { class: 'name' }, displayName(c)), h('div', { class: 'desc' }, why ?? `${sizeLabel(c.size)}${c.mutations.length ? ` · ${c.mutations.length} mutation${c.mutations.length === 1 ? '' : 's'}` : ''}`)),
+            h('button', { class: 'btn small', disabled: !!why, onClick: () => g.fillWant(w.id, c.id) }, rich(`Sell {coin} ${marketPrice(s, w, c).toLocaleString()}`))));
+        }
+      }
+      b.append(card);
+    }
   }
 
   clearPetSelection(): void {
@@ -1477,7 +1512,7 @@ export class UI {
           if (cur === 'coins') {
             const left = A.coinAdsLeft(s, t);
             iap.append(h('div', { class: 'item free-coins' }, h('div', { class: 'swatch' }, I.icon(I.COIN)),
-              h('div', { class: 'grow' }, h('div', { class: 'name' }, rich(`Free {coin} ${A.coinAdReward(s)}`)), h('div', { class: 'desc' }, left ? `Watch a short ad. ${left} left today.` : 'All used up. More tomorrow!')),
+              h('div', { class: 'grow' }, h('div', { class: 'name' }, rich(`Free {coin} ${A.coinAdReward(s)}`)), h('div', { class: 'desc' }, left ? `Watch a short ad. ${left} ready.` : 'Mango is restocking. Check back a little later!')),
               h('button', { class: 'btn small ad', disabled: !left, onClick: () => this.game.adCoins() }, '▶ Watch')));
           }
           for (const p of this.game.purchases.products().filter((x) => x.currency === cur)) {
@@ -1523,7 +1558,7 @@ export class UI {
           h('button', { class: 'btn small secondary', disabled: !(s.food.feedbag ?? 0), onClick: () => g.hangBag(here) }, `🎒 Hang a feedbag on ${ISLANDS[here].name} (${s.feedbags[here] ?? 0} left)`)));
         b.append(h('p', { class: 'muted' }, 'Feed a creature from its card. Berry Trees grow free berries: plant one from the list below.'));
       }
-      const offers = s.shop.offers.filter((x) => x.kind === this.shopTab || (this.shopTab === 'item' && x.kind === 'tool')
+      const offers = s.shop.offers.filter((x) => x.kind === this.shopTab || (this.shopTab === 'item' && (x.kind === 'tool' || x.kind === 'sky'))
         || (this.shopTab === 'food' && x.kind === 'decor' && x.ref === 'fruittree')).filter((x) => !(this.shopTab === 'decor' && x.ref === 'fruittree'));
       if (!offers.length) list.append(h('p', { class: 'muted' }, 'Nothing of this kind today. Check back when new stock arrives!'));
       for (const o of offers) {
@@ -1541,6 +1576,15 @@ export class UI {
           desc = tier?.blurb ?? '';
           icon = '🥚';
           style = `background:linear-gradient(135deg, ${tier?.colors[0] ?? '#fff'}, ${tier?.colors[1] ?? '#fff'})`;
+        }
+        if (o.kind === 'sky') {
+          const it = SKY_ITEMS[o.ref];
+          if (o.ref === 'telescope' && s.telescope) continue;
+          const have = s.charms?.[o.ref] ?? 0;
+          name = it.name + (have ? ` (have ${have})` : '');
+          desc = it.blurb + (o.ref === 'starchart' && (s.chartUntil ?? 0) > t ? ` Yours for ${fmtDuration((s.chartUntil ?? 0) - t)} more; buying adds a day.` : '');
+          icon = it.icon;
+          style = 'background:linear-gradient(135deg, #2a2f8a, #7c4dff)';
         }
         if (o.kind === 'decor') { const d = DECOR[o.ref]; name = d.name + (d.rotating ? ' ✦' : ''); desc = d.blurb + (d.rotating ? ' Only here for a short while.' : ''); icon = '🪴'; }
         const can = (o.currency === 'glimmer' ? s.glimmer : s.shards) >= o.price && o.stock > 0;
@@ -1903,17 +1947,18 @@ export class UI {
     };
   }
 
-  /** The EVENT tile: watch an ad to summon a random sky event. */
+  /** The EVENT tile: watch an ad (or break a charm) to summon a sky event, and see what's coming. */
   showSummon(): void {
     const s = this.game.state;
     const t = this.game.now();
     const busy = activeEvent(s, t);
     const left = A.adsLeft(s, t);
+    const charms = Object.entries(s.charms ?? {}).filter(([, n]) => n > 0);
     this.modal((m, close) => {
       m.append(
         h('h2', { class: 'outlined' }, 'Summon an event!'),
-        h('p', null, 'Watch a short ad and the sky brings a random event. Maybe a storm or an eclipse… or something rare like a Starry Night, a Full Moon or a Blizzard.'),
-        h('div', { class: 'row', style: 'justify-content:center;gap:14px;font-size:30px;margin:8px 0' },
+        h('p', null, 'Watch a short ad and the sky brings a random event. Maybe a storm or an eclipse… or something rare like a Starry Night, a Full Moon or an Aurora.'),
+        h('div', { class: 'row', style: 'justify-content:center;gap:10px;font-size:26px;margin:8px 0;flex-wrap:wrap' },
           ...Object.values(EVENTS).map((e) => h('span', { title: e.name }, e.icon))),
         h('p', { class: 'muted' }, busy
           ? `A ${EVENTS[busy.kind].name.toLowerCase()} is happening right now. Try again when it passes.`
@@ -1926,6 +1971,25 @@ export class UI {
           } }, '▶ Watch ad'),
         ),
       );
+      // sky charms you own
+      if (charms.length) {
+        m.append(h('div', { class: 'section-title' }, 'Your sky charms'),
+          h('div', { class: 'list' }, ...charms.map(([id, n]) => h('div', { class: 'item' }, h('div', { class: 'swatch' }, SKY_ITEMS[id]?.icon ?? '✨'),
+            h('div', { class: 'grow' }, h('div', { class: 'name' }, `${SKY_ITEMS[id]?.name ?? id} ×${n}`)),
+            h('button', { class: 'btn small shard', disabled: !!busy, onClick: () => { close(); this.game.breakCharm(id); } }, 'Break')))));
+      }
+      // what's coming
+      m.append(h('div', { class: 'section-title' }, 'Coming up'));
+      if (A.canSeeForecast(s, t)) {
+        m.append(h('div', { class: 'list forecast' }, ...A.upcomingEvents(s, t, 3).map((e) =>
+          h('div', { class: 'item' }, h('div', { class: 'swatch' }, EVENTS[e.kind].icon),
+            h('div', { class: 'grow' }, h('div', { class: 'name' }, EVENTS[e.kind].name), h('div', { class: 'desc' }, `In ${fmtDuration(e.start - t)} · lasts ${fmtDuration(e.end - e.start)}`))))),
+        s.telescope ? h('p', { class: 'muted' }, '🔭 Your Telescope always shows the sky ahead.') : h('p', { class: 'muted' }, `🗺️ Star Chart: ${fmtDuration((s.chartUntil ?? 0) - t)} left.`));
+      } else {
+        m.append(h('div', { class: 'item' }, h('div', { class: 'swatch' }, '🔭'),
+          h('div', { class: 'grow' }, h('div', { class: 'name' }, 'What\'s next in the sky?'), h('div', { class: 'desc' }, 'A Star Chart or the Sky Telescope from Mango shows the next three events and when they arrive.')),
+          h('button', { class: 'btn small', onClick: () => { close(); this.openShopFor('item'); } }, 'Shop')));
+      }
     });
   }
 

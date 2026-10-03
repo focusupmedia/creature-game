@@ -19,6 +19,7 @@ import { WANDERERS } from '../content/wanderers';
 import { meetWanderer } from '../core/wanderers';
 import { StateRng } from '../core/rng';
 import { refreshShop } from '../core/shop';
+import { fillWant } from '../core/market';
 import { NESTS } from '../content/layout';
 import { TUNING } from '../content/tuning';
 import * as A from '../core/actions';
@@ -971,6 +972,33 @@ export class Game {
     this.dispatch(events, false);
     if (ms >= 30 * 60_000) this.ui.showAwayReport(events, ms, awayFinds(this.state, ms));
     else this.ui.toast(`⏩ ${Math.round(ms / 60000)} minute${Math.round(ms / 60000) === 1 ? '' : 's'} passed.`);
+  }
+
+  /** Sell to a buyer on the Market board. */
+  fillWant(wantId: string, creatureId: string): void {
+    const r = fillWant(this.state, wantId, creatureId, this.now());
+    if (!r.ok) {
+      this.audio.play('error');
+      return this.ui.fail(r.error);
+    }
+    this.audio.play('fanfare');
+    this.ui.toast(`🛒 ${r.message} {coin} +${r.coins.toLocaleString()}  {gem} +${r.shards}`, 'discovery', undefined, 4500, { priority: 3 });
+    this.record({ kind: 'sold', coins: r.coins });
+    this.analytics.track('market_sale', { coins: r.coins });
+    this.ui.rerender();
+    this.saveSoon();
+  }
+
+  /** Break a sky charm from the EVENT sheet. */
+  breakCharm(id: string): void {
+    const r = A.useCharm(this.state, id, this.now());
+    if (!r.ok) {
+      this.audio.play('error');
+      return this.ui.fail(r.error);
+    }
+    this.audio.play('chime');
+    this.analytics.track('charm_used', { charm: id, kind: r.kind });
+    this.saveSoon();
   }
 
   /** Playtest: start a legendary event now. Players can never summon these. */

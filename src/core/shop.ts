@@ -2,7 +2,7 @@
 // curiosities come and go. Premium cosmetics rotate too: urgency without ever
 // selling discovery itself.
 
-import { DECOR, EGG_TIERS, FOODS, ITEMS, TOOLS } from '../content/world';
+import { DECOR, EGG_TIERS, EVENTS, FOODS, ITEMS, SKY_ITEMS, TOOLS } from '../content/world';
 import { TUNING } from '../content/tuning';
 import { mulberry32 } from './rng';
 import type { GameState, IslandId, ShopOffer, ShopState } from './types';
@@ -41,6 +41,13 @@ export function generateShop(seed: number, rotation: number, t: number, owned: I
   add({ kind: 'item', ref: s1.id, price: s1.price, currency: 'glimmer', qty: 1, stock: 3 });
   const s2 = pick(sprays.filter((x) => x !== s1));
   add({ kind: 'item', ref: s2.id, price: s2.price, currency: 'glimmer', qty: 1, stock: 3 });
+
+  // Sky items, for Starshards: two rotating charms, the wild charm and the forecasts
+  const charms = Object.keys(EVENTS).map((k) => `charm-${k}`);
+  const c1 = pick(charms);
+  const c2 = pick(charms.filter((x) => x !== c1));
+  for (const id of [c1, c2, 'wildcharm', 'starchart']) add({ kind: 'sky', ref: id, price: SKY_ITEMS[id].price, currency: 'shards', qty: 1, stock: id === 'starchart' ? 99 : 2 });
+  add({ kind: 'sky', ref: 'telescope', price: SKY_ITEMS.telescope.price, currency: 'shards', qty: 1, stock: 1 });
 
   // Egg shop: a staple meadow egg, one rotating coin egg, and the premium Starry Egg.
   // Wild species only: hybrids must always be made.

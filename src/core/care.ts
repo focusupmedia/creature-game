@@ -149,6 +149,9 @@ export function buyStorageSlot(state: GameState): Result {
 // ---------------------------------------------------------------- selling
 
 const BASE: Record<Rarity, number> = { common: 15, uncommon: 35, rare: 100, legendary: 350, mythical: 900 };
+/** Each mutation multiplies the price; rarer changes multiply more. */
+const MUT_MULT: Record<string, number> = { common: 1.3, rare: 1.6, epic: 2.2, legendary: 3.2 };
+const SHADE_MULT: Record<string, number> = { classic: 1, shiny: 3, pastel: 1.5 };
 
 export function canSell(state: GameState, c: Creature): string | null {
   if (c.trip) return 'It\'s away exploring.';
@@ -158,15 +161,21 @@ export function canSell(state: GameState, c: Creature): string | null {
   return null;
 }
 
-/** Price = rarity × size × mutations; the Collector pays double, triple for the type he wants. */
+/**
+ * Price = rarity × size × mutations × shade. Bigger pets are worth a lot more
+ * (a Colossal one several times an average one, and Giant on top of that), and
+ * every mutation multiplies the price, so a well-bred pet is a real prize.
+ * The Collector pays double, triple for the type he wants.
+ */
 export function sellPrice(state: GameState, c: Creature, toCollector: boolean): number {
   const sp = species(c.species);
   let p = BASE[sp.rarity];
-  p *= 0.8 + Math.min(2.7, c.size) * 0.25;
-  if (isOutlier(c.size)) p *= 1.5;
-  // each mutation adds a bonus (they add up, capped, so stacks don't explode the price)
-  const bonus = c.mutations.reduce((b, m) => b + ({ legendary: 1.5, epic: 0.8, rare: 0.4, common: 0.25 } as Record<string, number>)[MUTATIONS[m].tier], 0);
-  p *= 1 + Math.min(3, bonus);
+  const size = Math.min(4.5, c.size * (c.mutations.includes('giant') ? 1.6 : 1));
+  p *= 0.6 + 0.4 * size * size;
+  if (isOutlier(c.size)) p *= 1.6;
+  const mult = c.mutations.reduce((m, id) => m * (MUT_MULT[MUTATIONS[id].tier] ?? 1), 1);
+  p *= Math.min(15, mult);
+  p *= SHADE_MULT[c.shade ?? 'classic'] ?? 1.1;
   if (toCollector) p *= sp.traits.includes(state.collector.wants) ? 3 : 2;
   return Math.max(5, Math.round(p / 5) * 5);
 }

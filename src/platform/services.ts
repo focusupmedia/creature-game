@@ -77,10 +77,16 @@ export class StubPurchases implements Purchases {
     return [
       { id: 'shards_small', currency: 'shards', amount: 60, price: '$0.99' },
       { id: 'shards_medium', currency: 'shards', amount: 330, price: '$4.99', tag: 'Popular' },
-      { id: 'shards_large', currency: 'shards', amount: 720, price: '$9.99', tag: 'Best value' },
+      { id: 'shards_large', currency: 'shards', amount: 720, price: '$9.99' },
+      { id: 'shards_huge', currency: 'shards', amount: 1550, price: '$19.99', tag: '+8% bonus' },
+      { id: 'shards_mega', currency: 'shards', amount: 4200, price: '$49.99', tag: '+17% bonus' },
+      { id: 'shards_ultimate', currency: 'shards', amount: 9000, price: '$99.99', tag: 'Best value · +25%' },
       { id: 'coins_small', currency: 'coins', amount: 500, price: '$0.99' },
       { id: 'coins_medium', currency: 'coins', amount: 3000, price: '$4.99', tag: 'Popular' },
-      { id: 'coins_large', currency: 'coins', amount: 7000, price: '$9.99', tag: 'Best value' },
+      { id: 'coins_large', currency: 'coins', amount: 7000, price: '$9.99' },
+      { id: 'coins_huge', currency: 'coins', amount: 15000, price: '$19.99', tag: '+7% bonus' },
+      { id: 'coins_mega', currency: 'coins', amount: 40000, price: '$49.99', tag: '+14% bonus' },
+      { id: 'coins_ultimate', currency: 'coins', amount: 90000, price: '$99.99', tag: 'Best value · +29%' },
     ];
   }
   async buy(productId: string) {

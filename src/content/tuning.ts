@@ -118,8 +118,12 @@ export const TUNING = {
   /** Rewarded ads: optional, capped, never interrupting. */
   adHatchMaxRemainingMin: 15,
   adsPerDay: 12,
-  /** Free coins for watching an ad (coins tab of the shop): this many a day... */
-  coinAdsPerDay: 5,
+  /**
+   * Free coins for watching an ad (coins tab of the shop): this many in a row,
+   * then they quietly refill once you haven't watched one for a while.
+   */
+  coinAdsPerBatch: 8,
+  coinAdRefillMin: 30,
   /** ...each worth this much, plus a bit per keeper level. */
   coinAdBase: 60,
   coinAdPerLevel: 15,

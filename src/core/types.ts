@@ -303,7 +303,7 @@ export interface Gift {
 
 export interface ShopOffer {
   id: string;
-  kind: 'lure' | 'item' | 'egg' | 'decor' | 'tool' | 'food';
+  kind: 'lure' | 'item' | 'egg' | 'decor' | 'tool' | 'food' | 'sky';
   ref: string;
   price: number;
   currency: 'glimmer' | 'shards';
@@ -391,6 +391,13 @@ export interface GameState {
   collections?: Record<string, number>;
   /** Daily login calendar: the last day claimed (UTC date) and how many days claimed in all. */
   login?: { day: string; claimed: number };
+  /** Market board: which of today's buyers you've sold to. */
+  market?: { day: string; filled: string[] };
+  /** Sky charms (summon an event) by charm id. */
+  charms?: Record<string, number>;
+  /** The Star Chart shows upcoming sky events until this time; the Telescope shows them forever. */
+  chartUntil?: number;
+  telescope?: boolean;
   /** Pets away exploring. */
   expeditions: Expedition[];
   /** A traveller visiting one of your worlds right now (only while you're playing). */
@@ -422,7 +429,8 @@ export interface GameState {
   summoned?: { kind: EventKind; start: number; end: number } | null;
   tutorial: number;
   /** Rewarded ads watched today: `count` for events, hatching and shop refreshes; `coins` for free coins. */
-  ads: { day: string; count: number; coins?: number };
+  /** Rewarded ads: event ads per day; free-coin ads come in batches that refill a while after your last watch. */
+  ads: { day: string; count: number; coins?: number; coinsAt?: number };
   stats: { combines: number; hatches: number; arrivals: number; lures: number };
   nextId: number;
   /** Creature shown in the on-screen widget. */

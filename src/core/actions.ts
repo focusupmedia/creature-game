@@ -2,7 +2,7 @@
 // show. Keeping these pure makes them testable and server-verifiable later.
 
 import { species } from '../content/species';
-import { DECOR, DIG_KINDS, FOODS, TOOLS, EGG_TIERS, EVENTS, GLITTER_MUTATIONS, ITEMS, LURES, MUTATIONS, RESONANCES, SPOTS, SUMMON_WEIGHTS, spotOpen } from '../content/world';
+import { DECOR, DIG_KINDS, FOODS, TOOLS, EGG_TIERS, EVENTS, GLITTER_MUTATIONS, ITEMS, LURES, MUTATIONS, RESONANCES, SKY_ITEMS, SPOTS, SUMMON_WEIGHTS, spotOpen, wildSkies } from '../content/world';
 import { ISLANDS, SIZE_PRICE } from '../content/islands';
 import { WILD_SPECIES } from '../content/species';
 import { islandCapacity, islandPopulation } from './sim';
@@ -17,7 +17,7 @@ import { addBond, findBonus } from './friendship';
 import { refreshShop } from './shop';
 import { freeNest } from './state';
 import type { Creature, Egg, EventKind, GameState, Gift, IslandId, MutationId, SpeciesId, SpotId } from './types';
-import { activeEvent } from './world';
+import { activeEvent, eventInWindow, windowAt, type SkyEvent } from './world';
 
 export type Result<T = object> = ({ ok: true } & T) | { ok: false; error: string };
 
@@ -303,6 +303,7 @@ export function buyOffer(state: GameState, offerId: string, t: number): Result<{
   if (o.kind === 'egg' && state.eggs.filter((e) => e.nest === null).length >= TUNING.basketSize) {
     return fail('Your egg basket is full.');
   }
+  if (o.kind === 'sky' && o.ref === 'telescope' && state.telescope) return fail('You already have the Sky Telescope.');
   if (o.currency === 'glimmer') state.glimmer -= o.price; else state.shards -= o.price;
   o.stock -= 1;
   let message = '';
@@ -322,6 +323,17 @@ export function buyOffer(state: GameState, offerId: string, t: number): Result<{
     case 'tool':
       state.tools[o.ref] = (state.tools[o.ref] ?? 0) + o.qty;
       message = `${TOOLS[o.ref]?.name ?? 'Tool'} added to your satchel.`;
+      break;
+    case 'sky':
+      if (o.ref === 'telescope') state.telescope = true;
+      else if (o.ref === 'starchart') state.chartUntil = Math.max(t, state.chartUntil ?? 0) + 24 * 3_600_000;
+      else {
+        state.charms ??= {};
+        state.charms[o.ref] = (state.charms[o.ref] ?? 0) + o.qty;
+      }
+      message = o.ref === 'telescope' ? 'The Sky Telescope is yours: check the EVENT button to see what\'s coming.'
+        : o.ref === 'starchart' ? 'Star Chart unrolled: check the EVENT button to see what\'s coming today.'
+          : `${SKY_ITEMS[o.ref].name} added. Break it from the EVENT button.`;
       break;
     case 'decor':
       state.decorOwned[o.ref] = (state.decorOwned[o.ref] ?? 0) + o.qty;
@@ -400,10 +412,15 @@ export function consumeAd(state: GameState, t: number): void {
   state.ads.count += 1;
 }
 
-/** Free coins for a rewarded ad: a few a day, worth more as you level up. */
+/**
+ * Free coins for a rewarded ad, worth more as you level up. They come in a
+ * batch; the batch refills once you haven't watched one for a while (the
+ * clock starts from your most recent watch, not the first).
+ */
 export function coinAdsLeft(state: GameState, t: number): number {
-  if (state.ads.day !== today(t)) return TUNING.coinAdsPerDay;
-  return Math.max(0, TUNING.coinAdsPerDay - (state.ads.coins ?? 0));
+  const at = state.ads.coinsAt;
+  if (at === undefined || t - at >= TUNING.coinAdRefillMin * 60_000) return TUNING.coinAdsPerBatch;
+  return Math.max(0, TUNING.coinAdsPerBatch - (state.ads.coins ?? 0));
 }
 
 export function coinAdReward(state: GameState): number {
@@ -411,9 +428,11 @@ export function coinAdReward(state: GameState): number {
 }
 
 export function claimCoinAd(state: GameState, t: number): Result<{ coins: number }> {
-  if (coinAdsLeft(state, t) <= 0) return fail('No more free coins today. Come back tomorrow!');
-  if (state.ads.day !== today(t)) state.ads = { day: today(t), count: 0 };
+  if (coinAdsLeft(state, t) <= 0) return fail('Mango is restocking free coins. Check back a little later!');
+  const at = state.ads.coinsAt;
+  if (at === undefined || t - at >= TUNING.coinAdRefillMin * 60_000) state.ads.coins = 0;
   state.ads.coins = (state.ads.coins ?? 0) + 1;
+  state.ads.coinsAt = t;
   const coins = coinAdReward(state);
   state.glimmer += coins;
   return { ok: true, coins };
@@ -536,6 +555,35 @@ export function summonEvent(state: GameState, t: number): Result<{ kind: EventKi
   consumeAd(state, t);
   state.summoned = { kind, start: t, end: t + dur };
   return { ok: true, kind };
+}
+
+/** Break a sky charm: its event (or a random rare one) starts right now. */
+export function useCharm(state: GameState, charmId: string, t: number): Result<{ kind: EventKind }> {
+  const def = SKY_ITEMS[charmId];
+  if (!def || (!def.kind && charmId !== 'wildcharm')) return fail('That isn\'t a charm.');
+  if (!(state.charms?.[charmId])) return fail(`You have no ${def.name}. Mango sells them in his shop.`);
+  if (activeEvent(state, t)) return fail('The sky is already busy. Wait for this event to pass.');
+  const rng = new StateRng(state);
+  const kind = def.kind ?? rng.pick(wildSkies());
+  const [dMin, dMax] = EVENTS[kind].durationMin;
+  state.summoned = { kind, start: t, end: t + rng.range(dMin, dMax) * 60_000 };
+  state.charms![charmId] -= 1;
+  return { ok: true, kind };
+}
+
+/** Whether the Star Chart or Telescope is showing what's coming. */
+export function canSeeForecast(state: GameState, t: number): boolean {
+  return !!state.telescope || (state.chartUntil ?? 0) > t;
+}
+
+/** The next few scheduled sky events. */
+export function upcomingEvents(state: GameState, t: number, n = 3): SkyEvent[] {
+  const out: SkyEvent[] = [];
+  for (let w = windowAt(state, t); w < windowAt(state, t) + 60 && out.length < n; w++) {
+    const e = eventInWindow(state, w);
+    if (e && e.start > t) out.push(e);
+  }
+  return out;
 }
 
 /** Developer helper for testing: grant a mutation directly. */

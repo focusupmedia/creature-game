@@ -552,7 +552,8 @@ input.rename { font-family: var(--display); font-size: 22px; border: var(--outli
 .alert-line b { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 10px; background: #ffc93a; border: 2px solid var(--ink); color: var(--ink); font-family: var(--display); font-size: 13px; flex: none; }
 
 /* pets list */
-.pets-tabs { align-items: center; }
+.pets-tabs { align-items: center; display: grid; grid-template-columns: repeat(4, auto); justify-content: stretch; }
+.pets-tabs button { font-size: 13px; padding: 6px 8px; min-width: 0; }
 .sort-row { display: flex; justify-content: flex-end; align-items: center; gap: 8px; margin: -4px 0 10px; }
 .sort-btn { flex: none; font-family: var(--body); font-weight: 800; font-size: 13px; padding: 6px 10px; border-radius: 12px; border: 3px solid var(--ink); background: #fff; color: var(--ink); white-space: nowrap; }
 .list.pets .item { gap: 8px; }
@@ -657,3 +658,12 @@ input.rename { font-family: var(--display); font-size: 22px; border: var(--outli
 .bulk-btns { display: grid; grid-template-columns: repeat(auto-fit, minmax(80px, 1fr)); gap: 6px; }
 .bulk-btns .btn { white-space: nowrap; padding-left: 4px; padding-right: 4px; }
 .bulk-faces { display: flex; flex-wrap: wrap; gap: 4px; justify-content: center; margin: 8px 0; }
+
+/* ---- market board */
+.market-want { background: var(--white); border: 3px solid var(--sky-3); border-radius: 16px; padding: 10px; margin: 10px 0; }
+.market-want.done { opacity: .7; }
+.market-head { display: flex; gap: 8px; align-items: flex-start; }
+.market-bonus { text-align: right; font-weight: 800; font-size: 13px; line-height: 1.5; white-space: nowrap; flex: none; }
+.market-done { margin-top: 6px; color: #2a8a3a; font-weight: 800; }
+.market-want .item { margin-top: 6px; }
+.market-hint { margin-top: 8px; width: 100%; border: 2px dashed #3aaa4a; background: #f2fff0; border-radius: 12px; padding: 6px 8px; font: inherit; font-size: 13px; font-weight: 700; color: var(--ink); text-align: left; cursor: pointer; }
