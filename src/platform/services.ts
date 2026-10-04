@@ -87,7 +87,7 @@ export class StubPurchases implements Purchases {
       { id: 'coins_huge', currency: 'coins', amount: 15000, price: '$19.99', tag: '+7% bonus' },
       { id: 'coins_mega', currency: 'coins', amount: 40000, price: '$49.99', tag: '+14% bonus' },
       { id: 'coins_ultimate', currency: 'coins', amount: 90000, price: '$99.99', tag: 'Best value · +29%' },
-      // the Halloween Pass's paid track (price to confirm before launch)
+      // the Halloween Pass's paid track (approved price)
       { id: 'pass_halloween', currency: 'pass', amount: 1, price: '$4.99' },
     ];
   }

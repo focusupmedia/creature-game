@@ -45,7 +45,7 @@ Small fixes (events 5-20 min apart, babies mostly plain, egg names/icons `ui/egg
 `ios/` and `android/` Capacitor projects with icons/splash. Real AdMob rewarded ads + RevenueCat purchases in `src/platform/nativeServices.ts` (keys in `storeKeys.ts`; test ads until filled). Cloud-save plugins wired in. Release steps: docs/STORE_RELEASE.md.
 
 ## Next up
-Confirm the Halloween Pass price with the owner (placeholder $4.99). Otherwise ask the owner what's next (ideas: final art pass, store listing).
+Ask the owner what's next (ideas: final art pass, store listing).
 
 ## Open / later
 Fill in store keys and products (docs/STORE_RELEASE.md), first device test, real phone home-screen widgets, final art and audio.
