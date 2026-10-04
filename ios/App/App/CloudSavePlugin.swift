@@ -1,8 +1,7 @@
-// Kindred Grove cloud save for iPhone / iPad: Game Center saved games
+// Pocket Grove cloud save for iPhone / iPad: Game Center saved games
 // (stored in the player's iCloud). Matches src/platform/cloudSave.ts.
-// Not compiled yet: add to the Xcode project when the iOS app is created
-// (see docs/CLOUD_SAVE.md). Needs the Game Center and iCloud (iCloud Documents)
-// capabilities turned on for the app.
+// Registered in ViewController.swift. Needs the Game Center and iCloud
+// (iCloud Documents) capabilities (App.entitlements).
 
 import Capacitor
 import GameKit

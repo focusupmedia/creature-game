@@ -1,0 +1,11 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Pocket Grove</string>
+    <string name="title_activity_main">Pocket Grove</string>
+    <string name="package_name">com.focusupmedia.pocketgrove</string>
+    <string name="custom_url_scheme">com.focusupmedia.pocketgrove</string>
+    <!-- Play Games Services project id (Play Console → Play Games Services → Configuration). Replace before release. -->
+    <string name="game_services_project_id" translatable="false">000000000000</string>
+    <!-- AdMob app id: Google's TEST id until your own is in (admob.google.com → Apps). -->
+    <string name="admob_app_id" translatable="false">ca-app-pub-3940256099942544~3347511713</string>
+</resources>

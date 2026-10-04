@@ -41,8 +41,11 @@ Quick fixes (Worlds button, pet card, shop tabs, volume sliders, rarer storms, f
 ## Latest round (A84-A88, all built)
 Small fixes (events 5-20 min apart, babies mostly plain, egg names/icons `ui/eggLook.ts`, hatch cracks in `render/Reveal.ts`, weights `core/creatures.ts weightKg`), sell booths + far signs (`Game.signRange`), premium egg/lure tiers with a shop pity (`core/shop.ts PITY`), nests as placed decor `decor: 'nest'` (eggs reference the placed id; `core/state.ts placedNests/freeNest`; any decor can be moved via `UI.beginPlacement(id, movingId)` or press-and-hold), hatching onto the current world or into storage, breeding variety + hidden legendary pity (`state.legendaryPity`), new traits and best-friend perks, slower growth + Sprout Snacks, Halloween season (`content/seasons.ts`, `SEASON_OVERRIDE` for playtests), Halloween Pass (`core/pass.ts`), rarity totems (`core/lures.ts TOTEMS`), Nursery (`actions.setNurseryPair`, runs in the sim), 6 creatures, painted globe shading.
 
+## Phone apps (built)
+`ios/` and `android/` Capacitor projects with icons/splash. Real AdMob rewarded ads + RevenueCat purchases in `src/platform/nativeServices.ts` (keys in `storeKeys.ts`; test ads until filled). Cloud-save plugins wired in. Release steps: docs/STORE_RELEASE.md.
+
 ## Next up
-Confirm the Halloween Pass price with the owner (placeholder $4.99). Otherwise ask the owner what's next (ideas: final art pass, real ads/IAP, native builds).
+Confirm the Halloween Pass price with the owner (placeholder $4.99). Otherwise ask the owner what's next (ideas: final art pass, store listing).
 
 ## Open / later
-Real ads/IAP SDKs, native builds (then wire in the cloud-save plugins), real phone home-screen widgets, final art and audio.
+Fill in store keys and products (docs/STORE_RELEASE.md), first device test, real phone home-screen widgets, final art and audio.

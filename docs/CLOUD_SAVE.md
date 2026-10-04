@@ -24,10 +24,7 @@ A save does not move between iPhone and Android (that was the trade-off of this 
 - Switching to the cloud save keeps a backup of this device's save (`kindred-grove.save.v1.before-cloud`).
 - Transport: `src/platform/cloudSave.ts` (native plugin "CloudSave" on phones, Test cloud on web).
 
-## When we make the app builds (to do)
-1. `npx cap add ios` and `npx cap add android`.
-2. iOS: copy `native/ios/CloudSavePlugin.swift` into the App target. In Xcode turn on **Game Center** and **iCloud → iCloud Documents** (a container is created automatically). Register the app in App Store Connect with Game Center enabled.
-3. Android: copy `native/android/CloudSavePlugin.kt` into the app module, add `com.google.android.gms:play-services-games-v2` to `build.gradle`, add the Play Games app id to `AndroidManifest.xml`, and call `registerPlugin(CloudSavePlugin::class.java)` in `MainActivity` before `super.onCreate`. In the Play Console set up Play Games Services and turn on **Saved games**.
-4. Test on two real devices signed into the same account: play on one, open the other, check the "pick a save" card.
-
-The native files are written but untested until those projects exist.
+## Native setup (done in the app projects)
+- iOS: `ios/App/App/CloudSavePlugin.swift`, registered in `ViewController.swift`; Game Center and iCloud Documents in `App.entitlements`. In App Store Connect turn on Game Center for the app.
+- Android: `android/app/.../CloudSavePlugin.java`, registered in `MainActivity.java`; Play Games v2 in `app/build.gradle`. Put your Play Games project id in `res/values/strings.xml` (`game_services_project_id`) and turn on **Saved games** in the Play Console.
+- Test on two real devices signed into the same account: play on one, open the other, check the "pick a save" card.

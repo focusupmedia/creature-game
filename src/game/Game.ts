@@ -1,4 +1,6 @@
 import { species } from '../content/species';
+import { Capacitor } from '@capacitor/core';
+import { AdMobAds, StorePurchases } from '../platform/nativeServices';
 import { DECOR, DIG_KINDS, EVENTS, ITEMS, LEGENDARY, LURES, MUTATIONS, SPOTS } from '../content/world';
 import { claimBlessing, startLegendary } from '../core/legendary';
 import { addXp, grantMissingLevelCreatures, payOwedLevels } from '../core/levels';
@@ -57,7 +59,7 @@ export class Game {
   readonly audio = new Audio();
   readonly storage: Storage = new WebStorage();
   readonly analytics: Analytics = new ConsoleAnalytics();
-  readonly purchases: Purchases = new StubPurchases();
+  readonly purchases: Purchases = Capacitor.isNativePlatform() ? new StorePurchases() : new StubPurchases();
   readonly notifications: Notifications = new WebNotifications();
   readonly crash: Crash = new ConsoleCrash();
   readonly cloud: CloudSave = createCloudSave();
@@ -85,7 +87,7 @@ export class Game {
     this.loadSettings();
     this.world = new World(container);
     this.ui = new UI(this, container);
-    this.ads = new StubAds((s) => this.ui.showAd(s));
+    this.ads = Capacitor.isNativePlatform() ? new AdMobAds() : new StubAds((s) => this.ui.showAd(s));
     this.world.onTap = (p) => this.onTap(p);
     this.world.onEdgePush = (id) => {
       if (this.state.islands[id]?.owned) this.travel(id);
