@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { species } from '../content/species';
 import { inWater, isBlocked, onLand, randomLand, randomWater, type Geo } from '../content/islands';
 import { globeNormal, globePoint, globeStep } from '../content/globe';
-import { creatureTraits, currentScale, displayName } from '../core/creatures';
+import { creatureTraits, displayName, displayScale } from '../core/creatures';
 import { hasQuirk, temperOf } from '../core/quirks';
 import { TUNING } from '../content/tuning';
 import type { QuirkId } from '../content/quirks';
@@ -359,7 +359,7 @@ export class CreatureActor {
     const asleepTime = (sleepsAtNight && ctx.darkness > 0.7 && ctx.sky !== 'eclipse') || (sleepsByDay && ctx.darkness < 0.3);
 
     // growth: hatchlings visibly grow into their rolled size
-    this.scaleNow = m.baseScale * currentScale(this.creature, ctx.now);
+    this.scaleNow = m.baseScale * displayScale(this.creature, ctx.now);
     this.root.scale.setScalar(this.scaleNow);
     this.emoteSprite.scale.setScalar(0.55 / this.scaleNow);
 

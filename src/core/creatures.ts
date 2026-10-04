@@ -209,3 +209,18 @@ export function fmtWeight(kg: number): string {
   if (kg < 1000) return `${Math.round(kg)} kg`;
   return `${Math.round(kg).toLocaleString('en-US')} kg`;
 }
+
+/**
+ * How big a pet looks in the world. The rolled size stays as it is for prices
+ * and labels; the picture exaggerates it so sizes are obvious at a glance:
+ * Teeny ones are tiny, Small ones clearly small, Big ones big, a Giant stands
+ * about 1.5x the shop's height and a Colossal one about 3x (capped so it still
+ * fits on its world).
+ */
+export function displayScale(c: Pick<Creature, 'bornAt' | 'growMs' | 'size' | 'mutations'> & { growBoostMs?: number }, t: number): number {
+  const s = c.size;
+  const look = s < 0.6 ? s * 0.6 : s <= 1.6 ? Math.pow(s, 1.8) : 6 + (Math.min(s, 3.5) - 1.9) * 1.5;
+  const grownPart = currentScale(c, t) / Math.max(0.01, s);
+  const giant = c.mutations.includes('giant') ? 4.3 / 1.6 : 1; // the model already carries Giant's own 1.6
+  return Math.min(9 / (c.mutations.includes('giant') ? 1.6 : 1), look * grownPart * giant);
+}
