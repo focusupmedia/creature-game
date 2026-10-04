@@ -200,6 +200,21 @@ export function claimLasting(state: GameState, id: string): ClaimResult {
 }
 
 /** How many quests are ready to claim (for the badge). */
+/** Ready-to-claim quests in each tab (for the ! on the Daily and Lasting tabs). */
+export function claimableBy(state: GameState): { daily: number; lasting: number } {
+  let daily = 0;
+  let lasting = 0;
+  for (const q of state.quests.daily) {
+    const def = DAILY_POOL.find((d) => d.id === q.id);
+    if (def && !q.claimed && q.progress >= def.target) daily++;
+  }
+  for (const def of LASTING) {
+    const tier = state.quests.tiers[def.id] ?? 0;
+    if (tier < def.tiers.length && def.progress(state) >= def.tiers[tier]) lasting++;
+  }
+  return { daily, lasting };
+}
+
 export function claimable(state: GameState): number {
   let n = 0;
   for (const q of state.quests.daily) {

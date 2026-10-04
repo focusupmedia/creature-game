@@ -368,7 +368,7 @@ export class Game {
 
   /** The day's login gift pops up the first time you open the game each day (after the tutorial). */
   offerLogin(): void {
-    if (this.state.tutorial < 5 || !canClaimLogin(this.state, this.now())) return;
+    if (this.state.tutorial < 6 || !canClaimLogin(this.state, this.now())) return;
     setTimeout(() => this.ui.showLoginCalendar(), 900);
   }
 

@@ -36,7 +36,7 @@ import { DECOR_CATS, DECOR_LIST } from '../content/decor';
 import { WANDERERS } from '../content/wanderers';
 import { deleteQuirk, wipeQuirks } from '../core/quirks';
 import { MAX_LEVEL, STAR_LEVEL, levelOf, levelProgress, levelReward, starRank, type LevelUp } from '../core/levels';
-import { DAILY_POOL, LASTING, claimable, lastingReward, refreshDailies } from '../core/quests';
+import { DAILY_POOL, LASTING, claimable, claimableBy, lastingReward, refreshDailies } from '../core/quests';
 import { type AwayFind, canSell, collectorHere, findVisitor, isHungry, visitorThanks, nextSlotPrice, ripeFruit, sellPrice, sellWarning, storedCount } from '../core/care';
 import { rarityTag } from './rarity';
 
@@ -136,7 +136,6 @@ export class UI {
   private decorSort: 'level' | 'price' | 'name' = 'level';
   private shopTab: ShopTab = 'egg';
   private coachDismissed = -1;
-  private coachShownAt = 0;
   seenShopRotation = 0;
   private seenNotes = 0;
   readonly labels: WorldLabels;
@@ -237,7 +236,7 @@ export class UI {
     this.islandsBadge.classList.toggle('hidden', this.worldAlerts().size === 0 && openable.length === 0);
     // a quick heads-up the first time a new world becomes affordable (once per world each session)
     for (const id of openable) {
-      if (this.worldsAnnounced.has(id) || s.tutorial < 5) continue;
+      if (this.worldsAnnounced.has(id) || s.tutorial < 6) continue;
       this.worldsAnnounced.add(id);
       this.toast(`${ISLANDS[id].icon} A new world is ready to open: ${ISLANDS[id].name}! Tap Worlds.`, 'discovery', undefined, undefined, { action: { label: 'Worlds', run: () => this.showIslands(id) } });
     }
@@ -1244,17 +1243,46 @@ export class UI {
       if (intoStorage && storedCount(s) < s.storageSlots) {
         m.append(h('button', { class: 'btn wide', style: 'margin:6px 0', onClick: () => { close(); intoStorage(); } }, `📦 Put the newcomer in storage (${storedCount(s)}/${s.storageSlots})`));
       }
+      // pick one or several (Store or Release each), then confirm
+      const picks = new Map<string, 'store' | 'release'>();
       const list = h('div', { class: 'list make-space' });
-      const storageFull = storedCount(s) >= s.storageSlots;
+      const room = () => s.storageSlots - storedCount(s);
+      const confirm = h('button', { class: 'btn', disabled: true }) as HTMLButtonElement;
+      const refresh = () => {
+        const n = picks.size;
+        const st = [...picks.values()].filter((x) => x === 'store').length;
+        confirm.disabled = n === 0;
+        setText(confirm, n ? `Confirm (${st ? `store ${st}` : ''}${st && n - st ? ', ' : ''}${n - st ? `release ${n - st}` : ''})` : 'Pick who to store or release');
+        list.querySelectorAll<HTMLButtonElement>('button[data-id]').forEach((b) => {
+          const on = picks.get(b.dataset.id!) === b.dataset.act;
+          b.classList.toggle('secondary', !on);
+          if (b.dataset.act === 'store') b.disabled = !on && room() - st <= 0;
+        });
+      };
+      const pickBtn = (c: Creature, act: 'store' | 'release', label: string, cls: string, disabled: boolean) =>
+        h('button', { class: `btn small ${cls} secondary`, 'data-id': c.id, 'data-act': act, disabled, onClick: () => {
+          if (picks.get(c.id) === act) picks.delete(c.id);
+          else picks.set(c.id, act);
+          refresh();
+        } }, label);
       for (const c of here) {
         list.append(h('div', { class: 'item' }, this.portrait(c, 'swatch-img'),
           h('div', { class: 'grow' }, h('div', { class: 'name' }, `${c.favorite ? '♥ ' : ''}${displayName(c)}`), h('div', { class: 'desc' }, rarityTag(species(c.species).rarity))),
-          h('button', { class: 'btn small', disabled: storageFull, onClick: () => { if (g.store(c.id, true)) { close(); onDone(); } } }, 'Store'),
-          h('button', { class: 'btn small danger', disabled: !!c.favorite, onClick: () => { if (g.release(c.id)) { close(); onDone(); } } }, 'Release')));
+          pickBtn(c, 'store', 'Store', '', room() <= 0),
+          pickBtn(c, 'release', 'Release', 'danger', !!c.favorite)));
       }
       m.append(list);
-      if (storageFull) m.append(h('p', { class: 'muted' }, `Storage is full (${s.storageSlots} slots). You can add slots from the Storage list.`));
-      m.append(h('div', { class: 'btns' }, h('button', { class: 'btn secondary', onClick: close }, 'Not now')));
+      if (room() <= 0) m.append(h('p', { class: 'muted' }, `Storage is full (${s.storageSlots} slots). You can add slots from the Storage list.`));
+      confirm.addEventListener('click', () => {
+        const store = [...picks].filter(([, a]) => a === 'store').map(([id]) => id);
+        const release = [...picks].filter(([, a]) => a === 'release').map(([id]) => id);
+        if (store.length) g.bulk('store', store);
+        if (release.length) g.bulk('release', release);
+        close();
+        onDone();
+      });
+      refresh();
+      m.append(h('div', { class: 'btns' }, h('button', { class: 'btn secondary', onClick: close }, 'Not now'), confirm));
     });
   }
 
@@ -1321,7 +1349,8 @@ export class UI {
     this.openSheet('Quests', 'Finish them for coins, Starshards and XP.', (b) => {
       const tab = (id: typeof this.questTab, label: string) =>
         h('button', { class: this.questTab === id ? 'on' : '', onClick: () => { this.questTab = id; this.rerender(); } }, label);
-      b.append(h('div', { class: 'tabs' }, tab('daily', '☀️ Daily'), tab('lasting', '🏆 Lasting'), tab('contest', `🏅 Contest${contestReady(s, this.game.now()) ? ' ❗' : ''}`),
+      const ready = claimableBy(s);
+      b.append(h('div', { class: 'tabs' }, tab('daily', `☀️ Daily${ready.daily ? ' ❗' : ''}`), tab('lasting', `🏆 Lasting${ready.lasting ? ' ❗' : ''}`), tab('contest', `🏅 Contest${contestReady(s, this.game.now()) ? ' ❗' : ''}`),
         h('button', { class: canClaimLogin(s, this.game.now()) ? 'on' : '', onClick: () => this.showLoginCalendar() }, `📅 Gifts${canClaimLogin(s, this.game.now()) ? ' ❗' : ''}`)));
       const list = h('div', { class: 'list' });
       const reward = (r: { coins: number; shards: number; xp: number }) => rich(`{coin} ${r.coins}  ·  {gem} ${r.shards}  ·  ★ ${r.xp} XP`);
@@ -2377,22 +2406,10 @@ export class UI {
         text = ready ? 'Your egg is ready! Tap its nest to hatch it.' : 'Your egg is warming in a nest. Eggs hatch over time, and they feel the weather too.';
         break;
       }
-      case 5: case 5.3: case 5.6: {
-        // a few parting tips, one after another, then Lotl lets you play
-        const tips: Record<number, [string, number]> = {
-          5: ['Wonderful! Try new lures, places and pairings. The sky has a mind of its own.', 5.3],
-          5.3: ['Your grove is one of many worlds. Tap Worlds to travel, and new ones open as you level up.', 5.6],
-          5.6: ['In Pets, press and hold a pet to pick several at once. There are many more pets and worlds to discover. Have fun!', 6],
-        };
-        text = tips[step][0];
-        this.coachShownAt ||= performance.now();
-        if (performance.now() - this.coachShownAt > 11_000) {
-          this.coachShownAt = 0;
-          this.game.setTutorial(tips[step][1]);
-        }
-        break;
-      }
-      default: text = '';
+      default:
+        if (step >= 5 && step < 6) text = this.tourStep(step)?.text ?? '';
+        else text = '';
+
     }
     // never talk over a pop-up (like the first-time controls card)
     if (!text || this.coachDismissed === step || this.sheetOpen && step !== 3.5 && step !== 4 || this.game.world.revealing || this.modalHost.childElementCount > 0) {
@@ -2408,10 +2425,55 @@ export class UI {
         h('div', { class: 'coach-body' },
           h('div', { class: 'coach-name' }, 'Lotl', h('span', { class: 'coach-steps' }, ...order.map((i) => h('i', { class: i < at ? 'done' : i === at ? 'now' : '' })))),
           h('div', { class: 'coach-text' }, text)),
-        h('button', { class: 'x', 'aria-label': 'Dismiss', onClick: () => { this.coachDismissed = step; if (step >= 5) { this.coachShownAt = 0; this.game.setTutorial(step === 5 ? 5.3 : step === 5.3 ? 5.6 : 6); } } }, I.icon(I.CLOSE)));
+        step >= 5
+          ? h('div', { class: 'coach-tour' },
+            h('button', { class: 'btn small', onClick: () => this.game.setTutorial(this.nextTour(step)) }, this.nextTour(step) >= 6 ? 'Let\'s play!' : 'Next'),
+            h('button', { class: 'coach-skip', onClick: () => this.game.setTutorial(6) }, 'Skip tour'))
+          : h('button', { class: 'x', 'aria-label': 'Dismiss', onClick: () => { this.coachDismissed = step; } }, I.icon(I.CLOSE)));
       this.coachEl.classList.remove('hidden');
     }
     if (this.sheetOpen && (step === 3.5 || step === 4)) this.coachEl.classList.add('hidden');
+    // point at the button the tour is talking about
+    const target = step >= 5 && step < 6 && !this.coachEl.classList.contains('hidden') ? this.tourStep(step)?.target() : null;
+    if (target !== this.coachTarget) {
+      this.coachTarget?.classList.remove('coach-target');
+      target?.classList.add('coach-target');
+      this.coachTarget = target ?? null;
+    }
+  }
+
+  private coachTarget: HTMLElement | null = null;
+
+  /** The after-the-first-hatch tour: one tip per feature, each pointing at its button. */
+  private tour(): { text: string; target: () => HTMLElement | null }[] {
+    const dock = (label: string) => () => [...this.dock.querySelectorAll<HTMLElement>('button')].find((b) => b.textContent?.includes(label)) ?? null;
+    const q = (sel: string) => () => document.querySelector<HTMLElement>(sel);
+    const steps = [
+      { text: 'Wonderful, your first hatchling! Let me show you around. Tap Next for each tip, or Skip tour any time.', target: () => null },
+      { text: 'LURES: set a lure on a glowing ring to draw visitors. Different lures and places bring different creatures, and day and night matter too.', target: dock('LURES') },
+      { text: 'CREATE: pick two pets that share a type to make an egg. You can also press and hold a pet and drop it onto another. Eggs warm in the nests on the world you\'re on.', target: dock('CREATE') },
+      { text: 'EVENT: the sky changes on its own every few minutes. Storms, eclipses and rarer skies can change your pets and eggs with mutations. Watch an ad here to bring one now.', target: q('.hud-tile[aria-label="Watch an ad to summon a sky event"]') },
+      { text: 'Your keeper level: everything you do earns stars. Tap it to see the rewards at every level, including special creatures you can only get there.', target: q('.level-badge') },
+      { text: 'QUESTS: daily and lasting goals pay coins and Starshards. A ! means something is ready to claim. Daily gifts and the weekly pet contest are in here too.', target: q('.hud-tile.quests') },
+      { text: 'WORLDS: new worlds open as you level up, each with its own creatures. Tap Worlds to travel, or drag the globe toward a neighbour. A ! means something is waiting there.', target: q('.hud-tile.islands') },
+      { text: 'SHOP: Mango sells lures, eggs, food, sprays, decorations and more nests. The stock changes often, so look out for Legendary and Mythical eggs!', target: dock('SHOP') },
+      { text: 'PETS: feed, store, explore and sell your pets. Press and hold one to pick several. The Market tab has buyers who pay extra for exactly what they want.', target: dock('PETS') },
+      { text: 'Selling: every world has a Sell booth. The travelling Collector (the top hat) pays double while he visits. Legendary pets always ask before they go.', target: () => null },
+      { text: 'Visitors: wanderers drop by now and then. Tap them for gifts and deals. If a Goblin turns up, shoo it before it pinches something!', target: () => null },
+      { text: 'DECOR: decorate your worlds. Press and hold anything you placed (nests too) to move it or put it away. Some pieces, like the Nursery and totems, do special things.', target: dock('DECOR') },
+      { text: 'JOURNAL: every creature, mutation and trait you discover. Finish a page for a big reward. There are many more pets and worlds to find. Have fun!', target: dock('JOURNAL') },
+    ];
+    if (inHalloween(this.game.now())) steps.splice(6, 0, { text: 'PASS: it\'s Halloween! Spooky skies come every hour and leave rare marks. Everything you do earns Candy for the Halloween Pass rewards.', target: () => (this.passTile.classList.contains('hidden') ? null : this.passTile) });
+    return steps;
+  }
+
+  private tourStep(step: number) {
+    return this.tour()[Math.round((step - 5) * 20)];
+  }
+
+  private nextTour(step: number): number {
+    const i = Math.round((step - 5) * 20) + 1;
+    return i >= this.tour().length ? 6 : 5 + i / 20;
   }
 
   // ------------------------------------------------------------------ islands
