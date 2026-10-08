@@ -35,7 +35,9 @@ export interface Product {
 export interface Purchases {
   products(): Product[];
   /** `test` is true when no real money changed hands (web playtest build). */
-  buy(productId: string): Promise<{ ok: boolean; product?: Product; test?: boolean }>;
+  buy(productId: string): Promise<{ ok: boolean; product?: Product; test?: boolean; error?: string }>;
+  /** Ids of one-time purchases already owned (restore = ask the store to re-check the account). */
+  owned(restore: boolean): Promise<string[]>;
 }
 
 export interface Analytics {
@@ -96,6 +98,9 @@ export class StubPurchases implements Purchases {
     // Web playtest build: packs are granted for free so the flow can be tested.
     // Store SDKs replace this class in the App Store / Google Play builds.
     return { ok: !!product, product, test: true };
+  }
+  async owned(): Promise<string[]> {
+    return [];
   }
 }
 

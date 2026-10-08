@@ -2286,7 +2286,7 @@ export class UI {
 
   showSettings(): void {
     const g = this.game;
-    this.openSheet('Settings', `${GAME_NAME} · playtest build`, (b) => {
+    this.openSheet('Settings', gameServices.available ? GAME_NAME : `${GAME_NAME} · playtest build`, (b) => {
       const volumeRow = (label: string, which: 'sound' | 'music', on: boolean, vol: number, toggle: () => void) => {
         const slider = h('input', { type: 'range', min: '0', max: '100', step: '5', value: String(Math.round(vol * 100)), class: 'vol-slider', disabled: !on, 'aria-label': `${label} volume` }) as HTMLInputElement;
         const pct = h('span', { class: 'vol-pct' }, `${Math.round(vol * 100)}%`);
@@ -2305,12 +2305,15 @@ export class UI {
       b.append(h('div', { class: 'item vol-item' }, h('div', { class: 'grow' }, h('div', { class: 'name' }, 'Shop & Sell signs'),
         h('div', { class: 'desc' }, 'How far away you can see them. All the way right shows them always.'), h('div', { class: 'vol-row' }, signSlider, signPct))));
       b.append(this.cloudSettings());
-      b.append(h('div', { class: 'item' }, h('div', { class: 'grow' }, h('div', { class: 'name' }, 'Reminders'),
+      // reminders only work in the web build for now (no phone notification plugin yet)
+      if (!gameServices.available) b.append(h('div', { class: 'item' }, h('div', { class: 'grow' }, h('div', { class: 'name' }, 'Reminders'),
         h('div', { class: 'desc' }, 'At most two gentle notifications while you\'re away (egg ready, rare visitor, pet home, the Collector). Never at night.')),
         h('button', { class: 'btn small secondary', onClick: () => { g.setReminders(!g.remindersOn); this.rerender(); } }, g.remindersOn ? 'On' : 'Off')));
       b.append(h('div', { class: 'btns' },
         h('button', { class: 'btn secondary small', onClick: () => this.showControls() }, '👆 How to get around'),
         h('button', { class: 'btn secondary small', onClick: () => this.showUpdates() }, '📜 What\'s new')));
+      if (gameServices.available) b.append(h('div', { class: 'btns' },
+        h('button', { class: 'btn secondary small', onClick: () => void g.restorePurchases(true) }, 'Restore purchases')));
       // playtest tools: in the web playtest build only, never in the store apps
       if (!gameServices.available) {
         b.append(h('div', { class: 'section-title' }, 'Playtest tools'));
@@ -2665,6 +2668,7 @@ export class UI {
             h('div', null, 'Pumpkit right away, Peekaboo at tier 1 and the Mythical Gloomwing at tier 25. Only this Halloween!'),
             waiting ? h('div', { class: 'pass-waiting' }, rich(`🎁 ${waiting} bonus reward${waiting === 1 ? '' : 's'} already waiting for you`)) : ''),
           h('button', { class: 'btn pass-cta', onClick: () => void g.buyPack(PASS.productId) }, h('span', null, 'UNLOCK NOW'), h('small', null, prod?.price ?? ''))));
+        if (gameServices.available) b.append(h('button', { class: 'link-btn pass-restore', onClick: () => void g.restorePurchases(true) }, 'Already bought it? Restore purchase'));
       }
       // the track: tickets on the left, tiers scroll sideways (premium on top, free below)
       const ico = (r: PassReward): Node => {

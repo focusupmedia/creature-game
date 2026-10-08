@@ -894,3 +894,5 @@ input.rename { font-family: var(--display); font-size: 22px; border: var(--outli
 @keyframes tut-bob-up { 0%, 100% { transform: rotate(180deg); } 50% { transform: rotate(180deg) translateY(-10px); } }
 @media (prefers-reduced-motion: reduce) { .tut-arrow-ico { animation: none; } }
 .gesture-hint.paused { display: none; }
+
+.pass-restore { display: block; margin: -4px auto 8px; background: none; border: 0; color: inherit; opacity: 0.7; text-decoration: underline; font: inherit; font-size: 13px; }
