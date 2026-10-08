@@ -23,6 +23,24 @@ export interface Ads {
   available(): boolean;
 }
 
+/** Wraps an ad service so a second tap while an ad is loading or showing does nothing. */
+export class OneAdAtATime implements Ads {
+  busy = false;
+  constructor(private inner: Ads) {}
+  async showRewarded(placement: string): Promise<boolean> {
+    if (this.busy) return false;
+    this.busy = true;
+    try {
+      return await this.inner.showRewarded(placement);
+    } finally {
+      this.busy = false;
+    }
+  }
+  available(): boolean {
+    return this.inner.available();
+  }
+}
+
 export interface Product {
   id: string;
   /** What the pack contains. */

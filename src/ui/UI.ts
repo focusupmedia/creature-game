@@ -191,6 +191,8 @@ export class UI {
   private coachEl = h('div', { class: 'coach hidden' });
   private sheetHost = h('div');
   private modalHost = h('div');
+  private friendDraft: { name?: string; code: string } = { code: '' };
+  private lureClearArm: { spot: string; until: number } | null = null;
   private revealHost = h('div');
   private placeHost = h('div');
   private dock: HTMLElement;
@@ -254,6 +256,13 @@ export class UI {
       this.featureEl.decor = dockBtn(I.DECOR, 'DECOR', () => this.showDecor()),
     );
     this.root.append(top, this.banner, this.lotlQuest, this.toasts, this.coachEl, this.dock, this.sheetHost, this.placeHost, this.modalHost, this.revealHost, this.tutArrow);
+    // tour: tapping the button the arrow points at counts as "Next" (its sheet hides the coach)
+    document.addEventListener('click', (e) => {
+      const step = this.game.state.tutorial;
+      if (step < 5 || step >= 6) return;
+      const t = this.tourStep(step)?.target();
+      if (t && e.target instanceof Node && t.contains(e.target)) this.game.setTutorial(this.nextTour(step));
+    }, true);
     // a finger down on a sheet pauses its live refresh until it lifts (so taps always land)
     this.sheetHost.addEventListener('pointerdown', () => { this.pressing = true; });
     window.addEventListener('pointerup', () => { this.pressing = false; }, true);
@@ -570,7 +579,10 @@ export class UI {
             ? 'The scent waits. Nothing nearby is answering it right now... perhaps at another time?'
             : `${fmtDuration(active.expiresAt - t)} left · ${active.visitors} visitor${active.visitors === 1 ? '' : 's'} so far`),
         ),
-        h('button', { class: 'btn secondary small', onClick: () => { A.removeLure(s, spotId); this.game.saveSoon(); this.rerender(); } }, 'Clear'),
+        // two taps: the lure is used up when cleared
+        this.lureClearArm?.spot === spotId && performance.now() < this.lureClearArm.until
+          ? h('button', { class: 'btn danger small', onClick: () => { this.lureClearArm = null; A.removeLure(s, spotId); this.game.saveSoon(); this.rerender(); } }, 'Throw away?')
+          : h('button', { class: 'btn secondary small', onClick: () => { this.lureClearArm = { spot: spotId, until: performance.now() + 4000 }; this.rerender(); } }, 'Clear'),
       ));
       return wrap;
     }
@@ -900,7 +912,7 @@ export class UI {
       m.append(grid, h('div', { class: 'btns' },
         can ? h('button', { class: 'btn wide', onClick: () => { close(); g.claimLogin(); } }, `Claim day ${next}!`)
           : h('button', { class: 'btn secondary wide', onClick: close }, 'Come back tomorrow')));
-    });
+    }, true, 'login');
   }
 
   // ---- expeditions
@@ -1245,7 +1257,7 @@ export class UI {
           ? `There's a Pocket Grove save in your ${service}. Pick up where you left off, or keep this new game.`
           : `This device and your ${service} have different saves. Pick the one to keep playing; the other is kept as a backup on this device.`),
         h('div', { class: 'save-cards' }, card(local, 'This device', 'local', !cloudBest), card(cloud, service, 'cloud', cloudBest)));
-    }, false);
+    }, false, 'save');
   }
 
   /** Sell or release everyone picked, after one clear check. */
@@ -2350,9 +2362,12 @@ export class UI {
       const t = g.now();
       const code = myFriendCode(s);
       // my keeper name and code
-      const name = h('input', { class: 'rename', value: s.keeperName ?? '', placeholder: 'Your keeper name', maxLength: 20, enterKeyHint: 'done', 'aria-label': 'Your keeper name' }) as HTMLInputElement;
+      // sheets rebuild every second: typed text lives in friendDraft so it isn't wiped
+      const name = h('input', { class: 'rename', value: this.friendDraft.name ?? s.keeperName ?? '', placeholder: 'Your keeper name', maxLength: 20, enterKeyHint: 'done', 'aria-label': 'Your keeper name' }) as HTMLInputElement;
+      name.addEventListener('input', () => { this.friendDraft.name = name.value; });
       const saveName = () => {
         name.blur();   // closes the phone keyboard
+        this.friendDraft.name = undefined;
         const v = name.value.trim().slice(0, 20) || undefined;
         if (v === s.keeperName) return;
         s.keeperName = v;
@@ -2375,10 +2390,13 @@ export class UI {
           h('button', { class: 'btn small secondary', onClick: async () => { if (!(await shareBlobText(`Come play ${GAME_NAME} with me! Add me as a friend: ${code}`))) void copy(); } }, '📱 Share code'))));
       // add a friend
       const input = h('textarea', { class: 'friend-code', rows: 2, placeholder: 'Paste a friend\'s code here (it starts with PG-)', 'aria-label': 'Friend code' }) as HTMLTextAreaElement;
+      input.value = this.friendDraft.code;
+      input.addEventListener('input', () => { this.friendDraft.code = input.value; });
       b.append(h('div', { class: 'section-title' }, 'Add a friend'), input,
         h('button', { class: 'btn small', style: 'margin-top:6px', onClick: () => {
           const r = addFriend(s, input.value, g.now());
           if (!r.ok) return this.fail(r.error);
+          this.friendDraft.code = '';
           g.audio.play('discover');
           this.toast(r.updated ? `${r.friend.name}'s grove is up to date!` : `${r.friend.name} is now your friend! 🤝`, 'discovery');
           g.saveSoon();
@@ -2489,7 +2507,7 @@ export class UI {
       m.append(h('h2', null, 'Your picture'), img(url, 'share-preview'),
         h('p', { class: 'muted' }, 'Press and hold the picture to save or share it.'),
         h('button', { class: 'btn wide', onClick: () => { URL.revokeObjectURL(url); close(); } }, 'Done'));
-    });
+    }, true, 'share');
   }
 
   /** Settings → What's new: the update log. */
@@ -2507,10 +2525,17 @@ export class UI {
 
   // ------------------------------------------------------------------ modal
 
+  hasModal(kind: string): boolean {
+    return !!this.modalHost.querySelector(`[data-kind="${kind}"]`);
+  }
+
   /** A pop-up. `dismissable` false: tapping outside does nothing (a choice must be made). */
-  modal(build: (m: HTMLElement, close: () => void) => void, dismissable = true): void {
+  /** `kind`: only one pop-up of this kind at a time (a newer one replaces the old). */
+  modal(build: (m: HTMLElement, close: () => void) => void, dismissable = true, kind?: string): void {
+    if (kind) this.modalHost.querySelector(`[data-kind="${kind}"]`)?.remove();
     const m = h('div', { class: 'modal', role: 'dialog' });
     const wrap = h('div', { class: 'modal-wrap' }, m);
+    if (kind) wrap.dataset.kind = kind;
     const close = () => wrap.remove();
     const openedAt = performance.now();
     wrap.addEventListener('click', (e) => { if (dismissable && e.target === wrap && performance.now() - openedAt > 350) close(); });
@@ -2585,7 +2610,7 @@ export class UI {
           if (this.game.state.awayChest) void this.game.openChest(false);
           close();
         } }, 'Let\'s see'));
-    });
+    }, true, 'away');
   }
 
   // ------------------------------------------------------------------ reveal

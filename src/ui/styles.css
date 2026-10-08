@@ -290,6 +290,7 @@ button:focus-visible { outline: 3px solid var(--white); outline-offset: 2px; }
 .verdict.no { background: #ffe1e1; border-color: var(--red-2); }
 
 /* ---------------------------------------------------------------- modal / reveal / misc */
+.modal-wrap[data-kind="share"] { z-index: 55; } /* above the hatch screen it can be opened from */
 .modal-wrap { position: absolute; inset: 0; display: grid; place-items: center; background: var(--scrim); padding: 16px; animation: fade .25s; }
 .modal {
   background: linear-gradient(180deg, var(--sky-2), var(--sky-1)); border: var(--outline); border-radius: 22px; padding: 16px;

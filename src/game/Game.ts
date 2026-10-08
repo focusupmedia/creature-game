@@ -41,8 +41,8 @@ import type { GameEvent, GameState, IslandId, LegendaryKind, MutationId } from '
 import { activeEvent, dayPhase, nextEvent } from '../core/world';
 import { Audio } from '../platform/audio';
 import {
-  ConsoleAnalytics, ConsoleCrash, StubAds, StubPurchases, WebNotifications, WebStorage,
-  type Ads, type Analytics, type Crash, type Notifications, type Purchases, type Storage,
+  ConsoleAnalytics, ConsoleCrash, OneAdAtATime, StubAds, StubPurchases, WebNotifications, WebStorage,
+  type Analytics, type Crash, type Notifications, type Purchases, type Storage,
 } from '../platform/services';
 import { World, type CarryTarget, type Pick } from '../render/World';
 import { UI } from '../ui/UI';
@@ -76,7 +76,7 @@ export class Game {
   private cloudBlocked = false;
   private cloudBusy = false;
   private cloudAcc = 0;
-  readonly ads: Ads;
+  readonly ads: OneAdAtATime;
   timeScale = 1;
   placing: ((x: number, z: number) => void) | null = null;
   private tickAcc = 0;
@@ -93,7 +93,7 @@ export class Game {
     this.loadSettings();
     this.world = new World(container);
     this.ui = new UI(this, container);
-    this.ads = Capacitor.isNativePlatform() ? new AdMobAds() : new StubAds((s) => this.ui.showAd(s));
+    this.ads = new OneAdAtATime(Capacitor.isNativePlatform() ? new AdMobAds() : new StubAds((s) => this.ui.showAd(s)));
     this.world.onTap = (p) => this.onTap(p);
     this.world.onEdgePush = (id) => {
       if (this.state.islands[id]?.owned) this.travel(id);
@@ -234,7 +234,7 @@ export class Game {
 
   /** Compare this device's save with the cloud copy and do the right thing (see core/cloud.ts). */
   async cloudSync(manual = false): Promise<void> {
-    if (this.cloudBusy) return;
+    if (this.cloudBusy || this.ui.hasModal('save')) return; // a "which save?" card is waiting for the player
     this.cloudBusy = true;
     try {
       this.cloudStatus = await this.cloud.status();
@@ -282,7 +282,7 @@ export class Game {
 
   /** Put this device's save in the cloud. */
   async cloudUpload(manual = false): Promise<boolean> {
-    if (this.cloudBlocked || this.cloudBusy || this.reloading) return false;
+    if (this.cloudBlocked || this.cloudBusy || this.reloading || this.ui.hasModal('save')) return false;
     if (!this.cloudStatus?.signedIn) {
       if (manual) await this.cloudSync(true);
       return false;
@@ -380,7 +380,7 @@ export class Game {
       const events = tick(this.state, this.now(), { maxStepMs: TUNING.offlineStepSec * 1000 });
       this.dispatch(events, false);
       this.welcomeBack(events, away);
-      this.offerLogin();
+      if (this.loginOffered !== today(this.now())) this.offerLogin();
       // another device may have played while we were away
       if (away > 60_000) void this.cloudSync();
     }
@@ -1392,7 +1392,7 @@ export class Game {
 
   /** Open the away chest (an ad doubles it). */
   async openChest(double: boolean): Promise<boolean> {
-    if (!this.state.awayChest) return false;
+    if (!this.state.awayChest || this.ads.busy) return false; // the Double ad is still running
     if (double) {
       const ok = await this.ads.showRewarded('away_chest');
       if (!ok) return false;

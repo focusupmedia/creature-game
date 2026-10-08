@@ -73,7 +73,9 @@ export async function shareBlob(blob: Blob, text: string): Promise<boolean> {
   try {
     if (nav.share && nav.canShare?.({ files: [file] })) { await nav.share({ files: [file], text }); return true; }
     if (nav.share) { await nav.share({ text }); return true; }
-  } catch { /* cancelled */ }
+  } catch (e) {
+    if ((e as Error)?.name === 'AbortError') return true; // the player closed the share sheet: nothing more to show
+  }
   return false;
 }
 
@@ -81,6 +83,8 @@ export async function shareBlob(blob: Blob, text: string): Promise<boolean> {
 export async function shareBlobText(text: string): Promise<boolean> {
   try {
     if (navigator.share) { await navigator.share({ text }); return true; }
-  } catch { /* cancelled */ }
+  } catch (e) {
+    if ((e as Error)?.name === 'AbortError') return true; // closed the share sheet
+  }
   return false;
 }
