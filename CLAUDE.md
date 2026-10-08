@@ -60,4 +60,4 @@ Step 1 (all creatures): kawaii eyes with two sparkles, auto blush (`Kit.noBlush`
 Ask the owner what's next (ideas: final art pass, store listing).
 
 ## Open / later
-Fill in store keys and products (docs/STORE_RELEASE.md), first device test, real phone home-screen widgets, final art and audio.
+Android RevenueCat key + Play Console, first device test + TestFlight (owner builds from the zip on the Mac; steps in "START HERE (Mac).txt" we hand over), real phone home-screen widgets, final art and audio.
