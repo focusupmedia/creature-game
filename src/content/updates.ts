@@ -6,7 +6,7 @@ export const UPDATES: UpdateNote[] = [
   {
     version: '0.9', date: 'October 2026', lines: [
       'Daily Rumours: Lotl hears a new whisper about a hidden creature every day.',
-      'Halloween Pass creatures: one when you unlock the pass, a Mythical at the last tier.',
+      'Halloween Pass creatures: Pumpkit when you unlock the pass, and Gloomwing, a Mythical bat, at the last tier.',
       'Field Journal: a "How to get" tab remembers how you found or bred each creature.',
       'Hatching: your new creature spins and turns to say hello.',
       'Shop: lures, food and gadgets now come in at random, with limited stock.',
@@ -19,7 +19,7 @@ export const UPDATES: UpdateNote[] = [
       'Selling shows how each mutation multiplies the price.',
       "Lotl's Quest: easy first goals that win an egg with a creature you don't have.",
       'A brand-new Halloween Pass screen.',
-      'Your first lure gets a visitor right away, and new visitors glow (even through clouds) until you tap them.',
+      'Your first lure gets a visitor right away, and new visitors show a ! (even through clouds) until you tap them.',
       'Make space: the Release button now lights up when picked, just like Store.',
     ],
   },

@@ -491,7 +491,9 @@ export class Game {
           }
           if (this.state.tutorial <= 1) {
             this.setTutorial(2);
-            this.world.focus(SPOTS[ev.spot], 13, SPOTS[ev.spot].island);
+            this.world.focus(SPOTS[ev.spot], 15, SPOTS[ev.spot].island);
+            // then follow the visitor itself so its ! is on screen
+            setTimeout(() => { const at = this.world.creaturePosition(ev.creature.id); if (at) this.world.focus({ x: at.x, z: at.z }, 15, SPOTS[ev.spot].island); }, 1200);
           }
           break;
         }
@@ -989,7 +991,8 @@ export class Game {
     if (!v) return this.ui.toast('They have wandered off.');
     this.ui.closeSheet();
     if (this.world.current !== v.island) this.world.travelTo(v.island, true);
-    this.world.focus(SPOTS[v.spot], 10, v.island);
+    const at = this.world.creaturePosition(id);
+    this.world.focus(at ? { x: at.x, z: at.z } : SPOTS[v.spot], 10, v.island);
     setTimeout(() => this.world.onTap({ kind: 'creature', id }), 700);
   }
 

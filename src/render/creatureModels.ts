@@ -2791,9 +2791,9 @@ Object.assign(BUILDERS, {
 
 Object.assign(PALETTES, {
   pumpkit: { main: '#3a2e3a', second: '#ff9a2a', accent: '#1a1420', belly: '#f2e4d0' },
-  wispstag: { main: '#d8ecff', second: '#a87aff', accent: '#b8fff0', belly: '#f4f8ff' },
+  gloomwing: { main: '#3a2a4a', second: '#ff8a2a', accent: '#ffb02a', belly: '#6a5a7a' },
 });
-Object.assign(MYTHIC_GLOW, { wispstag: '#b8a0ff' });
+Object.assign(MYTHIC_GLOW, { gloomwing: '#ff9a3a' });
 
 Object.assign(BUILDERS, {
   pumpkit: (k, P, m) => {
@@ -2815,15 +2815,39 @@ Object.assign(BUILDERS, {
     glow.position.set(0, 0.86, 0.32);
     b.add(glow);
   },
-  wispstag: (k, P, m) => {
-    BUILDERS.aurorastag(k, P, m);
-    // ghost lights bobbing around it
-    for (let i = 0; i < 4; i++) {
-      const a = (i / 4) * Math.PI * 2;
-      const w = glowSprite(i % 2 ? '#b8fff0' : '#c8a8ff', 0.35, 0.8);
-      w.position.set(Math.cos(a) * 0.55, 1.1 + (i % 2) * 0.2, Math.sin(a) * 0.55);
-      m.body.add(w);
+  gloomwing: (k, P, m) => {
+    const b = m.body;
+    b.add(k.ball(0.22, P.main, [0, 0.5, 0], [1, 1.05, 0.95]));
+    b.add(k.ball(0.14, P.belly, [0, 0.46, 0.1], [0.9, 1, 0.7]));
+    // glowing pumpkin eyes and two little fangs
+    for (const s of [1, -1]) {
+      b.add(k.ball(0.045, P.accent, [s * 0.08, 0.57, 0.18], [1, 1.1, 0.6], P.accent));
+      b.add(k.ball(0.018, '#1a1020', [s * 0.08, 0.57, 0.205], [0.6, 1.2, 0.4]));
+      b.add(k.mesh(G.cone, '#ffffff', [0.018, 0.05, 0.018], [s * 0.035, 0.42, 0.19]).rotateX(Math.PI));
+      const ear = k.mesh(G.cone, P.main, [0.08, 0.22, 0.06], [s * 0.12, 0.78, -0.01]);
+      ear.rotation.z = -0.3 * s;
+      b.add(ear);
+      b.add(k.mesh(G.cone, P.accent, [0.04, 0.12, 0.03], [s * 0.12, 0.76, 0.02]).rotateZ(-0.3 * s));
+      // big scalloped wings, orange inside
+      const wing = new THREE.Group();
+      wing.position.set(s * 0.18, 0.54, -0.02);
+      for (let i = 0; i < 4; i++) {
+        const f = k.mesh(G.cone, i % 2 ? P.second : P.main, [0.1, 0.42 - i * 0.06, 0.02], [s * (0.14 + i * 0.09), -0.05 - i * 0.03, 0]);
+        f.rotation.z = s * (1.8 + i * 0.22);
+        wing.add(f);
+      }
+      b.add(wing);
+      m.wings.push(wing);
     }
+    // a tiny velvet cape with a gold clasp
+    const cape = k.mesh(G.cone, '#8a1a3a', [0.2, 0.32, 0.08], [0, 0.42, -0.14]);
+    cape.rotation.x = -0.25;
+    b.add(cape);
+    b.add(k.ball(0.03, '#ffd23d', [0, 0.6, 0.15], [1, 1, 0.6], '#ffd23d'));
+    const glow = glowSprite('#ff9a3a', 1.1, 0.35);
+    glow.position.set(0, 0.55, 0);
+    b.add(glow);
+    m.height = 0.95;
   },
 } satisfies Record<string, Builder>);
 

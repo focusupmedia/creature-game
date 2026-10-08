@@ -2429,7 +2429,7 @@ export class UI {
         p.premium ? h('div', { class: 'pass-owned' }, rich('✓ Unlocked'))
           : h('button', { class: 'btn pass-unlock', onClick: () => void g.buyPack(PASS.productId) }, h('span', null, 'Unlock'), h('small', null, prod?.price ?? '')),
       ));
-      if (!p.premium) b.append(h('p', { class: 'pass-pitch' }, rich('🎃 Unlock for Pumpkit right away, the Mythical Wisp Stag at tier 25, and a bonus reward every tier.')));
+      if (!p.premium) b.append(h('p', { class: 'pass-pitch' }, rich('🎃 Unlock for Pumpkit right away, the Mythical Gloomwing bat at tier 25, and a bonus reward every tier.')));
       // the track: tickets on the left, tiers scroll sideways (premium on top, free below)
       const ico = (r: PassReward): Node => {
         if (r.coins) return I.icon(I.COIN, 'pc-ico');

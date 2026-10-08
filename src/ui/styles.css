@@ -736,14 +736,11 @@ input.rename { font-family: var(--display); font-size: 22px; border: var(--outli
 .make-space .item.pick-release { border-color: #ff5a5a; background: #ffecec; box-shadow: 0 0 0 2px #ff5a5a inset; }
 
 /* lure visitors waiting to meet you: a big bouncing pin */
-.wl.wl-visitor { background: #ffd21a; color: #1b2a4a; border: 3px solid #1b2a4a; font-size: 14px; font-weight: 800; padding: 4px 10px; animation: visitor-bob 1s ease-in-out infinite; z-index: 3;
-  box-shadow: 0 0 0 4px rgba(255,255,255,.7), 0 0 22px 8px rgba(255,226,90,.9); }
-/* a pointer down to the creature and a pulsing ring around it */
-.wl.wl-visitor::after { content: ''; position: absolute; left: 50%; top: 100%; transform: translateX(-50%); border: 10px solid transparent; border-top: 14px solid #1b2a4a; margin-top: 1px; }
-.wl.wl-visitor::before { content: ''; position: absolute; left: 50%; top: calc(100% + 34px); width: 70px; height: 70px; margin-left: -35px; border-radius: 50%;
-  border: 4px solid #ffe14d; box-shadow: 0 0 18px 6px rgba(255,226,90,.8), inset 0 0 14px 4px rgba(255,226,90,.6); animation: visitor-ring 1.2s ease-out infinite; pointer-events: none; }
-@keyframes visitor-ring { from { transform: scale(.5); opacity: 1; } to { transform: scale(1.3); opacity: .15; } }
-@media (prefers-reduced-motion: reduce) { .wl.wl-visitor, .wl.wl-visitor::before { animation: none; } }
+/* new lure visitor: the same small bouncing "!" as a lure spot marker */
+.wl.wl-visitor { width: 30px; height: 30px; padding: 0; border-radius: 50%; display: grid; place-items: center; font-family: var(--display); font-size: 18px;
+  color: var(--white); background: linear-gradient(180deg, var(--orange-1), var(--orange-2)); border: var(--outline); box-shadow: 0 3px 0 var(--ink); animation: wl-bob 1.6s ease-in-out infinite; }
+.wl.wl-visitor::after { content: ''; position: absolute; left: 50%; bottom: -8px; transform: translateX(-50%); border: 6px solid transparent; border-top-color: var(--ink); border-bottom: 0; }
+@media (prefers-reduced-motion: reduce) { .wl.wl-visitor { animation: none; } }
 @keyframes visitor-bob { 0%, 100% { margin-top: 0; } 50% { margin-top: -8px; } }
 .updates { max-height: 55vh; overflow-y: auto; text-align: left; }
 .updates ul { margin: 4px 0 10px; padding-left: 20px; font-size: 14px; color: var(--ink-soft); }
@@ -830,4 +827,3 @@ input.rename { font-family: var(--display); font-size: 22px; border: var(--outli
 .lotl-dots i.now { background: #ffd23d; }
 .lotl-prize { font-size: 11px; font-weight: 700; color: #a8508a; }
 .lotl-card .btn { margin-top: 6px; }
-.wl.wl-visitor.edge::before { display: none; }

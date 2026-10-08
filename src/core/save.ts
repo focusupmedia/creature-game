@@ -153,7 +153,18 @@ export function deserialize(json: string): GameState {
   }
   const state = raw as unknown as GameState;
   validate(state);
+  renameSpecies(state, 'wispstag', 'gloomwing');
   return state;
+}
+
+/** A playtest creature that was swapped for another: carry it over. */
+function renameSpecies(s: GameState, from: string, to: string): void {
+  for (const c of s.creatures) if (c.species === from) c.species = to;
+  for (const v of s.visitors ?? []) if (v.creature.species === from) v.creature.species = to;
+  const j = s.journal.species as Record<string, unknown>;
+  if (j[from]) { j[to] ??= j[from]; delete j[from]; }
+  const how = s.journal.howTo as Record<string, unknown> | undefined;
+  if (how?.[from]) { how[to] ??= how[from]; delete how[from]; }
 }
 
 function validate(s: GameState): void {

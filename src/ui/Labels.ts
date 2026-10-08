@@ -193,9 +193,10 @@ export class WorldLabels {
       alive.add(id);
       if (this.visitorPins.has(id)) continue;
       const spot = SPOTS[v.spot];
-      // a bright highlight over each new visitor (drawn on top of everything, clouds too) until it's first tapped
-      this.pin('wl-visitor', [spot.x, 2.3, spot.z], () => 'always', () => '✨ New visitor!', () => this.game.world.onTap({ kind: 'creature', id }),
-        () => this.game.world.current === v.island && !this.game.seenVisitors.has(id) && this.game.state.visitors.some((x) => x.creature.id === id));
+      // a small "!" over each new visitor (drawn on top of everything, clouds too) until it's first tapped
+      this.pin('wl-visitor', [spot.x, 2.3, spot.z], () => 'always', () => '!', () => this.game.world.onTap({ kind: 'creature', id }),
+        () => this.game.world.current === v.island && !this.game.seenVisitors.has(id) && !!this.game.world.creaturePosition(id)
+          && this.game.state.visitors.some((x) => x.creature.id === id));
       this.visitorPins.set(id, this.pins[this.pins.length - 1]);
     }
     // follow the visitor as it moves about
@@ -226,21 +227,6 @@ export class WorldLabels {
     for (const p of this.pins) {
       const mode = p.when() ? p.mode() : 'hidden';
       const sp = w.pinScreen(p.pos[0], p.pos[2], p.pos[1]);
-      // new-visitor highlights never hide: off screen (or round the back) they wait at the nearest edge
-      const edgy = p.el.classList.contains('wl-visitor');
-      let edge = false;
-      if (edgy && mode !== 'hidden') {
-        const W = window.innerWidth;
-        const H = window.innerHeight;
-        const m = 60;
-        if (!sp.visible || sp.x < m || sp.x > W - m || sp.y < m + 40 || sp.y > H - 110) {
-          edge = true;
-          sp.x = Math.min(Math.max(sp.x, m), W - m);
-          sp.y = Math.min(Math.max(sp.y, m + 40), H - 110);
-          sp.visible = true;
-        }
-      }
-      p.el.classList.toggle('edge', edge);
       const farText = p.far && near < 0.5 && mode !== 'hidden' ? p.far() : undefined;
       let opacity = mode === 'hidden' || !sp.visible ? 0 : mode === 'always' ? 1 : near;
       if (p.far && near < 0.5) opacity = farText && sp.visible ? (mode === 'sign' ? signNear : 1) : 0;

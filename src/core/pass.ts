@@ -53,7 +53,7 @@ export const PASS_TIERS: [PassReward, PassReward][] = [
   [F({ shards: 20 }), F({ lure: ['mythic', 1] })],
   [F({ food: ['sprout', 4] }), F({ shards: 80 })],
   [F({ lure: ['golden', 1] }), F({ coins: 3000 })],
-  [F({ shards: 50 }), F({ creature: 'wispstag' })],
+  [F({ shards: 50 }), F({ creature: 'gloomwing' })],
 ];
 
 export function passState(state: GameState) {

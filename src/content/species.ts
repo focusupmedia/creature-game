@@ -516,10 +516,10 @@ export const SPECIES: SpeciesDef[] = [
     hint: 'Only from the Halloween Pass.', eggColors: ['#ff8a2a', '#3a2a4a'],
   },
   {
-    id: 'wispstag', name: 'Wisp Stag', traits: ['Mammal', 'Spirit', 'Mystic'], rarity: 'mythical',
-    activity: 'night', movement: 'walk', origin: 'reward',
-    blurb: 'A see-through stag with little ghost lights hanging from its antlers. Every wisp is a happy memory.',
-    hint: 'Only from the last tier of the Halloween Pass.', eggColors: ['#c8e8ff', '#a87aff'],
+    id: 'gloomwing', name: 'Gloomwing', traits: ['Mammal', 'Spirit', 'Mystic'], rarity: 'mythical',
+    activity: 'night', movement: 'fly', origin: 'reward',
+    blurb: 'A Halloween bat in a tiny velvet cape. Its pumpkin eyes glow so nobody gets lost on the way home.',
+    hint: 'Only from the last tier of the Halloween Pass.', eggColors: ['#2a1a3a', '#ff8a2a'],
   },
 ];
 
