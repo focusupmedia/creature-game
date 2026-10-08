@@ -243,17 +243,17 @@ export class UI {
         ),
       ),
     );
-    const dockBtn = (svg: string, label: string, fn: () => void, dot?: HTMLElement) =>
-      h('button', { onClick: () => { this.game.audio.play('tap'); fn(); } }, I.icon(svg), h('span', { class: 'lbl' }, label), dot ?? null);
+    const dockBtn = (svg: string, label: string, fn: () => void, dot?: HTMLElement, cls = '') =>
+      h('button', { class: cls, onClick: () => { this.game.audio.play('tap'); fn(); } }, I.icon(svg), h('span', { class: 'lbl' }, label), dot ?? null);
     this.dock = h('nav', { class: 'dock' },
       dockBtn(I.LURE, 'LURES', () => this.showLures()),
-      dockBtn(I.CREATE, 'CREATE', () => this.showFont()),
+      dockBtn(I.CREATE, 'CREATE', () => this.showFont(), undefined, 'tut-create'),
       dockBtn(I.PAW, 'PETS', () => this.showPets(this.game.state.expeditions.some((e) => e.end <= this.game.now()) ? 'trips' : undefined), this.petsDot),
       this.featureEl.journal = dockBtn(I.JOURNAL, 'JOURNAL', () => this.showJournal(), this.journalDot),
       this.featureEl.shop = dockBtn(I.SHOP, 'SHOP', () => this.showShop(), this.shopDot),
       this.featureEl.decor = dockBtn(I.DECOR, 'DECOR', () => this.showDecor()),
     );
-    this.root.append(top, this.banner, this.lotlQuest, this.toasts, this.coachEl, this.dock, this.sheetHost, this.placeHost, this.modalHost, this.revealHost);
+    this.root.append(top, this.banner, this.lotlQuest, this.toasts, this.coachEl, this.dock, this.sheetHost, this.placeHost, this.modalHost, this.revealHost, this.tutArrow);
     // a finger down on a sheet pauses its live refresh until it lifts (so taps always land)
     this.sheetHost.addEventListener('pointerdown', () => { this.pressing = true; });
     window.addEventListener('pointerup', () => { this.pressing = false; }, true);
@@ -586,7 +586,7 @@ export class UI {
       list.append(h('div', { class: 'item' },
         h('div', { class: 'swatch', style: `background:${lure.color}33` }, HABITAT_ICON[lure.attracts] ?? '🫙'),
         h('div', { class: 'grow' }, h('div', { class: 'name' }, `${lure.name} ×${n}`), h('div', { class: 'desc' }, lure.scent)),
-        h('button', { class: 'btn small', onClick: () => this.game.placeLure(spotId, id) }, 'Place'),
+        h('button', { class: 'btn small tut-place', onClick: () => this.game.placeLure(spotId, id) }, 'Place'),
       ));
     }
     wrap.append(list);
@@ -1338,7 +1338,7 @@ export class UI {
         h('p', { class: 'muted' }, `${known ? '' : 'Your first one! '}It followed the scent to the ${SPOTS[v.spot].name} and is waiting to meet you. It will wander off in ${fmtDuration(v.until - g.now())}.`),
         h('div', { class: 'btns' },
           h('button', { class: 'btn secondary', onClick: () => { close(); g.sendAwayVisitor(id); } }, rich(`Send away · +{coin} ${visitorThanks(c)}`)),
-          h('button', { class: 'btn', onClick: () => { close(); g.keepVisitor(id); } }, 'Keep it!')));
+          h('button', { class: 'btn tut-keep', onClick: () => { close(); g.keepVisitor(id); } }, 'Keep it!')));
     });
   }
 
@@ -1679,7 +1679,7 @@ export class UI {
         const sky = activeEvent(s, this.game.now());
         if (comp.ok && sky) b.append(h('p', { class: 'muted' }, `The ${EVENTS[sky.kind].name.toLowerCase()} overhead makes the Fountain shimmer strangely...`));
         b.append(h('button', {
-          class: 'btn wide', style: 'margin-top:12px', disabled: !comp.ok || free === 0,
+          class: 'btn wide tut-make', style: 'margin-top:12px', disabled: !comp.ok || free === 0,
           onClick: () => this.game.combine(a.id, bb.id),
         }, free === 0 ? 'Every nest is full' : 'Make an egg together'));
       } else {
@@ -1755,7 +1755,7 @@ export class UI {
       b.append(h('div', { class: 'muted' }, ready ? 'Something is moving inside!' : `Hatches in ${fmtDuration(A.remainingMs(live))}`));
       const btns = h('div', { class: 'btns' });
       if (ready) {
-        btns.append(h('button', { class: 'btn wide', onClick: () => this.game.hatch(live.id) }, '🐣 Hatch!'));
+        btns.append(h('button', { class: 'btn wide tut-hatch', onClick: () => this.game.hatch(live.id) }, '🐣 Hatch!'));
       } else {
         if (A.canAdHatch(s, live, t)) {
           btns.append(h('button', { class: 'btn ad', onClick: () => this.game.adHatch(live.id) }, '▶ Watch ad · hatch now'));
@@ -2786,19 +2786,82 @@ export class UI {
 
   // ------------------------------------------------------------------ tutorial coach
 
+  // ---- the tutorial arrow: a bouncing pointer at exactly what to tap next
+  private tutArrow = h('div', { class: 'tut-arrow hidden', 'aria-hidden': 'true' },
+    h('span', { class: 'tut-arrow-ico' }, I.icon(I.TUT_ARROW)));
+  /** Where the arrow should point right now (screen x/y), or null. */
+  private arrowTarget(): { x: number; y: number } | null {
+    const s = this.game.state;
+    const step = s.tutorial;
+    const w = this.game.world;
+    const el = (sel: string) => {
+      const e = [...document.querySelectorAll<HTMLElement>(sel)].find((x) => x.offsetParent !== null && !(x as HTMLButtonElement).disabled);
+      if (!e) return null;
+      const r = e.getBoundingClientRect();
+      return { x: r.left + r.width / 2, y: r.top, bottom: r.bottom };
+    };
+    const at = (x: number, z: number, alt: number) => { const p = w.pinScreen(x, z, alt); return p.visible ? { x: p.x, y: p.y } : null; };
+    if (w.revealing) return null;
+    if (step === 0) {
+      const btn = el('.tut-place');
+      if (btn) return btn;
+      if (this.sheetOpen || this.modalHost.childElementCount) return null;
+      const spot = Object.values(SPOTS).find((p) => p.island === 'home' && !s.spots[p.id] && spotOpen(s.islands, p.id));
+      return spot ? at(spot.x, spot.z, 1.2) : null;
+    }
+    if (step === 2) {
+      const keep = el('.tut-keep');
+      if (keep) return keep;
+      if (this.sheetOpen || this.modalHost.childElementCount) return null;
+      const v = s.visitors[0];
+      const pos = v ? w.creaturePosition(v.creature.id) : null;
+      return pos ? at(pos.x, pos.z, 1.6) : null;
+    }
+    if (step === 3) return this.sheetOpen ? null : el('.dock button.tut-create');
+    if (step === 3.5) return el('.tut-make') ?? el('.sheet .slots .slot:not(.filled)') ?? el('.sheet .grid .tile:not(.dim):not(.sel)');
+    if (step === 4) {
+      const ready = s.eggs.find((e) => e.nest && e.progressMs >= e.incubationMs);
+      if (!ready) return null;
+      const hatch = el('.tut-hatch');
+      if (hatch) return hatch;
+      if (this.sheetOpen || this.modalHost.childElementCount) return null;
+      const nest = s.placedDecor.find((d) => d.id === ready.nest);
+      return nest ? at(nest.x, nest.z, 1.2) : null;
+    }
+    if (step >= 5 && step < 6 && !this.coachEl.classList.contains('hidden')) {
+      const t = this.tourStep(step)?.target();
+      if (!t || t.offsetParent === null) return null;
+      const r = t.getBoundingClientRect();
+      return { x: r.left + r.width / 2, y: r.top };
+    }
+    return null;
+  }
+
+  private updateArrow(): void {
+    const p = this.arrowTarget();
+    this.tutArrow.classList.toggle('hidden', !p);
+    if (!p) return;
+    // point down from above; near the top of the screen, point up from below instead
+    const up = p.y < 140;
+    const y = up ? ((p as { bottom?: number }).bottom ?? p.y + 30) : p.y;
+    this.tutArrow.classList.toggle('up', up);
+    this.tutArrow.style.transform = `translate(${p.x.toFixed(0)}px, ${y.toFixed(0)}px)`;
+  }
+
   private updateCoach(): void {
+    this.updateArrow();
     const s = this.game.state;
     const step = s.tutorial;
     let text = '';
     switch (step) {
-      case 0: text = 'Welcome! Tap the glowing ring to set out a lure.'; break;
-      case 1: text = 'Now wait a moment. Visitors are on their way!'; break;
-      case 2: text = 'A visitor! Tap the ! and Keep it.'; break;
-      case 3: text = 'Two pets that share a type can make an egg. Tap ⛲ Create.'; break;
-      case 3.5: text = 'Pick two pets. A 💚 means they match.'; break;
+      case 0: text = 'Tap the glowing ring!'; break;
+      case 1: text = 'Visitors are coming…'; break;
+      case 2: text = 'A visitor! Tap it and Keep it.'; break;
+      case 3: text = 'Tap CREATE!'; break;
+      case 3.5: text = 'Pick two pets. 💚 = a match!'; break;
       case 4: {
         const ready = s.eggs.some((e) => e.progressMs >= e.incubationMs);
-        text = ready ? 'Your egg is ready! Tap it to hatch.' : 'Your egg is warming. It hatches soon.';
+        text = ready ? 'Tap your egg!' : 'Your egg is warming…';
         break;
       }
       default:
@@ -2844,13 +2907,17 @@ export class UI {
   /** Gesture tips at the moments they help. */
   private syncHints(): void {
     const s = this.game.state;
-    if (this.modalHost.childElementCount || this.sheetOpen || this.game.world.revealing) return;
-    if (s.tutorial === 1) this.hints.show('drag');                     // waiting for the first visitor
-    else if (s.tutorial === 4) this.hints.show('pinch');               // waiting for the first egg
+    // tips never sit on top of a menu or pop-up
+    const busy = !!this.modalHost.childElementCount || this.sheetOpen || this.game.world.revealing;
+    this.hints.pause(busy);
+    if (busy) return;
+    const ready = s.eggs.some((e) => e.nest && e.progressMs >= e.incubationMs);
+    if (s.tutorial === 4 && !ready) this.hints.show('drag');           // waiting for the first egg
     else if (s.tutorial >= 6) {
       const st = starterStep(s);
       if (st?.kind === 'breed') this.hints.show('hold');
-      else if (st?.kind === 'hatch' || s.starter?.done) this.hints.show('twist');
+      else if (st?.kind === 'hatch') this.hints.show('pinch');
+      else if (s.starter?.done) this.hints.show('twist');
     }
   }
 

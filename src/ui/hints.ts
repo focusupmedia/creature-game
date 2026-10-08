@@ -45,6 +45,11 @@ export class Hints {
     setTimeout(() => this.hide(id), 6500);
   }
 
+  /** Hide the tip while a menu or pop-up is open (it comes back when they close). */
+  pause(on: boolean): void {
+    this.el?.classList.toggle('paused', on);
+  }
+
   /** The player did it: no need to tell them. */
   done(id: HintId): void {
     this.mark(id);

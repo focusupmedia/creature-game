@@ -14,6 +14,7 @@ export const UPDATES: UpdateNote[] = [
       'A calmer start: buttons appear one at a time as you level up, and news waits while you do Lotl\'s Quest.',
       'Lotl\'s Quest now sits at the bottom left, so pop-ups never cover it. Tap a pop-up to put it away.',
       'Little gesture tips show up right when you need them.',
+      'The tutorial now points at what to tap with a bouncing arrow, with much less to read.',
       'See how many creatures you\'ve found at a glance, name your first baby, and Lotl\'s Egg always glows.',
       'Finish Lotl\'s Quest for a Sleepy Egg that hatches the next day.',
     ],

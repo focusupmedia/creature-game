@@ -206,3 +206,11 @@ export const GESTURE_TAP = svg(`<g transform="translate(0 7)">${pointer()}</g>${
 export const HEART = svg(`
   <path d="M32 54C14 41 7 31 7 21a12 12 0 0 1 25-6 12 12 0 0 1 25 6c0 10-7 20-25 33z" fill="currentColor" stroke="${INK}" stroke-width="4.5" stroke-linejoin="round"/>
   <path d="M15 20a6 6 0 0 1 6-5" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" opacity=".75"/>`);
+
+/** The tutorial's pointing arrow: a chunky orange arrow with the navy outline and a gloss stripe, pointing down. */
+export const TUT_ARROW = svg(`
+  <defs><linearGradient id="ta-g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffd23d"/><stop offset="1" stop-color="#ff8a1a"/></linearGradient></defs>
+  <path d="M22 4h20v26h13L32 60 9 30h13z" fill="${INK}" stroke="${INK}" stroke-width="7" stroke-linejoin="round" transform="translate(0 3)"/>
+  <path d="M22 4h20v26h13L32 60 9 30h13z" fill="url(#ta-g)" stroke="${INK}" stroke-width="4" stroke-linejoin="round"/>
+  <path d="M26 9h5v22" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round" opacity=".75"/>
+`);
