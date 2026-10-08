@@ -79,6 +79,7 @@ export class CreatureActor {
   private target = new THREE.Vector3();
   private timer = 0;
   private hopT = 0;
+  private blinkT = 1 + Math.random() * 4;
   private heading = Math.random() * Math.PI * 2;
   private emoteSprite: THREE.Sprite;
   private emoteLife = 0;
@@ -516,6 +517,13 @@ export class CreatureActor {
     }
 
     // ---- animate
+    // blink every few seconds; eyes stay shut while asleep
+    if (m.eyes?.length) {
+      this.blinkT -= dt;
+      if (this.blinkT < -0.14) this.blinkT = 2 + Math.random() * 4;
+      const shut = this.state === 'sleep' || this.state === 'nap' ? 0.12 : this.blinkT < 0 ? 0.1 : 1;
+      for (const e of m.eyes) e.scale.y = shut;
+    }
     const mv = m.movement;
     const ground = 0;
     const moving = (this.state === 'wander' || this.state === 'arrive' || this.state === 'shelter' || this.state === 'chase' || this.state === 'flee'

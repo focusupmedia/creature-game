@@ -24,6 +24,8 @@ export interface CreatureModel {
   /** Starlit: tiny lights that twinkle across the body. */
   twinkles?: THREE.Group;
   materials: THREE.MeshToonMaterial[];
+  /** Eyes, for blinking. */
+  eyes?: THREE.Group[];
   /** The species' own body materials (the first N of `materials`); Prismatic recolors only these. */
   bodyMats: number;
   /** Rare-mutation glow: colored rim, aura and (epic+) orbiting sparkles. */
@@ -124,20 +126,38 @@ class Kit {
     return this.mesh(G.sphere, color, [r * s[0], r * s[1], r * s[2]], p, emissive);
   }
 
+  /** Species that already paint their own cheeks (or have none) turn the automatic blush off. */
+  noBlush = false;
+  /** Every eye built, so the creature can blink. */
+  eyes: THREE.Group[] = [];
+
+  /** A big, glossy "kawaii" eye: a large dark pupil with one big and one small sparkle. */
   eye(parent: THREE.Object3D, x: number, y: number, z: number, r: number, dir = new THREE.Vector3(0, 0, 1)) {
     const g = new THREE.Group();
     g.position.set(x, y, z);
+    const flat = (o: THREE.Mesh) => { o.castShadow = false; o.userData.noOutline = true; return o; };
     const white = this.ball(r, '#ffffff', [0, 0, 0]);
     white.castShadow = false;
     white.userData.noOutline = r < 0.05;
-    const pupil = this.ball(r * 0.62, '#1a1420', [dir.x * r * 0.5, dir.y * r * 0.5, dir.z * r * 0.5]);
-    pupil.castShadow = false;
-    pupil.userData.noOutline = true;
-    const shine = this.ball(r * 0.22, '#ffffff', [dir.x * r * 0.75 + r * 0.2, r * 0.35, dir.z * r * 0.75]);
-    shine.castShadow = false;
-    shine.userData.noOutline = true;
-    g.add(white, pupil, shine);
+    const d = dir.clone().normalize();
+    const pupil = flat(this.ball(r * 0.74, '#241a2e', [d.x * r * 0.42, d.y * r * 0.42, d.z * r * 0.42]));
+    // a soft colored ring low in the pupil gives the eye depth
+    const glint = flat(this.ball(r * 0.3, '#5a4a7a', [d.x * r * 0.62, d.y * r * 0.62 - r * 0.28, d.z * r * 0.62]));
+    const shine = flat(this.ball(r * 0.3, '#ffffff', [d.x * r * 0.8 + r * 0.24, r * 0.3, d.z * r * 0.8]));
+    const shine2 = flat(this.ball(r * 0.13, '#ffffff', [d.x * r * 0.86 - r * 0.2, -r * 0.24, d.z * r * 0.86]));
+    g.add(white, pupil, glint, shine, shine2);
+    // a touch bigger than drawn: big eyes read as cute from far away
+    g.scale.setScalar(1.18);
     parent.add(g);
+    this.eyes.push(g);
+    // a rosy cheek just below and outside each eye (skipped for tiny eyes and eyes on stalks)
+    if (r >= 0.035 && Math.abs(x) > r * 0.6 && !this.noBlush) {
+      const side = Math.sign(x);
+      const blush = this.ball(r * 0.55, '#ff9fbf', [x + side * r * 0.75, y - r * 1.25, z - r * 0.25], [1.25, 0.65, 0.6]);
+      blush.castShadow = false;
+      blush.userData.noOutline = true;
+      parent.add(blush);
+    }
     return g;
   }
 }
@@ -987,6 +1007,7 @@ export function buildCreature(speciesId: SpeciesId, mutations: MutationId[], see
     movement: sp.movement, baseScale: 1,
   };
   (BUILDERS[speciesId] ?? BUILDERS.mossfrog)(k, P, m);
+  m.eyes = k.eyes;
   m.bodyMats = k.mats.length;
   const plainMats = k.mats.filter((mat) => mat.emissive.getHex() === 0);
   // Where this particular body's head and back are, so halos, horns and wings sit right on every shape.
@@ -1348,7 +1369,7 @@ export function buildCreature(speciesId: SpeciesId, mutations: MutationId[], see
   // Mythicals always shine; otherwise the rarest mutation sets the glow.
   const mythic = MYTHIC_GLOW[speciesId];
   const level = Math.max(glowLevel({ species: speciesId, mutations }), mythic ? 2 : 0);
-  addOutlines(body, level >= 2 ? 3.6 : level === 1 ? 3.2 : 2.6);
+  addOutlines(body, level >= 2 ? 3.2 : level === 1 ? 2.8 : 2.2);
   if (level > 0) {
     const top = rarestMutation({ species: speciesId, mutations });
     const useMythic = mythic && (!top || MUTATIONS[top].tier !== 'epic');

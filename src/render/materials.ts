@@ -7,9 +7,9 @@ import { mergeVertices } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 let ramp: THREE.DataTexture | null = null;
 export function toonRamp(): THREE.DataTexture {
   if (ramp) return ramp;
-  // Bright, toy-like ramp: soft shadow band, no muddy darks.
-  const data = new Uint8Array([150, 150, 150, 255, 210, 210, 210, 255, 255, 255, 255, 255]);
-  ramp = new THREE.DataTexture(data, 3, 1, THREE.RGBAFormat);
+  // Bright, toy-like ramp: four soft bands with a slightly warm shadow, no muddy darks.
+  const data = new Uint8Array([176, 168, 182, 255, 214, 208, 216, 255, 240, 238, 240, 255, 255, 255, 255, 255]);
+  ramp = new THREE.DataTexture(data, 4, 1, THREE.RGBAFormat);
   ramp.minFilter = THREE.NearestFilter;
   ramp.magFilter = THREE.NearestFilter;
   ramp.needsUpdate = true;
