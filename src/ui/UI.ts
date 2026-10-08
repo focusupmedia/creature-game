@@ -42,7 +42,7 @@ import { deleteQuirk, wipeQuirks } from '../core/quirks';
 import { MAX_LEVEL, STAR_LEVEL, levelOf, levelProgress, levelReward, starRank, type LevelUp } from '../core/levels';
 import { RUMOUR_REWARD, rumourText, todaysRumour } from '../core/rumours';
 import { DAILY_POOL, LASTING, claimable, claimableBy, lastingReward, refreshDailies } from '../core/quests';
-import { type AwayFind, canSell, collectorHere, findVisitor, isHungry, visitorThanks, nextSlotPrice, ripeFruit, sellPrice, sellWarning, storedCount } from '../core/care';
+import { type AwayFind, canSell, sellBreakdown, collectorHere, findVisitor, isHungry, visitorThanks, nextSlotPrice, ripeFruit, sellPrice, sellWarning, storedCount } from '../core/care';
 import { rarityTag } from './rarity';
 
 type PetsSort = 'newest' | 'rarity' | 'name' | 'size' | 'hunger';
@@ -710,13 +710,24 @@ export class UI {
   private confirmSell(c: Creature): void {
     const g = this.game;
     const here = collectorHere(g.state, g.now());
-    const price = sellPrice(g.state, c, here);
+    const { lines, price } = sellBreakdown(g.state, c, here);
     this.modal((m, close) => {
       const warn = sellWarning(c);
+      const x = (n: number) => `×${+n.toFixed(n >= 10 ? 0 : 2)}`;
+      const muts = lines.filter((l) => l.kind === 'mutation');
+      const mutTotal = muts.reduce((a, l) => a * l.mult, 1);
+      const table = h('div', { class: 'sell-math' },
+        ...lines.map((l) => h('div', { class: `sell-line ${l.kind} ${l.tier ?? ''}` },
+          h('span', null, l.kind === 'mutation' ? `✨ ${l.label} (${l.tier})` : l.label),
+          h('b', null, l.kind === 'base' ? rich(`{coin} ${l.mult}`) : x(l.mult)))),
+        muts.length ? h('div', { class: 'sell-line total' }, h('span', null, 'Mutations together'), h('b', null, x(mutTotal))) : '',
+        h('div', { class: 'sell-line total' }, h('span', null, 'Price'), h('b', null, rich(`{coin} ${price.toLocaleString()}`))));
       m.append(h('h2', null, `Sell ${displayName(c)}?`),
         h('p', { class: 'muted' }, `${sizeLabel(c.size)} · ${fmtWeight(weightKg(c, g.now()))}`),
         warn ? h('p', { class: 'sell-warn' }, `❗ ${warn}`) : '',
         h('p', null, rich(`${here ? 'The Collector offers' : 'You\'ll get'} {coin} ${price}.`)),
+        table,
+        h('p', { class: 'muted' }, 'Each mutation multiplies the price: Common ×1.3 · Rare ×1.6 · Epic ×2.2 · Legendary ×3.2'),
         h('p', { class: 'muted' }, here ? 'He\'ll give it a lovely home in his travelling menagerie.' : 'Tip: the travelling Collector pays at least double.'),
         h('p', { class: 'muted' }, 'You can\'t undo this.'),
         h('div', { class: 'btns' }, h('button', { class: 'btn secondary', onClick: close }, 'Keep it'),

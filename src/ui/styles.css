@@ -759,3 +759,10 @@ input.rename { font-family: var(--display); font-size: 22px; border: var(--outli
 .updates li { margin: 3px 0; }
 .item.rumour { background: linear-gradient(180deg, #f3eaff, #e4d6ff); border-color: #8a6ad8; margin-bottom: 10px; }
 .item.rumour.done { background: linear-gradient(180deg, #eaffea, #d4f4d4); border-color: #4aa85a; }
+.sell-math { background: rgba(255,255,255,.6); border: 2px solid var(--ink); border-radius: 14px; padding: 6px 10px; margin: 8px 0; font-size: 14px; }
+.sell-line { display: flex; justify-content: space-between; gap: 8px; padding: 3px 0; }
+.sell-line.mutation b { color: #6a4fd6; }
+.sell-line.mutation.rare b { color: #2a8ad8; }
+.sell-line.mutation.epic b { color: #a83ad8; }
+.sell-line.mutation.legendary b { color: #e08a10; }
+.sell-line.total { border-top: 2px dashed rgba(0,0,0,.2); margin-top: 3px; font-weight: 700; }

@@ -204,19 +204,39 @@ export function canSell(state: GameState, c: Creature): string | null {
  * every mutation multiplies the price, so a well-bred pet is a real prize.
  * The Collector pays double, triple for the type he wants.
  */
-export function sellPrice(state: GameState, c: Creature, toCollector: boolean): number {
+export interface SellLine { label: string; mult: number; kind: 'base' | 'size' | 'mutation' | 'shade' | 'buyer'; tier?: string }
+
+/** How a sell price is made, line by line: the base, then each multiplier. */
+export function sellBreakdown(state: GameState, c: Creature, toCollector: boolean): { lines: SellLine[]; price: number } {
   const sp = species(c.species);
-  let p = BASE[sp.rarity];
+  const lines: SellLine[] = [{ label: `${sp.rarity[0].toUpperCase()}${sp.rarity.slice(1)} ${sp.name}`, mult: BASE[sp.rarity], kind: 'base' }];
   const size = Math.min(4.5, c.size * (c.mutations.includes('giant') ? 1.6 : 1));
-  p *= 0.6 + 0.4 * size * size;
-  if (isOutlier(c.size)) p *= 1.6;
-  const mult = c.mutations.reduce((m, id) => m * (MUT_MULT[MUTATIONS[id].tier] ?? 1), 1);
-  p *= Math.min(15, mult);
-  p *= SHADE_MULT[c.shade ?? 'classic'] ?? 1.1;
-  if (toCollector) p *= sp.traits.includes(state.collector.wants) ? 3 : 2;
+  lines.push({ label: 'Size', mult: 0.6 + 0.4 * size * size, kind: 'size' });
+  if (isOutlier(c.size)) lines.push({ label: c.size > 1 ? 'Colossal' : 'Teeny', mult: 1.6, kind: 'size' });
+  // mutations: rarer ones multiply more (all together capped at x15)
+  let left = 15;
+  for (const id of c.mutations) {
+    const m = MUTATIONS[id];
+    const x = Math.min(left, MUT_MULT[m.tier] ?? 1);
+    left /= x;
+    lines.push({ label: m.name, mult: x, kind: 'mutation', tier: m.tier });
+  }
+  const shade = SHADE_MULT[c.shade ?? 'classic'] ?? 1.1;
+  if (shade !== 1) lines.push({ label: `${(c.shade ?? 'classic')[0].toUpperCase()}${(c.shade ?? 'classic').slice(1)} color`, mult: shade, kind: 'shade' });
+  if (toCollector) lines.push({ label: sp.traits.includes(state.collector.wants) ? `Collector (wants ${state.collector.wants})` : 'Collector', mult: sp.traits.includes(state.collector.wants) ? 3 : 2, kind: 'buyer' });
   // a Haggler out on the same world talks the price up
-  if (state.creatures.some((x) => !x.stored && !x.trip && x.island === c.island && hasQuirk(x, 'haggler'))) p *= 1.1;
-  return Math.max(5, Math.round(p / 5) * 5);
+  if (state.creatures.some((x) => !x.stored && !x.trip && x.island === c.island && hasQuirk(x, 'haggler'))) lines.push({ label: 'Haggler nearby', mult: 1.1, kind: 'buyer' });
+  const p = lines.reduce((a, l) => a * l.mult, 1);
+  return { lines, price: Math.max(5, Math.round(p / 5) * 5) };
+}
+
+export function sellPrice(state: GameState, c: Creature, toCollector: boolean): number {
+  return sellBreakdown(state, c, toCollector).price;
+}
+
+/** All of a creature's mutations together, as one sell multiplier. */
+export function mutationMultiplier(c: Creature): number {
+  return Math.min(15, c.mutations.reduce((m, id) => m * (MUT_MULT[MUTATIONS[id].tier] ?? 1), 1));
 }
 
 /** Pets worth a second thought before selling: Legendary and up, and one-of-a-kind level gifts. */

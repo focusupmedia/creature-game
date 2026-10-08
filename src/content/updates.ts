@@ -16,6 +16,7 @@ export const UPDATES: UpdateNote[] = [
       'Lure visitors are easier to spot, and tapping their alert takes you there.',
       'Mythicals are rarer. Shorter tutorial. Placed items follow bigger worlds.',
       'Kindred Font is now the Kindred Fountain.',
+      'Selling shows how each mutation multiplies the price.',
     ],
   },
   {
