@@ -10,10 +10,12 @@ import { STORE_KEYS } from './storeKeys';
 import { StubPurchases, type Ads, type Product, type Purchases } from './services';
 
 const ios = () => Capacitor.getPlatform() === 'ios';
+const errText = (e: unknown) => String((e as { message?: unknown })?.message ?? e ?? 'unknown').slice(0, 80);
 
 export class AdMobAds implements Ads {
   private ready = false;
   private loaded = false;
+  lastError?: string;
 
   constructor() {
     void this.init();
@@ -28,8 +30,9 @@ export class AdMobAds implements Ads {
       if (ios()) await AdMob.requestTrackingAuthorization().catch(() => undefined);
       this.ready = true;
       await this.load();
-    } catch {
+    } catch (e) {
       this.ready = false;
+      this.lastError = errText(e);
     }
   }
 
@@ -40,8 +43,9 @@ export class AdMobAds implements Ads {
         isTesting: STORE_KEYS.admob.testing,
       });
       this.loaded = true;
-    } catch {
+    } catch (e) {
       this.loaded = false;
+      this.lastError = errText(e);
     }
   }
 
@@ -63,7 +67,7 @@ export class AdMobAds implements Ads {
     const subs = await Promise.all([
       AdMob.addListener(RewardAdPluginEvents.Rewarded, () => { earned = true; }),
       AdMob.addListener(RewardAdPluginEvents.Dismissed, () => finish()),
-      AdMob.addListener(RewardAdPluginEvents.FailedToShow, () => finish()),
+      AdMob.addListener(RewardAdPluginEvents.FailedToShow, (e) => { this.lastError = errText(e); finish(); }),
     ]);
     AdMob.showRewardVideoAd()
       .then((item) => { if (item && item.amount > 0) earned = true; finish(); })

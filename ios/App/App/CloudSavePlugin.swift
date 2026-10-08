@@ -79,7 +79,8 @@ public class CloudSavePlugin: CAPPlugin, CAPBridgedPlugin {
         let env = ["data": call.getString("data") ?? "", "summary": call.getString("summary") ?? ""]
         guard let bytes = try? JSONSerialization.data(withJSONObject: env) else { return call.resolve(["ok": false]) }
         GKLocalPlayer.local.saveGameData(bytes, withName: slot) { _, error in
-            call.resolve(["ok": error == nil])
+            // the reason helps when iCloud Drive is off or not set up for the app
+            call.resolve(["ok": error == nil, "error": error?.localizedDescription ?? ""])
         }
     }
 }

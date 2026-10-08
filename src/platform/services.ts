@@ -21,17 +21,23 @@ export interface Ads {
   /** Shows a rewarded ad. Resolves true only if the player earned the reward. */
   showRewarded(placement: string): Promise<boolean>;
   available(): boolean;
+  /** Why the last ad couldn't play, when the ad network said. */
+  lastError?: string;
 }
 
 /** Wraps an ad service so a second tap while an ad is loading or showing does nothing. */
 export class OneAdAtATime implements Ads {
   busy = false;
-  constructor(private inner: Ads) {}
+  /** `onNoAd` hears why an ad couldn't play (e.g. none available yet). */
+  constructor(private inner: Ads, private onNoAd: (reason: string) => void = () => undefined) {}
   async showRewarded(placement: string): Promise<boolean> {
     if (this.busy) return false;
     this.busy = true;
     try {
-      return await this.inner.showRewarded(placement);
+      this.inner.lastError = undefined;
+      const ok = await this.inner.showRewarded(placement);
+      if (!ok && this.inner.lastError) this.onNoAd(this.inner.lastError);
+      return ok;
     } finally {
       this.busy = false;
     }

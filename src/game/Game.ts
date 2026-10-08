@@ -93,7 +93,8 @@ export class Game {
     this.loadSettings();
     this.world = new World(container);
     this.ui = new UI(this, container);
-    this.ads = new OneAdAtATime(Capacitor.isNativePlatform() ? new AdMobAds() : new StubAds((s) => this.ui.showAd(s)));
+    this.ads = new OneAdAtATime(Capacitor.isNativePlatform() ? new AdMobAds() : new StubAds((s) => this.ui.showAd(s)),
+      (why) => this.ui.toast(`No ad is ready right now. Try again in a little while. (${why})`, 'info', undefined, 4000, { priority: 3 }));
     this.world.onTap = (p) => this.onTap(p);
     this.world.onEdgePush = (id) => {
       if (this.state.islands[id]?.owned) this.travel(id);
@@ -301,7 +302,8 @@ export class Game {
       if (!ok) {
         this.state.cloud.syncedAt = before;
         this.state.cloud.syncedSig = beforeSig;
-        if (manual) this.ui.fail('Couldn\'t save to the cloud just now. Your game is safe on this device.');
+        const why = this.cloud.lastError ? ` (${this.cloud.lastError})` : '';
+        if (manual) this.ui.fail(`Couldn't save to the cloud just now${why}. Your game is safe on this device.`);
         return false;
       }
       this.storage.save(SAVE_KEY, data);
