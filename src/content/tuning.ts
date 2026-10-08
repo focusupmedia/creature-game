@@ -72,6 +72,8 @@ export const TUNING = {
   sizeOutlierChance: 0.06,
   /** The first N eggs a keeper makes always hold a creature they haven't discovered. */
   firstNewEggs: 3,
+  /** ...and hatch within this long. */
+  firstEggMaxMs: 180_000,
   /**
    * After that, chance an egg holds a different creature that shares a type
    * with a parent (picked by rarity) instead of a copy of a parent: half the time.

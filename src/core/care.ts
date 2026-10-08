@@ -12,6 +12,7 @@ import { hasQuirk } from './quirks';
 import { addBond, hearts, isBestFriend } from './friendship';
 import { StateRng } from './rng';
 import { layEgg, rollEggTier } from './actions';
+import { weekBoost } from '../content/weeks';
 import type { Creature, GameEvent, GameState, Gift, IslandId, Rarity, Trait } from './types';
 
 const MIN = 60_000;
@@ -226,6 +227,8 @@ export function sellBreakdown(state: GameState, c: Creature, toCollector: boolea
   if (toCollector) lines.push({ label: sp.traits.includes(state.collector.wants) ? `Collector (wants ${state.collector.wants})` : 'Collector', mult: sp.traits.includes(state.collector.wants) ? 3 : 2, kind: 'buyer' });
   // a Haggler out on the same world talks the price up
   if (state.creatures.some((x) => !x.stored && !x.trip && x.island === c.island && hasQuirk(x, 'haggler'))) lines.push({ label: 'Haggler nearby', mult: 1.1, kind: 'buyer' });
+  const wk = weekBoost(state.lastTick);
+  if (wk.sell > 1) lines.push({ label: 'Market Week', mult: wk.sell, kind: 'buyer' });
   const p = lines.reduce((a, l) => a * l.mult, 1);
   return { lines, price: Math.max(5, Math.round(p / 5) * 5) };
 }

@@ -19,6 +19,7 @@ import { addBond, findBonus, hearts } from './friendship';
 import { refreshShop } from './shop';
 import { addWorldNest, freeNest } from './state';
 import { TOTEMS } from './lures';
+import { weekBoost } from '../content/weeks';
 import type { Creature, Egg, EventKind, GameState, Gift, IslandId, MutationId, SpeciesId, SpotId } from './types';
 import { activeEvent, eventInWindow, windowAt, type SkyEvent } from './world';
 
@@ -92,7 +93,8 @@ export function startCombine(state: GameState, aId: string, bId: string, t: numb
     parentNames: [displayName(a), displayName(b)],
     parentSpecies: [a.species, b.species],
     laidAt: t,
-    incubationMs: incubationMs(o.species, o.mutations),
+    // a keeper's first few eggs hatch quickly so the first session has a payoff
+    incubationMs: Math.min(state.stats.combines < TUNING.firstNewEggs ? TUNING.firstEggMaxMs : Infinity, Math.round(incubationMs(o.species, o.mutations) * weekBoost(t).hatch)),
     progressMs: 0,
     nest,
     witnessed: [],
@@ -278,7 +280,7 @@ export function layEgg(state: GameState, sp: SpeciesId, source: Egg['source'], t
   const muts: MutationId[] = rng.chance(TUNING.prismaticChance) ? ['prismatic'] : [];
   const egg: Egg = {
     id: newId(state, 'e'), species: sp, mutations: muts, seed: rng.seed(), source, laidAt: t,
-    incubationMs: incubationMs(sp, muts), progressMs: 0, nest: freeNest(state, island), witnessed: [],
+    incubationMs: Math.round(incubationMs(sp, muts) * weekBoost(t).hatch), progressMs: 0, nest: freeNest(state, island), witnessed: [],
   };
   state.eggs.push(egg);
   return egg;

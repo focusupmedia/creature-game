@@ -44,6 +44,9 @@ Small fixes (events 5-20 min apart, babies mostly plain, egg names/icons `ui/egg
 ## Feedback round (A89, built)
 Make-space highlights + `UI.fail` error sound, short tutorial, Journal "How to get" (`addHowTo`), shop random lures/food/gadgets with stock (`core/shop.ts`) + GADGETS tab (`GADGET_IDS/GADGET_LIMIT`), visitor pins + `Game.goToVisitor`, `tuning.mythicCopyDamp`, nursery eggs (`egg.nurseryId`, ready at once), hatch spin (`render/Reveal.ts`), friend gifts, What's new (`content/updates.ts`; add lines each release), pass creatures (`pumpkit` on purchase, `peekaboo` ghost at paid tier 1, `gloomwing` bat at paid tier 25; offer card + UNLOCK NOW button in `showPass`, `levels.giveGiftCreature`), Daily Rumours (`core/rumours.ts`, Quests daily tab). Then: sell price breakdown (`care.sellBreakdown`), card-style pass board (`UI.showPass`), Lotl's starter quest (`core/starter.ts`, side axolotl button `UI.syncLotl`, reward egg tier `lotl`).
 
+## Social round (A90, built)
+Friend codes without a server (`core/friends.ts`: snapshot of name/level/best pets in a `PG-` code, visit sheet, 5 friend gifts a day, friends leaderboard; Friends HUD tile), weekly mini-events for the whole year (`content/weeks.ts` themes + holidays by date, `core/weekly.ts`; boosts hook into sim/actions/care/friendship/XP; card in Quests), login streaks with milestones and a weekly "keep warm" shield (`core/login.ts`), share card (`ui/shareCard.ts`, Share on pet card and reveal), achievements + leaderboards (`core/achievements.ts`, `platform/gameServices.ts`, native GameServicesPlugin on iOS/Android; ids in `storeKeys.ts GAME_SERVICE_IDS`), first eggs hatch within 3 min (`tuning.firstEggMaxMs`).
+
 ## Phone apps (built)
 `ios/` and `android/` Capacitor projects with icons/splash. Real AdMob rewarded ads + RevenueCat purchases in `src/platform/nativeServices.ts` (keys in `storeKeys.ts`; test ads until filled). Cloud-save plugins wired in. Release steps: docs/STORE_RELEASE.md.
 

@@ -6,6 +6,7 @@
 import { addMutation, displayName } from './creatures';
 import { recordMutation } from './journal';
 import { hasQuirk } from './quirks';
+import { weekBoost } from '../content/weeks';
 import type { Creature, GameState } from './types';
 
 const MIN = 60_000;
@@ -46,6 +47,8 @@ export function addBond(c: Creature, points: number, state?: GameState): { gaine
   const was = c.bond ?? 0;
   // Social pets make friends half again as fast
   if (hasQuirk(c, 'social')) points *= 1.5;
+  // Cuddle weeks: friends twice as fast
+  if (state && points > 0) points *= weekBoost(state.lastTick).hearts;
   c.bond = Math.min(BOND_MAX, was + points);
   const newHeart = hearts(c) > before;
   let golden = false;

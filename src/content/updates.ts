@@ -4,6 +4,16 @@ export interface UpdateNote { version: string; date: string; lines: string[] }
 
 export const UPDATES: UpdateNote[] = [
   {
+    version: '0.10', date: 'October 2026', lines: [
+      'Friends! Swap friend codes to visit each other\'s groves and open a gift from each friend every day.',
+      'Weekly events: a new themed week every Monday with a bonus and a prize, plus big holiday festivals.',
+      'Daily streaks: your login gift grows every day in a row, with big presents at 3, 7, 14, 30, 60 and 100 days.',
+      'Share a picture of your best creatures with the new Share button.',
+      'Achievements, plus Game Center and Google Play Games leaderboards.',
+      'Your first eggs hatch faster.',
+    ],
+  },
+  {
     version: '0.9', date: 'October 2026', lines: [
       'Daily Rumours: Lotl hears a new whisper about a hidden creature every day.',
       'Halloween Pass creatures: Pumpkit when you unlock the pass, Peekaboo the ghost at tier 1, and Gloomwing, a Mythical bat, at the last tier.',

@@ -12,6 +12,7 @@ import { addHowTo, addNote, recordMutation, recordSpecies } from './journal';
 import { arrivalChance, arrivalMutations, arrivalWeights, totemBoost, TOTEMS } from './lures';
 import { StateRng } from './rng';
 import { refreshShop } from './shop';
+import { weekBoost } from '../content/weeks';
 import { stepLegendary } from './legendary';
 import { hasQuirk, temperOf } from './quirks';
 import { stepCare } from './care';
@@ -115,7 +116,11 @@ function step(state: GameState, t: number, dt: number, out: GameEvent[], live = 
     const active = state.spots[spotId];
     if (!active) continue;
     if (!spotOpen(state.islands, spotId)) continue;
-    const weights = arrivalWeights(active.lure, spotId, dark, sky, totemBoost(state, SPOTS[spotId].island, t));
+    const wk = weekBoost(t);
+    const boost = totemBoost(state, SPOTS[spotId].island, t);
+    // Lucky weeks nudge visitors toward the rarer end
+    if (wk.lucky) { boost.rare = Math.max(boost.rare ?? 1, 1.3); boost.legendary = Math.max(boost.legendary ?? 1, 1.2); }
+    const weights = arrivalWeights(active.lure, spotId, dark, sky, boost);
     if (weights.length === 0) {
       // Nothing that answers this scent is about: the lure waits instead of wasting.
       active.expiresAt += dt;
@@ -127,6 +132,8 @@ function step(state: GameState, t: number, dt: number, out: GameEvent[], live = 
       continue;
     }
     let p = arrivalChance(active.lure, dt, sky);
+    // this week's habitat lures are extra tempting
+    if (wk.lureTrait && LURES[active.lure]?.attracts === wk.lureTrait) p *= 1.5;
     // a Lure Lover on this world makes lures a little more tempting
     if (state.creatures.some((c) => !c.stored && !c.trip && c.island === SPOTS[spotId].island && hasQuirk(c, 'lurelover'))) p *= 1.15;
     // First-ever lure (the tutorial): someone answers right away to keep the keeper's attention.

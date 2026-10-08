@@ -247,6 +247,17 @@ export interface Visitor {
   until: number;
 }
 
+/** A friend's island as shared in their friend code (a snapshot, not live). */
+export interface Friend {
+  id: string;
+  name: string;
+  level: number;
+  found: number;
+  pets: { species: SpeciesId; mutations: MutationId[]; shade?: string; size: number; name?: string }[];
+  addedAt: number;
+  updatedAt: number;
+}
+
 export interface CreatureOrigin {
   how: 'starter' | 'lure' | 'bred' | 'shop' | 'dug' | 'level' | 'island' | 'pass' | 'other';
   /** What was happening in the sky when you met. */
@@ -417,6 +428,18 @@ export interface GameState {
   quests: { day: string; daily: { id: string; progress: number; claimed: boolean }[]; tiers: Record<string, number> };
   /** Lifetime counts that quests read. */
   questStats: Record<string, number>;
+  /** This week's mini-event progress (core/weekly.ts). */
+  week?: { key: string; progress: number; claimed: boolean; told?: boolean };
+  /** Days in a row with a login gift claimed (core/login.ts). */
+  streak?: { day: string; count: number; best: number; shield: number };
+  /** Friends added by code (core/friends.ts), and my keeper name. */
+  friends?: Friend[];
+  keeperName?: string;
+  keeperId?: string;
+  friendGifts?: { day: string; from: string[] };
+  /** Achievements earned (core/achievements.ts) and the last scores sent to leaderboards. */
+  achieved?: string[];
+  boards?: Record<string, number>;
   /** Lotl's starter quest (core/starter.ts). */
   starter?: { step: number; progress: number; done: boolean; open: boolean; claimable?: boolean; v?: number };
   /** Today's whisper about an undiscovered creature (core/rumours.ts). */

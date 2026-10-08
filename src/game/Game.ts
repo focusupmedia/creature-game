@@ -14,6 +14,9 @@ import { voiceOf } from '../render/voices';
 import { EXPEDITIONS, type ExpeditionId } from '../content/expeditions';
 import { claimDaily, claimLasting, questEvent, refreshDailies } from '../core/quests';
 import { claimStarter, starterEvent, starterStep } from '../core/starter';
+import { changedScores, checkAchievements } from '../core/achievements';
+import { gameServices } from '../platform/gameServices';
+import { claimWeek, weekBoost, weekEvent, weekState } from '../core/weekly';
 import { RUMOUR_REWARD, checkRumour, rumourText, todaysRumour } from '../core/rumours';
 import { awayFinds, bulkRelease, bulkRetrieve, bulkSell, bulkStore, buyStorageSlot, findVisitor, keepVisitor, releaseCreature, sendAwayVisitor, feastIsland, feedCreature, hangFeedbag, feedSprout, harvestTree, retrieveCreature, sellCreature, storeCreature } from '../core/care';
 import { islandCapacity } from '../core/sim';
@@ -407,6 +410,9 @@ export class Game {
     if (!r.ok) return this.ui.fail(r.error);
     this.audio.play(r.reward.day === 7 ? 'fanfare' : 'coin');
     this.ui.toast(`Day ${r.reward.day} gift: ${r.reward.text}!`, 'discovery', undefined, 4000);
+    const st = r.streak;
+    this.ui.toast(`🔥 ${st.count}-day streak! Bonus {coin} ${st.bonus.coins}${st.bonus.shards ? ` {gem} ${st.bonus.shards}` : ''}${st.saved ? ' (Lotl kept your streak warm while you were away)' : ''}`, 'info', undefined, 4000);
+    if (st.milestone) { this.audio.play('fanfare'); this.ui.toast(`🏆 ${st.milestone.text} {coin} ${st.milestone.coins.toLocaleString()} {gem} ${st.milestone.shards}`, 'discovery', undefined, 5000, { priority: 3 }); }
     this.analytics.track('login_claimed', { day: r.reward.day });
     this.saveSoon();
   }
@@ -447,6 +453,7 @@ export class Game {
       this.questCheck = 60;
       refreshDailies(this.state, t);
       this.tellRumour(t);
+      this.checkAchievements();
     }
     const sky = activeEvent(this.state, t)?.kind ?? null;
     const phase = dayPhase(this.state, t);
@@ -947,12 +954,16 @@ export class Game {
       }
     }
     questEvent(this.state, ev);
+    if (weekEvent(this.state, ev, this.now())) {
+      this.audio.play('discover');
+      this.ui.toast(`${weekState(this.state, this.now()).theme.icon} Weekly event goal done! Claim it in Quests.`, 'discovery', undefined, 4000, { priority: 2, action: { label: 'Claim', run: () => this.ui.showQuests() } });
+    }
     if (this.state.tutorial >= 6) {
       const step = starterEvent(this.state, ev);
       if (step === 'done') { this.audio.play('discover'); this.ui.toast('🦎 Lotl\'s Quest complete! Claim your egg.', 'discovery', undefined, 4000, { priority: 3 }); }
       else if (step === 'step') { this.audio.play('coin'); this.ui.toast(`🦎 Nice! Next: ${starterStep(this.state)?.text ?? ''}`, 'info', undefined, 3500, { priority: 2 }); }
     }
-    this.gainXp(xpFor(ev));
+    this.gainXp(Math.round(xpFor(ev) * weekBoost(this.now()).xp));
     addCandy(this.state, candyFor(ev), this.now());
   }
 
@@ -964,9 +975,40 @@ export class Game {
     this.saveSoon();
   }
 
+  private toldWeek = '';
+  /** New achievements get a toast (and go to Game Center / Play Games); better scores go to the leaderboards. */
+  private checkAchievements(): void {
+    if (this.state.tutorial < 6) return;
+    // older saves: count what they already earned quietly
+    const quiet = this.state.achieved === undefined;
+    for (const a of checkAchievements(this.state)) {
+      gameServices.unlock(a.id);
+      if (quiet) continue;
+      this.ui.toast(`🏅 Achievement: ${a.name}! ${a.desc}`, 'discovery', undefined, 4000, { priority: 2 });
+    }
+    for (const [id, v] of changedScores(this.state)) gameServices.submit(id, v);
+  }
+  /** Claim this week's event reward. */
+  claimWeek(): void {
+    if (!claimWeek(this.state, this.now())) return this.ui.fail('Finish this week\'s goal first.');
+    this.audio.play('fanfare');
+    const th = weekState(this.state, this.now()).theme;
+    this.ui.toast(`${th.icon} ${th.name} reward: {coin} ${th.reward.coins} {gem} ${th.reward.shards}${th.reward.egg ? ' and an egg!' : ''}`, 'discovery', undefined, 4500, { priority: 3 });
+    this.saveSoon();
+  }
+
   /** Once a day (after the tutorial) Lotl whispers a new rumour. */
   private tellRumour(t: number): void {
     if (this.state.tutorial < 6 || this.world.revealing) return;
+    // a new weekly event: say so once
+    const w = weekState(this.state, t);
+    if (this.toldWeek !== w.key && this.state.week) {
+      this.toldWeek = w.key;
+      if (!(this.state.week as { told?: boolean }).told) {
+        (this.state.week as { told?: boolean }).told = true;
+        this.ui.toast(`${w.theme.icon} This week: ${w.theme.name}! ${w.theme.boostText}.`, 'discovery', undefined, 6000, { priority: 2, action: { label: 'See', run: () => this.ui.showQuests() } });
+      }
+    }
     const r = todaysRumour(this.state, t);
     if (!r || r.told) return;
     r.told = true;

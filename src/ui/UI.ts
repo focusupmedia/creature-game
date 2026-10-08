@@ -31,7 +31,7 @@ import { BEST_FRIEND_PERKS, PET_COOLDOWN_MIN, PLAY_COOLDOWN_MIN, hearts } from '
 import { EXPEDITIONS, EXPEDITION_ORDER, expeditionSlots, type ExpeditionId } from '../content/expeditions';
 import type { ExpeditionHaul } from '../core/expeditions';
 import { voiceOf } from '../render/voices';
-import { LOGIN_REWARDS, canClaimLogin, loginDay } from '../core/login';
+import { LOGIN_REWARDS, STREAK_MILESTONES, canClaimLogin, loginDay, streakBonus, streakNow } from '../core/login';
 import { COLLECTIONS, claimableCollections } from '../core/collections';
 import { THEMES, contestReady, placeFor, rivals, scorePet, themeOf, weekEnds, weekOf } from '../core/contests';
 import { DECOR_CATS, DECOR_LIST, GADGET_IDS } from '../content/decor';
@@ -40,6 +40,11 @@ const CATALOG = DECOR_LIST.filter((d) => !GADGET_IDS.includes(d.id));
 import { WANDERERS } from '../content/wanderers';
 import { deleteQuirk, wipeQuirks } from '../core/quirks';
 import { MAX_LEVEL, STAR_LEVEL, levelOf, levelProgress, levelReward, starRank, type LevelUp } from '../core/levels';
+import { weekState } from '../core/weekly';
+import { FRIEND_GIFT, addFriend, canCollectGift, collectGift, giftsLeft, myFriendCode, removeFriend } from '../core/friends';
+import { ACHIEVEMENTS } from '../core/achievements';
+import { gameServices } from '../platform/gameServices';
+import { makeShareCard, shareBlob, shareBlobText } from './shareCard';
 import { STARTER_STEPS, starterState, starterStep } from '../core/starter';
 import { RUMOUR_REWARD, rumourText, todaysRumour } from '../core/rumours';
 import { DAILY_POOL, LASTING, claimable, claimableBy, lastingReward, refreshDailies } from '../core/quests';
@@ -128,6 +133,9 @@ export class UI {
     this.lotlQuest.replaceChildren(btn, card);
   }
 
+  private friendsBadge = h('span', { class: 'badge hidden' });
+  private friendsTile = h('button', { class: 'hud-tile friends', 'aria-label': 'Friends', onClick: () => { this.game.audio.play('tap'); this.showFriends(); } },
+    h('span', { class: 'icon emo' }, rich('🤝')), h('span', { class: 'lbl' }, 'FRIENDS'), this.friendsBadge);
   private passTile = h('button', { class: 'hud-tile pass hidden', 'aria-label': 'Halloween Pass', onClick: () => { this.game.audio.play('tap'); this.showPass(); } },
     h('span', { class: 'emoji' }, '🎃'), h('span', { class: 'lbl' }, 'PASS'), this.passBadge);
   private questTab: 'daily' | 'lasting' | 'contest' = 'daily';
@@ -199,6 +207,7 @@ export class UI {
             h('button', { class: 'hud-tile islands', 'aria-label': 'Worlds', onClick: () => { this.game.audio.play('tap'); this.showIslands(this.firstAlert()); } },
               I.icon(I.ISLANDS), h('span', { class: 'lbl' }, 'WORLDS'), this.islandsBadge),
             this.questTile,
+            this.friendsTile,
             this.passTile,
             this.collectorTile,
             this.giftTile,
@@ -278,10 +287,15 @@ export class UI {
       this.worldsAnnounced.add(id);
       this.toast(`${ISLANDS[id].icon} A new world is ready to open: ${ISLANDS[id].name}! Tap Worlds.`, 'discovery', undefined, undefined, { action: { label: 'Worlds', run: () => this.showIslands(id) } });
     }
-    const ready = claimable(s) + (contestReady(s, t) ? 1 : 0) + (canClaimLogin(s, t) && s.tutorial >= 5 ? 1 : 0);
+    const wkNow = weekState(s, t);
+    const ready = claimable(s) + (contestReady(s, t) ? 1 : 0) + (canClaimLogin(s, t) && s.tutorial >= 5 ? 1 : 0) + (!wkNow.claimed && wkNow.progress >= wkNow.theme.goal.target ? 1 : 0);
     const season = inHalloween(t);
     this.passTile.classList.toggle('hidden', !season);
     this.syncLotl();
+    this.friendsTile.classList.toggle('hidden', s.tutorial < 6);
+    const gl = giftsLeft(s, t);
+    this.friendsBadge.textContent = String(gl);
+    this.friendsBadge.classList.toggle('hidden', gl === 0);
     if (season) {
       const claim = passClaimable(s);
       this.passBadge.textContent = String(claim);
@@ -571,7 +585,9 @@ export class UI {
               setTimeout(() => input.focus(), 50);
               return input;
             })()
-            : h('button', { class: 'btn secondary small', style: 'align-self:flex-start', onClick: () => { renaming = true; this.rerender(); } }, '✏️ Name'),
+            : h('div', { class: 'row', style: 'gap:6px' },
+              h('button', { class: 'btn secondary small', onClick: () => { renaming = true; this.rerender(); } }, '✏️ Name'),
+              h('button', { class: 'btn secondary small', onClick: () => void this.shareCreature(c) }, '📱 Share')),
           h('div', { class: 'row', style: 'gap:6px;flex-wrap:wrap' }, rarityTag(sp.rarity), isOutlier(c.size) ? h('span', { class: 'rarity r-outlier' }, sizeLabel(c.size)) : h('span', { class: 'muted' }, sizeLabel(c.size)), h('span', { class: 'muted' }, fmtWeight(weightKg(c, this.game.now()))),
             this.shadeChip(c)),
           h('div', { class: 'desc muted' }, sp.blurb),
@@ -822,8 +838,18 @@ export class UI {
     const can = canClaimLogin(s, g.now());
     this.modal((m, close) => {
       m.classList.add('login-cal');
+      const st = streakNow(s, g.now());
+      const nextCount = can ? (st.alive ? st.count + 1 : 1) : st.count;
+      const bonus = streakBonus(nextCount);
+      const nextMilestone = Object.keys(STREAK_MILESTONES).map(Number).find((d) => d >= (can ? nextCount : st.count + 1));
       m.append(h('h2', null, can ? 'Your daily gift!' : 'Daily gifts'),
-        h('p', { class: 'muted' }, 'A gift for every day you visit. It grows all week, with a big one on day 7. Missing a day never resets it.'));
+        h('div', { class: 'streak-box' },
+          h('div', { class: 'streak-flame' }, rich('🔥'), h('b', null, String(st.alive || !can ? st.count : 0))),
+          h('div', { class: 'grow' },
+            h('b', null, `${st.alive || !can ? st.count : 0}-day streak${st.best > 1 ? ` · best ${st.best}` : ''}`),
+            h('div', null, rich(`${can ? 'Today' : 'Tomorrow'}'s streak bonus: {coin} ${bonus.coins}${bonus.shards ? ` {gem} ${bonus.shards}` : ''}`)),
+            nextMilestone ? h('div', { class: 'muted' }, `Big present at ${nextMilestone} days in a row. Miss a day and Lotl keeps it warm once a week.`) : '')),
+        h('p', { class: 'muted' }, 'A gift for every day you visit. It grows all week, with a big one on day 7.'));
       const grid = h('div', { class: 'cal' });
       // days already claimed this week (all 7 if today's claim finished the week)
       const total = s.login?.claimed ?? 0;
@@ -1431,6 +1457,16 @@ export class UI {
         return;
       }
       if (this.questTab === 'daily') {
+        const wk = weekState(s, this.game.now());
+        const wdone = wk.progress >= wk.theme.goal.target;
+        b.append(h('div', { class: `item week-card ${wk.theme.big ? 'big' : ''}` },
+          h('div', { class: 'week-ico' }, rich(wk.theme.icon)),
+          h('div', { class: 'grow' },
+            h('div', { class: 'name' }, `${wk.theme.name}`, h('span', { class: 'muted' }, ` · ends in ${fmtDuration(wk.endsAt - this.game.now())}`)),
+            h('div', { class: 'desc' }, `${wk.theme.blurb} Bonus: ${wk.theme.boostText}.`),
+            h('div', { class: 'desc' }, rich(`Goal: ${wk.theme.goal.text} (${Math.min(wk.progress, wk.theme.goal.target)}/${wk.theme.goal.target}) → {coin} ${wk.theme.reward.coins} {gem} ${wk.theme.reward.shards}${wk.theme.reward.egg ? ' + 🥚' : ''}`)),
+            h('div', { class: 'progress' }, h('i', { style: `width:${Math.round(Math.min(1, wk.progress / wk.theme.goal.target) * 100)}%` }))),
+          wk.claimed ? h('span', { class: 'chip' }, '✓') : h('button', { class: 'btn small', disabled: !wdone, onClick: () => { this.game.claimWeek(); this.rerender(); } }, 'Claim')));
         const rumour = todaysRumour(s, this.game.now());
         if (rumour) {
           b.append(h('div', { class: `item rumour ${rumour.found ? 'done' : ''}` }, h('div', { class: 'grow' },
@@ -2265,6 +2301,126 @@ export class UI {
     }, '⚙️');
   }
 
+  // ---- friends (codes, no server) and achievements
+
+  showFriends(): void {
+    const g = this.game;
+    const s = g.state;
+    this.openSheet('Friends', 'Swap codes with friends to visit their groves', (b) => {
+      const t = g.now();
+      const code = myFriendCode(s);
+      // my keeper name and code
+      const name = h('input', { class: 'rename', value: s.keeperName ?? '', placeholder: 'Your keeper name', maxLength: 20, 'aria-label': 'Your keeper name' }) as HTMLInputElement;
+      name.addEventListener('change', () => { s.keeperName = name.value.trim().slice(0, 20) || undefined; g.saveSoon(); this.rerender(); });
+      const codeBox = h('textarea', { class: 'friend-code', readOnly: true, rows: 3, 'aria-label': 'Your friend code' }, code) as HTMLTextAreaElement;
+      const copy = async () => {
+        try { await navigator.clipboard.writeText(code); this.toast('Friend code copied! Send it to a friend.'); } catch { codeBox.select(); this.toast('Press and hold the code to copy it.'); }
+      };
+      b.append(h('div', { class: 'friend-me' },
+        h('div', { class: 'section-title' }, 'You'), name,
+        h('div', { class: 'muted' }, 'Your friend code (it shows your best pets; share it again after you find new ones):'),
+        codeBox,
+        h('div', { class: 'btns' },
+          h('button', { class: 'btn small', onClick: () => void copy() }, 'Copy code'),
+          h('button', { class: 'btn small secondary', onClick: async () => { if (!(await shareBlobText(`Come play ${GAME_NAME} with me! Add me as a friend: ${code}`))) void copy(); } }, '📱 Share code'))));
+      // add a friend
+      const input = h('textarea', { class: 'friend-code', rows: 2, placeholder: 'Paste a friend\'s code here (it starts with PG-)', 'aria-label': 'Friend code' }) as HTMLTextAreaElement;
+      b.append(h('div', { class: 'section-title' }, 'Add a friend'), input,
+        h('button', { class: 'btn small', style: 'margin-top:6px', onClick: () => {
+          const r = addFriend(s, input.value, g.now());
+          if (!r.ok) return this.fail(r.error);
+          g.audio.play('discover');
+          this.toast(r.updated ? `${r.friend.name}'s grove is up to date!` : `${r.friend.name} is now your friend! 🤝`, 'discovery');
+          g.saveSoon();
+          this.rerender();
+        } }, 'Add friend'));
+      // friends list, with a little leaderboard
+      const friends = s.friends ?? [];
+      if (!friends.length) {
+        b.append(h('p', { class: 'muted' }, 'No friends yet. Share your code, and paste theirs above. Each friend sends you a small gift every day.'));
+      } else {
+        b.append(h('div', { class: 'section-title' }, `Your friends (${friends.length}) · ${giftsLeft(s, t)} gift${giftsLeft(s, t) === 1 ? '' : 's'} to open today`));
+        const list = h('div', { class: 'list' });
+        for (const f of [...friends].sort((a, b2) => b2.level - a.level)) {
+          const top = f.pets[0];
+          list.append(h('div', { class: 'item' },
+            top ? img(g.world.portraits.get(top.species, top.mutations, false, top.shade), 'swatch-img') : h('div', { class: 'swatch' }, rich('🤝')),
+            h('div', { class: 'grow' }, h('div', { class: 'name' }, f.name), h('div', { class: 'desc' }, `Level ${f.level} · ${f.found} creatures found`)),
+            canCollectGift(s, f.id, t) ? h('button', { class: 'btn small', onClick: () => {
+              if (!collectGift(s, f.id, g.now())) return;
+              g.audio.play('coin');
+              this.toast(rich(`🎁 A gift from ${f.name}: {coin} ${FRIEND_GIFT.coins} and a Snack!`).textContent ?? '', 'discovery');
+              g.saveSoon();
+              this.rerender();
+            } }, rich('🎁 Gift')) : '',
+            h('button', { class: 'btn small secondary', onClick: () => this.visitFriend(f.id) }, 'Visit')));
+        }
+        b.append(list);
+        // how you stack up
+        const me = { name: `${s.keeperName ?? 'You'} (you)`, level: levelOf(s.xp), found: Object.keys(s.journal.species).length };
+        const board = [me, ...friends].sort((a, b2) => b2.found - a.found || b2.level - a.level);
+        b.append(h('div', { class: 'section-title' }, '🏆 Most creatures found'),
+          h('div', { class: 'list' }, ...board.slice(0, 10).map((x, i) => h('div', { class: `item ${x === me ? 'me' : ''}` },
+            h('b', { class: 'rank' }, `${i + 1}`), h('div', { class: 'grow name' }, x.name), h('span', { class: 'muted' }, `${x.found} found · Lv ${x.level}`)))));
+      }
+      b.append(h('div', { class: 'btns', style: 'margin-top:12px' },
+        h('button', { class: 'btn small secondary', onClick: () => this.showAchievements() }, '🏅 Achievements'),
+        gameServices.available ? h('button', { class: 'btn small secondary', onClick: () => gameServices.showLeaderboards() }, '🏆 Leaderboards') : ''));
+    }, '🤝');
+  }
+
+  private visitFriend(id: string): void {
+    const g = this.game;
+    const f = g.state.friends?.find((x) => x.id === id);
+    if (!f) return;
+    this.modal((m, close) => {
+      m.append(h('h2', null, `${f.name}'s grove`), h('p', { class: 'muted' }, `Keeper level ${f.level} · ${f.found} creatures found`),
+        h('div', { class: 'friend-pets' }, ...f.pets.map((p) => h('div', { class: 'friend-pet' },
+          img(g.world.portraits.get(p.species, p.mutations, false, p.shade), 'portrait'),
+          h('b', null, p.name || species(p.species).name),
+          h('small', null, `${species(p.species).rarity}${p.mutations.length ? ` · ${p.mutations.map((x) => MUTATIONS[x]?.name ?? x).join(', ')}` : ''}`)))),
+        f.pets.length ? '' : h('p', { class: 'muted' }, 'No pets to show yet.'),
+        h('p', { class: 'muted' }, `Last updated ${this.when(f.updatedAt)}. Ask ${f.name} to send a new code to see their latest pets.`),
+        h('div', { class: 'btns' },
+          h('button', { class: 'btn small danger', onClick: () => { removeFriend(g.state, f.id); g.saveSoon(); close(); this.rerender(); } }, 'Remove'),
+          h('button', { class: 'btn', onClick: close }, 'Close')));
+    });
+  }
+
+  showAchievements(): void {
+    const s = this.game.state;
+    const got = new Set(s.achieved ?? []);
+    this.modal((m, close) => {
+      m.append(h('h2', null, `Achievements ${got.size}/${ACHIEVEMENTS.length}`),
+        h('div', { class: 'list ach-list' }, ...ACHIEVEMENTS.map((a) => h('div', { class: `item ${got.has(a.id) ? 'done' : 'locked'}` },
+          h('div', { class: 'swatch' }, rich(got.has(a.id) ? '🏅' : '🔒')),
+          h('div', { class: 'grow' }, h('div', { class: 'name' }, a.name), h('div', { class: 'desc' }, a.desc))))),
+        h('div', { class: 'btns' },
+          gameServices.available ? h('button', { class: 'btn secondary', onClick: () => gameServices.showAchievements() }, 'Open in Game Center / Play Games') : '',
+          h('button', { class: 'btn', onClick: close }, 'Close')));
+    });
+  }
+
+  /** Make a "look what I found" picture of a pet and share it. */
+  async shareCreature(c: Creature): Promise<void> {
+    const g = this.game;
+    const sp = species(c.species);
+    this.toast('Making your picture…', 'info', undefined, 1500);
+    const blob = await makeShareCard({
+      portrait: g.world.portraits.of(c), name: displayName(c), species: speciesTitle(c), rarity: sp.rarity,
+      traits: creatureTraits(c).slice(0, 4), line: `${sizeLabel(c.size)} · ${fmtWeight(weightKg(c, g.now()))}`, code: myFriendCode(g.state),
+    });
+    const text = `I found a ${speciesTitle(c)} in ${GAME_NAME}! Add me as a friend: ${myFriendCode(g.state)}`;
+    if (await shareBlob(blob, text)) return;
+    // no share sheet here: show the picture to save by pressing and holding
+    const url = URL.createObjectURL(blob);
+    this.modal((m, close) => {
+      m.append(h('h2', null, 'Your picture'), img(url, 'share-preview'),
+        h('p', { class: 'muted' }, 'Press and hold the picture to save or share it.'),
+        h('button', { class: 'btn wide', onClick: () => { URL.revokeObjectURL(url); close(); } }, 'Done'));
+    });
+  }
+
   /** Settings → What's new: the update log. */
   showUpdates(): void {
     this.modal((m, close) => {
@@ -2396,7 +2552,9 @@ export class UI {
           h('p', null, sp.blurb),
           isOutlier(creature.size) ? h('p', { style: 'color:#d0602a;font-weight:700' }, creature.size > 1 ? '✦ A Colossal one! It will grow far bigger than any other.' : '✦ A Teeny one! It will stay tiny forever.') : null,
           muts.some((m) => newMuts.includes(m)) ? h('p', { style: 'color:#6a4fd6;font-weight:600' }, `First ${muts.filter((m) => newMuts.includes(m)).map((m) => MUTATIONS[m].name).join(' & ')} creature you've ever seen!`) : null,
-          h('button', { class: 'btn wide', style: 'margin-top:12px', onClick: (e: Event) => { e.stopPropagation(); finish(); } }, 'Welcome home'),
+          h('div', { class: 'btns', style: 'margin-top:12px' },
+            (isNew || sp.rarity === 'legendary' || sp.rarity === 'mythical') ? h('button', { class: 'btn secondary', onClick: (e: Event) => { e.stopPropagation(); void this.shareCreature(creature); } }, '📱 Share') : '',
+            h('button', { class: 'btn', style: 'flex:1', onClick: (e: Event) => { e.stopPropagation(); finish(); } }, 'Welcome home')),
         ));
         // after the spin, a tap anywhere says hello
         setTimeout(() => {

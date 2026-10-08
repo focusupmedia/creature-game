@@ -29,3 +29,8 @@ All are consumable except the pass (non-consumable / one-time).
 
 ## Store listing needs
 App name, short and full description, screenshots (phone sizes), the 1024px icon (`resources/icon.png`), privacy policy URL, support email, age rating questionnaire, Data safety form (Android) and App Privacy (iOS): ads use the device advertising id; purchases go through the stores.
+
+## Leaderboards and achievements
+
+- **iPhone:** App Store Connect → your app → Game Center. Add 3 leaderboards with the ids `pg_level`, `pg_species`, `pg_streak`, and one achievement per id in `src/platform/storeKeys.ts` (`pg_first_hatch`, `pg_hatch_50`, …). Turn on the Game Center capability in Xcode.
+- **Android:** Play Console → Play Games Services → Leaderboards and Achievements. Create the same ones, then paste each generated id (like `CgkI…`) into `GAME_SERVICE_IDS.android` in `src/platform/storeKeys.ts`.

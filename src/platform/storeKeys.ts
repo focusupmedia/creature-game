@@ -20,3 +20,20 @@ export const STORE_KEYS = {
     ios: 'appl_REPLACE_ME',
   },
 };
+
+// Leaderboard and achievement ids. iPhone: you choose these in App Store
+// Connect → (app) → Game Center (use exactly the ids below). Android: Play
+// Console → Play Games Services → Leaderboards / Achievements gives each one
+// an id like "CgkI..."; paste them here. Empty ids are skipped.
+const ACH = ['first_hatch', 'hatch_50', 'lures_25', 'species_10', 'species_25', 'species_50', 'species_all', 'legendary', 'mythical',
+  'level_10', 'level_25', 'level_50', 'level_100', 'friend_1', 'friend_5', 'streak_7', 'streak_30'];
+export const GAME_SERVICE_IDS = {
+  ios: {
+    leaderboards: { level: 'pg_level', species: 'pg_species', streak: 'pg_streak' },
+    achievements: Object.fromEntries(ACH.map((a) => [a, `pg_${a}`])) as Record<string, string>,
+  },
+  android: {
+    leaderboards: { level: '', species: '', streak: '' },
+    achievements: Object.fromEntries(ACH.map((a) => [a, ''])) as Record<string, string>,
+  },
+};
