@@ -868,7 +868,7 @@ input.rename { font-family: var(--display); font-size: 22px; border: var(--outli
 .share-preview { width: 100%; border-radius: 14px; border: var(--outline); }
 /* ---- buttons that unlock as you play */
 .feature-off { display: none !important; }
-.new-feature { animation: new-feature 1s ease-in-out 6; position: relative; z-index: 4; }
+.new-feature { animation: new-feature 1s ease-in-out 6; }
 @keyframes new-feature { 50% { transform: scale(1.12); box-shadow: 0 0 0 4px #fff, 0 0 18px 8px #ffe14d; } }
 .found-chip { pointer-events: auto; align-self: flex-start; margin-top: 6px; border: var(--outline); border-radius: 12px; padding: 3px 10px; background: var(--white);
   box-shadow: 0 3px 0 var(--ink); font-family: var(--display); font-size: 15px; color: var(--ink); cursor: pointer; }
