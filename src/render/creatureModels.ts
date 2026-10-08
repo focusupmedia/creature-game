@@ -126,17 +126,6 @@ class Kit {
     return this.mesh(G.sphere, color, [r * s[0], r * s[1], r * s[2]], p, emissive);
   }
 
-  /** A little smile (a half ring), facing forward; tilt to follow the face. */
-  smile(parent: THREE.Object3D, x: number, y: number, z: number, w = 0.08, tilt = 0): THREE.Mesh {
-    const sm = new THREE.Mesh(G.smile, this.mat('#5a2a3a'));
-    sm.scale.setScalar(w / 0.11);
-    sm.position.set(x, y, z);
-    sm.rotation.set(tilt, 0, Math.PI);
-    sm.userData.noOutline = true;
-    parent.add(sm);
-    return sm;
-  }
-
   /** Species that already paint their own cheeks (or have none) turn the automatic blush off. */
   noBlush = false;
   /** Every eye built, so the creature can blink. */
@@ -313,7 +302,6 @@ const BUILDERS: Record<string, Builder> = {
     b.add(k.ball(0.17, P.second, [0, 0.24, 0.36]));
     k.eye(b, 0.08, 0.3, 0.47, 0.055);
     k.eye(b, -0.08, 0.3, 0.47, 0.055);
-    k.smile(b, 0, 0.2, 0.52, 0.06, -0.3);
     for (const s of [1, -1]) {
       const ant = k.mesh(G.cyl, P.second, [0.012, 0.22, 0.012], [0.06 * s, 0.38, 0.44]);
       ant.rotation.set(0.6, 0, -0.4 * s);
@@ -371,7 +359,6 @@ const BUILDERS: Record<string, Builder> = {
     k.eye(b, 0.1, 0.6, 0.38, 0.055);
     k.eye(b, -0.1, 0.6, 0.38, 0.055);
     b.add(k.ball(0.035, P.second, [0, 0.53, 0.44]));
-    k.smile(b, 0, 0.49, 0.42, 0.045, -0.3);
     for (const s of [1, -1]) b.add(k.ball(0.06, P.main, [0.1 * s, 0.22, 0.27], [0.9, 0.8, 1.1]));
     for (const s of [1, -1]) {
       const ear = pivot(0.09 * s, 0.74, 0.16, k.ball(0.08, P.main, [0, 0.2, 0], [1, 3, 0.55]));
@@ -407,7 +394,6 @@ const BUILDERS: Record<string, Builder> = {
     }
     k.eye(b, 0.08, 0.24, 0.18, 0.052);
     k.eye(b, -0.08, 0.24, 0.18, 0.052);
-    k.smile(b, 0, 0.15, 0.19, 0.05, -0.15);
     for (const s of [1, -1]) {
       const foot = pivot(0.09 * s, 0.03, 0.04, k.ball(0.06, P.belly, [0, 0, 0], [1, 0.6, 1.3]));
       b.add(foot);
@@ -443,7 +429,6 @@ const BUILDERS: Record<string, Builder> = {
         m.legs.push(leg);
       }
     }
-    k.smile(b, 0, 0.495, 0.6, 0.045, -0.2);
     const tail = new THREE.Group();
     tail.position.set(0, 0.42, -0.3);
     tail.add(k.ball(0.15, P.main, [0, 0.16, -0.12], [1, 1.4, 1]));
@@ -530,7 +515,6 @@ function lizard(k: Kit, P: Palette, m: Parameters<Builder>[2], kind: 'sun' | 'ci
   head.add(k.ball(0.17, P.main, [0, 0.01, 0.04], [1.05, 0.88, 1.18]));
   k.eye(head, 0.085, 0.09, 0.14, 0.055, new THREE.Vector3(0.45, 0.1, 0.9));
   k.eye(head, -0.085, 0.09, 0.14, 0.055, new THREE.Vector3(-0.45, 0.1, 0.9));
-  k.smile(head, 0, -0.04, 0.23, 0.07, -0.2);
   if (kind === 'sun') {
     // the frill: folded normally, pops open when excited (animated through wings[])
     const frill = pivot(0, 0.02, -0.08, k.ball(0.22, P.accent, [0, 0, 0], [1.25, 1, 0.12]));
@@ -625,7 +609,6 @@ function dragon(k: Kit, P: Palette, m: Parameters<Builder>[2], star: boolean) {
 function frog(k: Kit, P: Palette, m: Parameters<Builder>[2], lily: boolean) {
   const b = m.body;
   k.noBlush = true; // frogs have their own pink cheeks
-  k.smile(b, 0, 0.47, 0.4, 0.12, -0.35);
   b.add(k.ball(0.42, P.main, [0, 0.32, 0], [1.12, 0.78, 1.05]));
   b.add(k.ball(0.36, P.belly, [0, 0.25, 0.12], [0.95, 0.62, 0.85]));
   for (const s of [1, -1]) {
@@ -664,7 +647,6 @@ function turtle(k: Kit, P: Palette, m: Parameters<Builder>[2], shrooms: boolean)
   const head = pivot(0, 0.29, 0.5, k.ball(0.19, P.main, [0, 0, 0.05], [1, 0.95, 1.05]));
   k.eye(head, 0.085, 0.07, 0.19, 0.058);
   k.eye(head, -0.085, 0.07, 0.19, 0.058);
-  k.smile(head, 0, -0.05, 0.24, 0.07, -0.25);
   head.userData.head = true;
   b.add(head);
   m.wings.push(head); // used as "look" part
@@ -744,7 +726,6 @@ function fish(k: Kit, P: Palette, m: Parameters<Builder>[2], koi: boolean) {
   b.add(k.ball(0.22, P.belly, [0, 0.03, 0.04], [0.62, 0.55, 1.15]));
   k.eye(b, 0.12, 0.18, 0.26, 0.062, new THREE.Vector3(0.55, 0.05, 0.85));
   k.eye(b, -0.12, 0.18, 0.26, 0.062, new THREE.Vector3(-0.55, 0.05, 0.85));
-  k.smile(b, 0, 0.06, 0.35, 0.07, -0.2);
   const tail = new THREE.Group();
   tail.position.set(0, 0.1, -0.34);
   const fin = k.mesh(G.cone, P.second, [0.2, koi ? 0.5 : 0.32, 0.05], [0, 0, -0.14]);
