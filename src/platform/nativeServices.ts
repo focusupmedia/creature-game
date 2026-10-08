@@ -10,6 +10,10 @@ import { STORE_KEYS } from './storeKeys';
 import { StubPurchases, type Ads, type Product, type Purchases } from './services';
 
 const ios = () => Capacitor.getPlatform() === 'ios';
+/** Resolves a moment after the first tap anywhere (the app is active by then). */
+const afterFirstTap = () => new Promise<void>((resolve) => {
+  window.addEventListener('pointerup', () => setTimeout(resolve, 600), { once: true, capture: true });
+});
 const errText = (e: unknown) => String((e as { message?: unknown })?.message ?? e ?? 'unknown').slice(0, 80);
 
 export class AdMobAds implements Ads {
@@ -17,17 +21,31 @@ export class AdMobAds implements Ads {
   private loaded = false;
   lastError?: string;
 
+  private starting?: Promise<void>;
+
   constructor() {
-    void this.init();
+    void this.start();
+  }
+
+  /** Set up once; a call while setup is still running waits for that one. */
+  private start(): Promise<void> {
+    this.starting ??= this.init().finally(() => { this.starting = undefined; });
+    return this.starting;
   }
 
   private async init(): Promise<void> {
     try {
       await AdMob.initialize({ initializeForTesting: STORE_KEYS.admob.testing });
-      // privacy: the consent form where the law asks for one, and Apple's tracking prompt
-      const consent = await AdMob.requestConsentInfo();
-      if (consent.isConsentFormAvailable && consent.status === 'REQUIRED') await AdMob.showConsentForm();
-      if (ios()) await AdMob.requestTrackingAuthorization().catch(() => undefined);
+      // privacy: the consent form where the law asks for one (a missing or failing form never blocks ads)
+      try {
+        const consent = await AdMob.requestConsentInfo();
+        if (consent.isConsentFormAvailable && consent.status === 'REQUIRED') await AdMob.showConsentForm();
+      } catch (e) {
+        this.lastError = errText(e);
+      }
+      // Apple's "Allow tracking?" prompt. iOS only shows it while the app is fully on
+      // screen, so wait for the player's first tap instead of asking during launch.
+      if (ios()) await afterFirstTap().then(() => AdMob.requestTrackingAuthorization()).catch(() => undefined);
       this.ready = true;
       await this.load();
     } catch (e) {
@@ -54,7 +72,7 @@ export class AdMobAds implements Ads {
   }
 
   async showRewarded(): Promise<boolean> {
-    if (!this.ready) await this.init(); // e.g. offline at launch: try again now
+    if (!this.ready) await this.start(); // e.g. offline at launch: try again now
     if (!this.ready) return false;
     if (!this.loaded) await this.load();
     if (!this.loaded) return false;
