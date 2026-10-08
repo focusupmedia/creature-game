@@ -2427,9 +2427,19 @@ export class UI {
           h('div', { class: 'pass-bar' }, h('i', { style: `width:${pct}%` }), h('span', null, rich(tier >= PASS.tiers ? 'All tiers reached! ✨' : `🍬 ${into} / ${PASS.pointsPerTier}`))),
           h('div', { class: 'pass-sub' }, 'Earn Candy from everything you do')),
         p.premium ? h('div', { class: 'pass-owned' }, rich('✓ Unlocked'))
-          : h('button', { class: 'btn pass-unlock', onClick: () => void g.buyPack(PASS.productId) }, h('span', null, 'Unlock'), h('small', null, prod?.price ?? '')),
+          : h('button', { class: 'btn pass-unlock', onClick: () => void g.buyPack(PASS.productId) }, h('span', null, 'GET PASS'), h('small', null, prod?.price ?? '')),
       ));
-      if (!p.premium) b.append(h('p', { class: 'pass-pitch' }, rich('🎃 Unlock for Pumpkit right away, the Mythical Gloomwing bat at tier 25, and a bonus reward every tier.')));
+      if (!p.premium) {
+        // what's waiting on the paid track right now (passed tiers), then the big headline offer
+        const waiting = Math.min(tier, PASS.tiers);
+        b.append(h('div', { class: 'pass-offer' },
+          h('div', { class: 'pass-offer-pets' }, ...(['pumpkit', 'peekaboo', 'gloomwing'] as const).map((id) => img(g.world.portraits.get(id, [], false), 'pass-offer-pet'))),
+          h('div', { class: 'grow' },
+            h('b', null, '3 exclusive creatures + 25 bonus rewards'),
+            h('div', null, 'Pumpkit right away, Peekaboo at tier 1 and the Mythical Gloomwing at tier 25. Only this Halloween!'),
+            waiting ? h('div', { class: 'pass-waiting' }, rich(`🎁 ${waiting} bonus reward${waiting === 1 ? '' : 's'} already waiting for you`)) : ''),
+          h('button', { class: 'btn pass-cta', onClick: () => void g.buyPack(PASS.productId) }, h('span', null, 'UNLOCK NOW'), h('small', null, prod?.price ?? ''))));
+      }
       // the track: tickets on the left, tiers scroll sideways (premium on top, free below)
       const ico = (r: PassReward): Node => {
         if (r.coins) return I.icon(I.COIN, 'pc-ico');

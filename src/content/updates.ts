@@ -6,7 +6,7 @@ export const UPDATES: UpdateNote[] = [
   {
     version: '0.9', date: 'October 2026', lines: [
       'Daily Rumours: Lotl hears a new whisper about a hidden creature every day.',
-      'Halloween Pass creatures: Pumpkit when you unlock the pass, and Gloomwing, a Mythical bat, at the last tier.',
+      'Halloween Pass creatures: Pumpkit when you unlock the pass, Peekaboo the ghost at tier 1, and Gloomwing, a Mythical bat, at the last tier.',
       'Field Journal: a "How to get" tab remembers how you found or bred each creature.',
       'Hatching: your new creature spins and turns to say hello.',
       'Shop: lures, food and gadgets now come in at random, with limited stock.',

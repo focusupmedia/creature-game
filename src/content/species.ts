@@ -516,6 +516,12 @@ export const SPECIES: SpeciesDef[] = [
     hint: 'Only from the Halloween Pass.', eggColors: ['#ff8a2a', '#3a2a4a'],
   },
   {
+    id: 'peekaboo', name: 'Peekaboo', traits: ['Spirit', 'Mystic', 'Mammal'], rarity: 'legendary',
+    activity: 'night', movement: 'float', origin: 'reward',
+    blurb: 'A shy little ghost who hides behind things, then pops out to say boo. It always giggles afterwards.',
+    hint: 'Only from tier 1 of the Halloween Pass.', eggColors: ['#f4f0ff', '#a88aff'],
+  },
+  {
     id: 'gloomwing', name: 'Gloomwing', traits: ['Mammal', 'Spirit', 'Mystic'], rarity: 'mythical',
     activity: 'night', movement: 'fly', origin: 'reward',
     blurb: 'A Halloween bat in a tiny velvet cape. Its pumpkin eyes glow so nobody gets lost on the way home.',

@@ -2791,6 +2791,7 @@ Object.assign(BUILDERS, {
 
 Object.assign(PALETTES, {
   pumpkit: { main: '#3a2e3a', second: '#ff9a2a', accent: '#1a1420', belly: '#f2e4d0' },
+  peekaboo: { main: '#f6f2ff', second: '#c8b8ff', accent: '#ff8ab8', belly: '#ffffff' },
   gloomwing: { main: '#3a2a4a', second: '#ff8a2a', accent: '#ffb02a', belly: '#6a5a7a' },
 });
 Object.assign(MYTHIC_GLOW, { gloomwing: '#ff9a3a' });
@@ -2814,6 +2815,33 @@ Object.assign(BUILDERS, {
     const glow = glowSprite('#ffb84a', 0.8, 0.4);
     glow.position.set(0, 0.86, 0.32);
     b.add(glow);
+  },
+  peekaboo: (k, P, m) => {
+    const b = m.body;
+    // a round little sheet-ghost with a wavy hem
+    b.add(k.ball(0.26, P.main, [0, 0.12, 0], [1, 1.15, 0.95]));
+    for (let i = 0; i < 7; i++) {
+      const a = (i / 7) * Math.PI * 2;
+      b.add(k.ball(0.08, P.main, [Math.cos(a) * 0.2, -0.16 + (i % 2) * 0.03, Math.sin(a) * 0.19], [1, 1.3, 1]));
+    }
+    k.eye(b, 0.09, 0.18, 0.22, 0.05);
+    k.eye(b, -0.09, 0.18, 0.22, 0.05);
+    b.add(k.ball(0.045, '#3a2a4a', [0, 0.06, 0.24], [1, 1.3, 0.5]));
+    for (const s of [1, -1]) {
+      b.add(k.ball(0.04, P.accent, [s * 0.16, 0.1, 0.19], [1.2, 0.7, 0.4]));
+      // little arms raised for a "boo!"
+      const arm = pivot(s * 0.24, 0.12, 0.04, k.ball(0.07, P.main, [s * 0.05, 0.06, 0], [0.8, 1.3, 0.8]));
+      arm.rotation.z = -0.5 * s;
+      b.add(arm);
+      m.wings.push(arm);
+    }
+    // a tiny trick-or-treat pumpkin bucket
+    b.add(k.ball(0.07, '#ff8a2a', [0.26, -0.06, 0.1], [1, 0.85, 1]));
+    b.add(k.mesh(G.torus, '#3a2a4a', [0.05, 0.05, 0.05], [0.26, 0.03, 0.1]));
+    const glow = glowSprite(P.second, 1.2, 0.45);
+    b.add(glow);
+    m.glows.push(glow);
+    m.height = 0.7;
   },
   gloomwing: (k, P, m) => {
     const b = m.body;

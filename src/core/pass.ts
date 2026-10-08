@@ -29,7 +29,7 @@ export interface PassReward {
 const F = (r: PassReward) => r;
 /** Tier rewards, 1 to 25: [free, paid]. */
 export const PASS_TIERS: [PassReward, PassReward][] = [
-  [F({ coins: 150 }), F({ shards: 20 })],
+  [F({ coins: 150 }), F({ creature: 'peekaboo' })],
   [F({ food: ['snack', 3] }), F({ lure: ['shimmer', 1] })],
   [F({ coins: 200 }), F({ coins: 600 })],
   [F({ lure: ['moonpetal', 2] }), F({ food: ['sprout', 3] })],
