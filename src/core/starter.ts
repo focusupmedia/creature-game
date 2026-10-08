@@ -12,8 +12,6 @@ import type { GameState, MutationId, SpeciesId } from './types';
 export interface StarterStep { text: string; kind: PlayEvent['kind']; target: number; tip: string }
 
 export const STARTER_STEPS: StarterStep[] = [
-  { text: 'Set out a lure', kind: 'lure', target: 1, tip: 'Tap LURES, then a glowing lure spot.' },
-  { text: 'Meet a visitor', kind: 'meet', target: 1, tip: 'Tap the ! over a visitor, then Keep it or send it on its way.' },
   { text: 'Pet a creature', kind: 'befriend', target: 1, tip: 'Tap a creature, then Pet.' },
   { text: 'Buy an egg from Mango', kind: 'shopEgg', target: 1, tip: 'Tap SHOP, then the EGGS tab.' },
   { text: 'Make an egg', kind: 'breed', target: 1, tip: 'Tap CREATE and pick two pets that match.' },
@@ -21,9 +19,13 @@ export const STARTER_STEPS: StarterStep[] = [
 ];
 
 export function starterState(state: GameState) {
-  const q = (state.starter ??= { step: 0, progress: 0, done: false, open: true, v: 2 });
-  // v2 dropped the old 4th step (Feed a creature): saves past it move back one
-  if (q.v !== 2) { if (q.step > 3 && !q.done) q.step--; q.v = 2; }
+  const q = (state.starter ??= { step: 0, progress: 0, done: false, open: true, v: 3 });
+  // v2 dropped the old 4th step (Feed a creature); v3 dropped the first two (lure, meet a visitor: the tutorial covers them)
+  if (!q.v || q.v < 2) { if (q.step > 3 && !q.done) q.step--; q.v = 2; }
+  if (q.v === 2) {
+    if (!q.done && !q.claimable) { if (q.step >= 2) q.step -= 2; else { q.step = 0; q.progress = 0; } }
+    q.v = 3;
+  }
   return q;
 }
 

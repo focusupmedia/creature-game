@@ -15,7 +15,7 @@ const lv = (s: GameState) => levelOf(s.xp);
 
 export const FEATURES: Feature[] = [
   { id: 'journal', name: 'JOURNAL', intro: 'Everything you find goes in here.', when: (s) => s.stats.hatches >= 1 },
-  { id: 'shop', name: 'SHOP', intro: 'Mango sells lures, eggs, food and more.', when: (s) => (s.starter?.step ?? 0) >= 3 || !!s.starter?.done || lv(s) >= 3 },
+  { id: 'shop', name: 'SHOP', intro: 'Mango sells lures, eggs, food and more.', when: (s) => (s.starter?.step ?? 0) >= 1 || !!s.starter?.done || lv(s) >= 3 },
   { id: 'quests', name: 'QUESTS', intro: 'Daily goals with prizes, a weekly event and Lotl\'s rumours.', when: (s) => lv(s) >= 2 },
   { id: 'decor', name: 'DECOR', intro: 'Make your island yours. Hold a decoration to move it.', when: (s) => lv(s) >= 3 },
   { id: 'pass', name: 'HALLOWEEN PASS', intro: 'Play to earn Candy and unlock spooky rewards.', when: (s, t) => lv(s) >= 3 && inHalloween(t) },
