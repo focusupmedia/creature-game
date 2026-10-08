@@ -873,7 +873,9 @@ describe('Halloween', () => {
     expect(claimPassTier(s, 1, 'free', T0).ok).toBe(false);
     expect(claimPassTier(s, 3, 'free', T0).ok).toBe(false);
     expect(claimPassTier(s, 1, 'paid', T0).ok).toBe(false);
-    unlockPass(s);
+    expect(unlockPass(s, T0)).toBeTruthy();
+    expect(s.creatures.some((c) => c.species === 'pumpkit')).toBe(true);
+    expect(unlockPass(s, T0)).toBe(null);
     expect(claimPassTier(s, 1, 'paid', T0).ok).toBe(true);
     SEASON_OVERRIDE.halloween = false;
     expect(addCandy(s, 50, T0)).toBe(0);
@@ -906,5 +908,22 @@ describe('Nursery and totems', () => {
     expect(share()).toBeGreaterThan(plain * 3);
     tick(s, T0 + 70 * MIN, { maxStepMs: 60_000 });
     expect(s.placedDecor.some((d) => d.decor === 'totemlegend')).toBe(false);
+  });
+});
+
+describe('daily rumours', () => {
+  it('whispers about an unknown creature, pays once when found, and changes each day', async () => {
+    const { todaysRumour, rumourText, checkRumour, RUMOUR_REWARD } = await import('../src/core/rumours');
+    const s = fresh();
+    const r = todaysRumour(s, T0)!;
+    expect(r).toBeTruthy();
+    expect(s.journal.species[r.species]).toBeUndefined();
+    expect(rumourText(r.species)).toMatch(/^I heard/);
+    expect(todaysRumour(s, T0 + 1000)).toBe(r);
+    const coins = s.glimmer;
+    expect(checkRumour(s, r.species, T0)).toBe(true);
+    expect(s.glimmer).toBe(coins + RUMOUR_REWARD.coins);
+    expect(checkRumour(s, r.species, T0)).toBe(false);
+    expect(todaysRumour(s, T0 + 86_400_000)!.day).not.toBe(r.day);
   });
 });

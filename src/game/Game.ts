@@ -13,6 +13,7 @@ import { planNotifications } from '../core/notify';
 import { voiceOf } from '../render/voices';
 import { EXPEDITIONS, type ExpeditionId } from '../content/expeditions';
 import { claimDaily, claimLasting, questEvent, refreshDailies } from '../core/quests';
+import { RUMOUR_REWARD, checkRumour, rumourText, todaysRumour } from '../core/rumours';
 import { awayFinds, bulkRelease, bulkRetrieve, bulkSell, bulkStore, buyStorageSlot, findVisitor, keepVisitor, releaseCreature, sendAwayVisitor, feastIsland, feedCreature, hangFeedbag, feedSprout, harvestTree, retrieveCreature, sellCreature, storeCreature } from '../core/care';
 import { islandCapacity } from '../core/sim';
 import { xpFor, type PlayEvent } from '../core/progress';
@@ -442,6 +443,7 @@ export class Game {
     if (this.questCheck-- <= 0) {
       this.questCheck = 60;
       refreshDailies(this.state, t);
+      this.tellRumour(t);
     }
     const sky = activeEvent(this.state, t)?.kind ?? null;
     const phase = dayPhase(this.state, t);
@@ -479,10 +481,10 @@ export class Game {
           const where = SPOTS[ev.spot].island === this.world.current ? `the ${SPOTS[ev.spot].name}` : ISLANDS[SPOTS[ev.spot].island].name;
           if (ev.discovered) {
             this.audio.play('discover');
-            this.ui.toast(`New discovery: ${speciesTitle(ev.creature)}! It's waiting at ${where}. Tap it to say hello.`, 'discovery', pic, 5000);
+            this.ui.toast(`New discovery: ${speciesTitle(ev.creature)}! It's waiting at ${where}.`, 'discovery', pic, 5000, { action: { label: 'Go', run: () => this.goToVisitor(ev.creature.id) } });
           } else {
             this.audio.play('arrive');
-            this.ui.toast(`A ${speciesTitle(ev.creature)} is waiting at ${where}!`, 'info', pic);
+            this.ui.toast(`A ${speciesTitle(ev.creature)} is waiting at ${where}!`, 'info', pic, 3600, { action: { label: 'Go', run: () => this.goToVisitor(ev.creature.id) } });
           }
           if (this.state.tutorial <= 1) {
             this.setTutorial(2);
@@ -678,7 +680,6 @@ export class Game {
     }
     const r = A.workDigSpot(this.state, target.id, id);
     if (!r.ok) {
-      this.audio.play('error');
       return this.ui.fail(r.error);
     }
     this.world.handle({ type: 'gift', gift: r.gift, t: this.now() }, true);
@@ -712,7 +713,6 @@ export class Game {
   buyIsland(id: IslandId): void {
     const r = A.buyIsland(this.state, id);
     if (!r.ok) {
-      this.audio.play('error');
       return this.ui.fail(r.error);
     }
     this.audio.play('discover');
@@ -732,7 +732,6 @@ export class Game {
   upgradeIsland(id: IslandId, currency: 'glimmer' | 'shards'): void {
     const r = A.upgradeIsland(this.state, id, currency);
     if (!r.ok) {
-      this.audio.play('error');
       return this.ui.fail(r.error);
     }
     this.audio.play('discover');
@@ -745,7 +744,6 @@ export class Game {
   moveCreature(creatureId: string, to: IslandId): void {
     const r = A.moveCreature(this.state, creatureId, to, this.now());
     if (!r.ok) {
-      this.audio.play('error');
       return this.ui.fail(r.error);
     }
     this.audio.play('place');
@@ -764,7 +762,6 @@ export class Game {
   placeLure(spot: string, lure: string): void {
     const r = A.placeLure(this.state, spot, lure, this.now());
     if (!r.ok) {
-      this.audio.play('error');
       return this.ui.fail(r.error);
     }
     this.audio.play('place');
@@ -780,7 +777,6 @@ export class Game {
   combine(aId: string, bId: string): void {
     const r = A.startCombine(this.state, aId, bId, this.now(), this.world.current);
     if (!r.ok) {
-      this.audio.play('error');
       return this.ui.fail(r.error);
     }
     this.audio.play('egg');
@@ -914,7 +910,6 @@ export class Game {
   buyDecor(id: string): void {
     const r = A.buyDecor(this.state, id);
     if (!r.ok) {
-      this.audio.play('error');
       return this.ui.fail(r.error);
     }
     this.audio.play('coin');
@@ -928,7 +923,6 @@ export class Game {
     const offer = this.state.shop.offers.find((o) => o.id === offerId);
     const r = A.buyOffer(this.state, offerId, this.now());
     if (!r.ok) {
-      this.audio.play('error');
       return this.ui.fail(r.error);
     }
     this.audio.play('coin');
@@ -941,9 +935,25 @@ export class Game {
 
   /** Something the player did: earns XP (and later counts toward quests). */
   record(ev: PlayEvent): void {
+    if ((ev.kind === 'hatch' && ev.newSpecies) || (ev.kind === 'arrival' && ev.isNew)) {
+      if (checkRumour(this.state, ev.species, this.now())) {
+        this.audio.play('discover');
+        this.ui.toast(`🦎 You found today's rumour! {coin} +${RUMOUR_REWARD.coins} {gem} +${RUMOUR_REWARD.shards}`, 'discovery', undefined, 5000, { priority: 3 });
+      }
+    }
     questEvent(this.state, ev);
     this.gainXp(xpFor(ev));
     addCandy(this.state, candyFor(ev), this.now());
+  }
+
+  /** Once a day (after the tutorial) Lotl whispers a new rumour. */
+  private tellRumour(t: number): void {
+    if (this.state.tutorial < 6 || this.world.revealing) return;
+    const r = todaysRumour(this.state, t);
+    if (!r || r.told) return;
+    r.told = true;
+    this.ui.toast(`🦎 Lotl's rumour: ${rumourText(r.species)}`, 'info', undefined, 8000, { priority: 2, action: { label: 'Quests', run: () => this.ui.showQuests() } });
+    this.saveSoon();
   }
 
   private gainXp(amount: number): void {
@@ -956,6 +966,16 @@ export class Game {
   }
 
   // ------------------------------------------------------------------ lure visitors
+
+  /** Jump to a lure visitor (on whichever world) and say hello. */
+  goToVisitor(id: string): void {
+    const v = this.state.visitors.find((x) => x.creature.id === id);
+    if (!v) return this.ui.toast('They have wandered off.');
+    this.ui.closeSheet();
+    if (this.world.current !== v.island) this.world.travelTo(v.island, true);
+    this.world.focus(SPOTS[v.spot], 10, v.island);
+    setTimeout(() => this.world.onTap({ kind: 'creature', id }), 700);
+  }
 
   /** Keep a lure visitor. If its world is full, offer to make space or send it elsewhere. */
   keepVisitor(id: string, island?: IslandId): void {
@@ -1011,7 +1031,6 @@ export class Game {
     if (!w) return;
     const r = takeDeal(this.state, dealId, this.now(), new StateRng(this.state), petId);
     if (!r.ok) {
-      this.audio.play('error');
       return this.ui.fail(r.error);
     }
     this.audio.play('coin');
@@ -1206,9 +1225,9 @@ export class Game {
     if (!r.ok || !r.product) return this.ui.toast('That purchase didn\'t go through. Nothing was charged.');
     const p = r.product;
     if (p.currency === 'pass') {
-      unlockPass(this.state);
+      const pet = unlockPass(this.state, this.now());
       this.audio.play('discover');
-      this.ui.toast(`🎃 Halloween Pass unlocked! Claim your rewards in the Pass.${r.test ? ' (test purchase, nothing was charged)' : ''}`, 'discovery', undefined, 4000, { priority: 3 });
+      this.ui.toast(`🎃 Halloween Pass unlocked!${pet ? ' Pumpkit has joined you!' : ''} Claim your rewards in the Pass.${r.test ? ' (test purchase, nothing was charged)' : ''}`, 'discovery', undefined, 4000, { priority: 3 });
       this.saveSoon();
       return this.ui.showPass();
     }
@@ -1233,7 +1252,6 @@ export class Game {
   fillWant(wantId: string, creatureId: string): void {
     const r = fillWant(this.state, wantId, creatureId, this.now());
     if (!r.ok) {
-      this.audio.play('error');
       return this.ui.fail(r.error);
     }
     this.audio.play('fanfare');
@@ -1278,7 +1296,6 @@ export class Game {
   breakCharm(id: string): void {
     const r = A.useCharm(this.state, id, this.now());
     if (!r.ok) {
-      this.audio.play('error');
       return this.ui.fail(r.error);
     }
     this.audio.play('chime');
@@ -1298,7 +1315,6 @@ export class Game {
   claimBlessing(creatureId: string, m: MutationId): void {
     const r = claimBlessing(this.state, creatureId, m, this.now());
     if (!r.ok) {
-      this.audio.play('error');
       return this.ui.fail(r.error);
     }
     this.audio.play('chime');

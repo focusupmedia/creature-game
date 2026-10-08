@@ -269,6 +269,12 @@ export class World {
       }
       this.islands.set(id, fresh);
       this.scene.add(fresh.group);
+      if (view && !choppedOnly) {
+        // the world grew (or shrank): set everything placed on it back onto the new surface
+        for (const d of this.decor.values()) if (d.userData.island === id) d.userData.x = NaN;
+        for (const gr of this.gifts.values()) if (gr.userData.island === id) this.place(gr, gr.userData.x, gr.userData.z, 0, 0, id);
+        for (const v of this.digViews.values()) if (v.island === id) this.place(v.root, v.x, v.z, 0, 0, id);
+      }
       if (view && isl.owned && !choppedOnly) {
         const g = islandGeo(id, isl.size);
         this.burst(this.at(g.ox, g.oz, 1, id), '#fff6c8', 40, 3);
@@ -485,8 +491,18 @@ export class World {
         this.eggs.set(e.id, entry);
       }
       const root = entry.model.root;
+      const nur = e.nurseryId ? state.placedDecor.find((d) => d.id === e.nurseryId) : undefined;
       const n = e.nest !== null ? state.placedDecor.find((d) => d.id === e.nest) : undefined;
-      if (n) {
+      if (nur) {
+        // waiting on the Nursery's straw bed, ready to hatch
+        const bx = nur.x + Math.sin(nur.rot) * 0.62;
+        const bz = nur.z + Math.cos(nur.rot) * 0.62;
+        this.place(root, bx, bz, 0.12, 0, nur.island ?? 'home', SHAKE.set(0, 0, 0, 1));
+        root.userData.x = bx;
+        root.userData.z = bz;
+        root.userData.island = nur.island ?? 'home';
+        entry.model.shell.userData.pick = { kind: 'decor', id: nur.id };
+      } else if (n) {
         this.place(root, n.x, n.z, 0.42, 0, n.island ?? 'home', SHAKE.set(0, 0, 0, 1));
         root.userData.x = n.x;
         root.userData.z = n.z;

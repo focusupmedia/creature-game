@@ -2,6 +2,7 @@
 // show. Keeping these pure makes them testable and server-verifiable later.
 
 import { species } from '../content/species';
+import { GADGET_LIMIT } from '../content/decor';
 import { DECOR, DIG_KINDS, FOODS, TOOLS, EGG_TIERS, EVENTS, GLITTER_MUTATIONS, ITEMS, LURES, MUTATIONS, RESONANCES, SKY_ITEMS, SPOTS, SUMMON_WEIGHTS, spotOpen, wildSkies } from '../content/world';
 import { ISLANDS, SIZE_PRICE } from '../content/islands';
 import { SPECIES, WILD_SPECIES } from '../content/species';
@@ -10,11 +11,11 @@ import { TUNING } from '../content/tuning';
 import { inHalloween } from '../content/seasons';
 import { addMutation, displayName, makeCreature, newId } from './creatures';
 import { compatibility, combine, incubationMs } from './genetics';
-import { addNote, recordMutation, recordResonance, recordSpecies } from './journal';
+import { addHowTo, addNote, recordMutation, recordResonance, recordSpecies } from './journal';
 import { StateRng } from './rng';
 import { hasQuirk } from './quirks';
 import { levelOf } from './levels';
-import { addBond, findBonus } from './friendship';
+import { addBond, findBonus, hearts } from './friendship';
 import { refreshShop } from './shop';
 import { addWorldNest, freeNest } from './state';
 import { TOTEMS } from './lures';
@@ -43,7 +44,8 @@ export function removeLure(state: GameState, spot: SpotId): Result {
   return { ok: true };
 }
 
-export function startCombine(state: GameState, aId: string, bId: string, t: number, island?: IslandId, nursery = false): Result<{ egg: Egg; notes: string[] }> {
+export function startCombine(state: GameState, aId: string, bId: string, t: number, island?: IslandId, nurseryId?: string): Result<{ egg: Egg; notes: string[] }> {
+  const nursery = !!nurseryId;
   const a = state.creatures.find((c) => c.id === aId);
   const b = state.creatures.find((c) => c.id === bId);
   if (!a || !b) return fail('Choose two creatures.');
@@ -53,8 +55,8 @@ export function startCombine(state: GameState, aId: string, bId: string, t: numb
   if (!nursery) for (const c of [a, b]) if (c.fullness < TUNING.hungry) return fail(`${displayName(c)} is too hungry to breed. Feed it first!`);
   for (const c of [a, b]) if (c.stored) return fail(`${displayName(c)} is in storage.`);
   for (const c of [a, b]) if (c.trip) return fail(`${displayName(c)} is away exploring.`);
-  const nest = freeNest(state, island ?? a.island);
-  if (nest === null) return fail('Every nest is full. Hatch an egg first, or buy another nest from Mango.');
+  const nest = nursery ? null : freeNest(state, island ?? a.island);
+  if (nest === null && !nursery) return fail('Every nest is full. Hatch an egg first, or buy another nest from Mango.');
   const rng = new StateRng(state);
   const sky = activeEvent(state, t)?.kind ?? null;
   const known = new Set(Object.keys(state.journal.species));
@@ -99,12 +101,18 @@ export function startCombine(state: GameState, aId: string, bId: string, t: numb
     parentShades: [a.shade, b.shade],
     parentQuirks: [a.quirks, b.quirks],
   };
+  if (sky) egg.laySky = sky;
+  // Nursery eggs sit by the Nursery, ready to hatch straight away
+  if (nurseryId) {
+    egg.nurseryId = nurseryId;
+    egg.progressMs = egg.incubationMs;
+  }
   // a Doting parent keeps the egg extra cosy
   if (hasQuirk(a, 'doting') || hasQuirk(b, 'doting')) egg.incubationMs = Math.round(egg.incubationMs * 0.75);
   if (state.tutorial < 4) egg.incubationMs = Math.min(egg.incubationMs, 40_000);
   state.eggs.push(egg);
   state.stats.combines += 1;
-  const where = nursery ? 'in the Nursery' : 'at the Kindred Font';
+  const where = nursery ? 'in the Nursery' : 'at the Kindred Fountain';
   a.history.push({ t, text: `Shared a moment ${where} with ${displayName(b)}.` });
   b.history.push({ t, text: `Shared a moment ${where} with ${displayName(a)}.` });
   const notes: string[] = [];
@@ -163,6 +171,8 @@ export function hatch(state: GameState, eggId: string, t: number, island: Island
   state.stats.hatches += 1;
   if (state.tutorial < 5) state.tutorial = 5;
   const newSpecies = recordSpecies(state, egg.species, t);
+  if (egg.parentSpecies) addHowTo(state, egg.species, `${species(egg.parentSpecies[0]).name} + ${species(egg.parentSpecies[1]).name}${egg.laySky ? ` in a ${EVENTS[egg.laySky].name}` : ''}`);
+  else if (egg.tier) addHowTo(state, egg.species, `From a ${EGG_TIERS[egg.tier]?.name ?? 'shop egg'}`);
   const newMutations = c.mutations.filter((m) => recordMutation(state, m, t));
   const sp = species(egg.species);
   const notes: string[] = [];
@@ -212,7 +222,7 @@ export function collectGift(state: GameState, giftId: string, t = Date.now()): R
   state.shards += g.shards;
   if (g.item === 'egg') {
     // a full basket turns the egg into a little extra treasure instead
-    if (state.eggs.filter((e) => e.nest === null).length < TUNING.basketSize) layEgg(state, rollEggTier(state, 'wild'), 'dug', t);
+    if (state.eggs.filter((e) => e.nest === null && !e.nurseryId).length < TUNING.basketSize) layEgg(state, rollEggTier(state, 'wild'), 'dug', t);
     else {
       state.glimmer += 40;
       return { ok: true, glimmer: g.glimmer + 40, shards: g.shards };
@@ -237,13 +247,16 @@ export function workDigSpot(state: GameState, spotId: string, creatureId: string
   const kind = DIG_KINDS[d.kind];
   if (species(c.species).movement === 'swim' && d.kind !== 'puddle') return fail(`${displayName(c)} can't do that on dry land.`);
   const rng = new StateRng(state);
+  // pets that barely know you sometimes just don't listen
+  const h = hearts(c);
+  if (h < 2 && rng.chance(h === 0 ? 0.3 : 0.15)) return fail(`${displayName(c)} ignored you. Pet it to become friends!`);
   const gift: Gift = {
     id: newId(state, 'g'), x: d.x, z: d.z, glimmer: Math.round(rng.int(kind.glimmer[0], kind.glimmer[1]) * findBonus(c)),
     shards: rng.chance(kind.shardChance * (hasQuirk(c, 'lucky') ? 2 : 1)) ? 1 : 0, from: c.id, island: d.island, via: d.kind,
   };
   if (hasQuirk(c, 'lucky')) gift.glimmer = Math.round(gift.glimmer * 1.5);
   if (rng.chance(kind.itemChance)) gift.item = rng.pick(kind.items);
-  else if (rng.chance(kind.eggChance) && state.eggs.filter((e) => e.nest === null).length < TUNING.basketSize) gift.item = 'egg';
+  else if (rng.chance(kind.eggChance) && state.eggs.filter((e) => e.nest === null && !e.nurseryId).length < TUNING.basketSize) gift.item = 'egg';
   state.digSpots = state.digSpots.filter((x) => x !== d);
   state.gifts.push(gift);
   addBond(c, 2, state);
@@ -346,10 +359,16 @@ export function buyOffer(state: GameState, offerId: string, t: number): Result<{
   if (o.stock <= 0) return fail('Sold out.');
   const wallet = o.currency === 'glimmer' ? state.glimmer : state.shards;
   if (wallet < o.price) return fail(o.currency === 'glimmer' ? 'Not enough coins.' : 'Not enough Starshards.');
-  if (o.kind === 'egg' && state.eggs.filter((e) => e.nest === null).length >= TUNING.basketSize) {
+  if (o.kind === 'egg' && state.eggs.filter((e) => e.nest === null && !e.nurseryId).length >= TUNING.basketSize) {
     return fail('Your egg basket is full.');
   }
   if (o.kind === 'sky' && o.ref === 'telescope' && state.telescope) return fail('You already have the Sky Telescope.');
+  if (o.kind === 'decor') {
+    const limit = GADGET_LIMIT[o.ref];
+    const have = (state.decorOwned[o.ref] ?? 0) + state.placedDecor.filter((d) => d.decor === o.ref).length;
+    if (limit && have >= limit) return fail(`You can only have ${limit} ${DECOR[o.ref].name}${limit > 1 ? 's' : ''}.`);
+    if (levelOf(state.xp) < (DECOR[o.ref].level ?? 1)) return fail(`Reach keeper level ${DECOR[o.ref].level} to use a ${DECOR[o.ref].name}.`);
+  }
   if (o.currency === 'glimmer') state.glimmer -= o.price; else state.shards -= o.price;
   o.stock -= 1;
   let message = '';

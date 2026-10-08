@@ -46,7 +46,7 @@ No PvP, combat, power stats, energy, forced ads, loot-box-first monetization, tr
      CREATE ──► EVOLVE ──► LIVE ─────────────┘
   pair kindred   mutations   the world runs on
   creatures at   from sky,   without you, and
-  the Font       eggs, tonic surprises pile up
+  the Fountain       eggs, tonic surprises pile up
 ```
 
 Each check-in follows roughly the same rhythm:
@@ -92,7 +92,7 @@ Arrival weight = rarity × spot affinity × sky attraction, filtered by activity
   - Eclipse empowers **Mystic**: Moonpetal during an eclipse gives 55% Lunar (15% otherwise). Eclipses also count as "dark", so nocturnal Mystics come out at noon.
 - The journal writes the relationship down the first time the player causes it ("A Moonpetal Lure during an Eclipse drew a Lunar Duskmoth."). That replaces the wiki.
 
-### Combining (the Kindred Font)
+### Combining (the Kindred Fountain)
 
 - **Kindred rule:** two creatures can pair only if they **share at least one trait**. Because mutations add traits, a Lunar fish and a Lunar moth become kindred even though their plain forms aren't. Mutations unlock pairings.
 - **Resonance:** hybrids come from **traits**, not species pairs. If both parents together carry all the required traits, the hybrid can form (the chance is rolled):
@@ -152,7 +152,7 @@ The schedule is a pure function of (world seed, creation time, time), so the sam
 
 ### The sanctuary (living world)
 
-- A floating forest island diorama: pond, glade, the Kindred Font, nests, a merchant's stall, trees, rocks, wildflowers, drifting clouds below, fireflies at night.
+- A floating forest island diorama: pond, glade, the Kindred Fountain, nests, a merchant's stall, trees, rocks, wildflowers, drifting clouds below, fireflies at night.
 - **Day and night:** an accelerated 20-minute cycle in the prototype (production recommendation: about 90 minutes, D7). Sky gradient, sun and moon, stars, and lighting moods all follow it.
 - **Creature behavior:** wander, idle, nap (diurnals at night, nocturnals by day), visit lures that smell right, greet neighbors (💕 if kindred, 👋 otherwise), shelter from storms, sing in the rain, look up at eclipses, celebrate after a mutation. Each body plan has its own motion: hop, walk, scuttle, fly, swim, slither, waddle, float.
 - **Gifts:** creatures leave small sparkling gifts (coins, rarely Starshards). Tapping them is a reason to look closely at the world.
@@ -183,7 +183,7 @@ The stock rotates every 20 minutes in the prototype (production: about 4 hours).
 
 ### Principles
 
-- **The world is the menu.** Tap the glade to place a lure, the Font to combine, a nest to hatch, the stall to shop. The dock below is a shortcut, not the primary interface.
+- **The world is the menu.** Tap the glade to place a lure, the Fountain to combine, a nest to hatch, the stall to shop. The dock below is a shortcut, not the primary interface.
 - **One thumb.** Everything interactive sits in the bottom 60% of the screen. Sheets rise from the bottom.
 - **Never block watching.** Sheets are dismissable by tapping the world. There are no full-screen interrupts except the hatch reveal and the away report.
 - **Say it like a naturalist.** Copy is sensory and curious ("It smells faintly of moss"), never a stat sheet.
@@ -211,7 +211,7 @@ The stock rotates every 20 minutes in the prototype (production: about 4 hours).
 |---|---|---|
 | Lure spot | Tap glade/pond, or 🌿 | Active lure timer and visitors, or a dormant explanation, or the lure list with scents → Place |
 | Creature | Tap a creature | Portrait, name (renameable), blurb, trait chips (mutations highlighted), **Story** timeline, Create with…, Say goodbye |
-| Kindred Font | Tap the Font, or ⛲ | Two slots; the picker marks kindred options with 💚; verdict shows shared traits; sky shimmer note; free nests |
+| Kindred Fountain | Tap the Fountain, or ⛲ | Two slots; the picker marks kindred options with 💚; verdict shows shared traits; sky shimmer note; free nests |
 | Nest / Egg | Tap a nest | Clues, progress, hatch / ▶ ad hatch / 💎 hatch / use item; build-nest offer on empty pedestals |
 | Shop | Tap the stall, or 🛍 | Refresh timer, refresh options, lures / curiosities / decor, Starshard packs |
 | Journal | 📖 | Creatures (silhouettes and hints for unknowns), Mutations (hints), Notes (observations) |
@@ -224,7 +224,7 @@ The coach is an owl. It is contextual and never modal.
 1. "Tap the glowing ring in the Mossy Glade to set out a lure." (The glade ring pulses.)
 2. Lure placed: "Watch for a while, or come back later. The sanctuary keeps living." The first arrival is guaranteed within about 10 to 30 seconds.
 3. Arrival: "Someone new arrived! Tap a creature."
-4. "Creatures who share a trait can make an egg together. Tap the stone Font."
+4. "Creatures who share a trait can make an egg together. Tap the stone Fountain."
 5. Egg made (the tutorial egg is capped at 40 seconds): "Your egg is warming… eggs feel the weather too."
 6. Hatch reveal, then: "Try new lures, places and pairings. The sky has a mind of its own."
 7. The first storm arrives at minute 7.

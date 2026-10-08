@@ -16,7 +16,7 @@ import { species } from '../content/species';
 import { GEAR, icon, HAND_OPEN, HEART } from './icons';
 
 // Labels that float over the 3D world and always face the player.
-// - Signs (Shop, Kindred Font, nests) fade in when zoomed in.
+// - Signs (Shop, Kindred Fountain, nests) fade in when zoomed in.
 // - Lure-spot pins and "egg ready" pins are always visible: they are calls to action.
 // - The selected creature gets a name bubble with what it's doing and a ⚙️ menu.
 
@@ -114,7 +114,7 @@ export class WorldLabels {
       const def = ISLANDS[id];
       this.pin('wl-sign sell', [def.ox + def.booth.x, 3.5, def.oz + def.booth.z], () => 'sign', () => '💰 Sell', () => this.act.openBooth(), () => on(id)() && !!s().islands[id]?.owned, signFar('💰'));
     }
-    this.pin('wl-sign', [FONT.x, 2.4, FONT.z], () => 'zoomed', () => '⛲ Kindred Font', () => this.act.openFont(), home);
+    this.pin('wl-sign', [FONT.x, 2.4, FONT.z], () => 'zoomed', () => '⛲ Kindred Fountain', () => this.act.openFont(), home);
 
     // Other islands on the horizon: name pins you can tap to visit (or unlock).
     for (const id of ISLAND_ORDER) {
@@ -126,8 +126,8 @@ export class WorldLabels {
       }, () => this.act.openIsland(id), () => this.game.world.current !== id);
     }
 
-    this.pin('wl-nest', [BASKET.x, 0.9, BASKET.z], () => (s().eggs.some((e) => e.nest === null) ? 'zoomed' : 'hidden'),
-      () => `🧺 ${s().eggs.filter((e) => e.nest === null).length} waiting`, () => this.act.openBasket(), home);
+    this.pin('wl-nest', [BASKET.x, 0.9, BASKET.z], () => (s().eggs.some((e) => e.nest === null && !e.nurseryId) ? 'zoomed' : 'hidden'),
+      () => `🧺 ${s().eggs.filter((e) => e.nest === null && !e.nurseryId).length} waiting`, () => this.act.openBasket(), home);
   }
 
   /** Show the name bubble for a creature (null hides it). */
@@ -182,8 +182,32 @@ export class WorldLabels {
     }
   }
 
+  /** A big bouncing ! over every lure visitor waiting to meet you, easy to spot on a busy island. */
+  private visitorPins = new Map<string, Pin>();
+
+  private syncVisitorPins(): void {
+    const st = this.game.state;
+    const alive = new Set<string>();
+    for (const v of st.visitors) {
+      const id = v.creature.id;
+      alive.add(id);
+      if (this.visitorPins.has(id)) continue;
+      const spot = SPOTS[v.spot];
+      this.pin('wl-visitor', [spot.x, 2.3, spot.z], () => 'always', () => '❗ Visitor!', () => this.game.world.onTap({ kind: 'creature', id }),
+        () => this.game.world.current === v.island && this.game.state.visitors.some((x) => x.creature.id === id));
+      this.visitorPins.set(id, this.pins[this.pins.length - 1]);
+    }
+    for (const [id, pin] of this.visitorPins) {
+      if (alive.has(id)) continue;
+      pin.el.remove();
+      this.pins = this.pins.filter((p) => p !== pin);
+      this.visitorPins.delete(id);
+    }
+  }
+
   update(hidden: boolean): void {
     this.syncNestPins();
+    this.syncVisitorPins();
     this.host.classList.toggle('hidden', hidden);
     if (hidden) return;
     const w = this.game.world;

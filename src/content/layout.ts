@@ -3,12 +3,12 @@
 
 export const ISLAND_RADIUS = 9.5;
 
-// Home is a little globe: the Font, nests, basket and shop sit together on top
+// Home is a little globe: the Fountain, nests, basket and shop sit together on top
 // (easy to find); the pond, lure spots, trees and rocks spread around the sides
 // and underneath (see content/globe.ts for how the map wraps).
 export const POND = { x: 3.6, z: 3.4, r: 1.7 };
 
-export const FONT = { x: 0, z: -1.2 }; // the Kindred Font (combining)
+export const FONT = { x: 0, z: -1.2 }; // the Kindred Fountain (combining)
 export const NESTS = [
   { x: 1.6, z: -2.3 },
   { x: 2.6, z: -1.0 },

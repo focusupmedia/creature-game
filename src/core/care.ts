@@ -39,6 +39,15 @@ export function stepCare(state: GameState, t: number, dt: number, rng: StateRng,
       c.fullness = Math.min(1, c.fullness + 0.5);
     }
   }
+  // good friends (3+ hearts) now and then leave a little gift while you play
+  for (const c of state.creatures) {
+    if (c.stored || c.trip || hearts(c) < 3 || !state.islands[c.island]?.owned || state.gifts.length >= TUNING.maxGiftsOnGround) continue;
+    if (!rng.chance((dt / HOUR) * 0.25)) continue;
+    const p = randomLand(islandGeo(c.island, state.islands[c.island].size), () => rng.next());
+    const gift: Gift = { id: newId(state, 'g'), x: p.x, z: p.z, glimmer: rng.int(8, 20) * hearts(c), shards: 0, island: c.island, from: c.id };
+    state.gifts.push(gift);
+    out.push({ type: 'gift', gift, t });
+  }
   // best friends leave you a little present once a day, somewhere on their world
   const day = today(t);
   for (const c of state.creatures) {
@@ -262,20 +271,22 @@ export function awayFinds(state: GameState, awayMs: number): AwayFind[] {
     if (c.stored || isHungry(c)) continue;
     const explorer = c.quirks?.includes('explorer');
     const lucky = c.quirks?.includes('lucky');
-    // about one find every three hours, more for Explorers
-    if (!rng.chance(Math.min(0.95, hours * (explorer ? 0.5 : 0.3)))) continue;
-    let coins = Math.round(rng.range(6, 18) * Math.max(1, hours / 3) * (lucky ? 1.5 : 1) * (explorer ? 1.6 : 1));
+    // about one find every three hours, more for Explorers; good friends bring more, strangers less
+    const h = hearts(c);
+    const fond = 0.5 + h * 0.25;
+    if (!rng.chance(Math.min(0.95, hours * (explorer ? 0.5 : 0.3) * fond))) continue;
+    let coins = Math.round(rng.range(6, 18) * Math.max(1, hours / 3) * (lucky ? 1.5 : 1) * (explorer ? 1.6 : 1) * (1 + h * 0.15));
     const shards = rng.chance(lucky ? 0.2 : 0.08) ? 1 : 0;
     const item = rng.chance(explorer ? 0.15 : 0.05) ? rng.pick(['warmstone', 'rootswell']) : undefined;
     if (item) coins = Math.round(coins * 0.5);
     // presents: a snack it saved for you, and once in a while an egg it found
     const snack = rng.chance(0.25) ? 1 : 0;
-    const egg = rng.chance(0.012 * hours * (explorer ? 2 : 1)) && state.eggs.filter((e) => e.nest === null).length < TUNING.basketSize;
+    const egg = rng.chance(0.012 * hours * (explorer ? 2 : 1)) && state.eggs.filter((e) => e.nest === null && !e.nurseryId).length < TUNING.basketSize;
     const name = displayName(c);
     const what = [coins ? `${coins} coins` : '', shards ? 'a Starshard' : '', item === 'warmstone' ? 'a Warm Stone' : item === 'rootswell' ? 'a Rootswell Tonic' : '',
       snack ? 'a snack it saved for you' : '', egg ? 'an egg! 🥚' : '']
       .filter(Boolean).join(' and ');
-    const text = explorer ? `${name} went on a journey around the world and came back with ${what}.`
+    const text = h >= 3 ? `${name} missed you and brought you ${what}. 💕` : explorer ? `${name} went on a journey around the world and came back with ${what}.`
       : rng.chance(0.5) ? `${name} found ${what}.` : `${name} dug around and turned up ${what}.`;
     state.glimmer += coins;
     state.shards += shards;

@@ -7,9 +7,11 @@ import { HALLOWEEN_SKIES, inHalloween } from '../content/seasons';
 import { DECOR, EGG_TIERS, FOODS, LURES } from '../content/world';
 import { TUNING } from '../content/tuning';
 import { layEgg, rollEggTier } from './actions';
+import { giveGiftCreature } from './levels';
+import { species } from '../content/species';
 import type { Result } from './actions';
 import type { PlayEvent } from './progress';
-import type { GameState } from './types';
+import type { GameState, SpeciesId } from './types';
 
 export const PASS = { id: 'halloween', name: 'Halloween Pass', pointsPerTier: 120, tiers: 25, productId: 'pass_halloween' };
 
@@ -20,6 +22,8 @@ export interface PassReward {
   food?: [string, number];
   egg?: string;
   decor?: string;
+  /** A pass-only creature. */
+  creature?: SpeciesId;
 }
 
 const F = (r: PassReward) => r;
@@ -49,7 +53,7 @@ export const PASS_TIERS: [PassReward, PassReward][] = [
   [F({ shards: 20 }), F({ lure: ['mythic', 1] })],
   [F({ food: ['sprout', 4] }), F({ shards: 80 })],
   [F({ lure: ['golden', 1] }), F({ coins: 3000 })],
-  [F({ shards: 50 }), F({ egg: 'mythical' })],
+  [F({ shards: 50 }), F({ creature: 'wispstag' })],
 ];
 
 export function passState(state: GameState) {
@@ -109,6 +113,7 @@ export function describeReward(r: PassReward): string {
   if (r.food) return `${FOODS[r.food[0]]?.name ?? 'Food'} ×${r.food[1]}`;
   if (r.egg) return EGG_TIERS[r.egg]?.name ?? 'Egg';
   if (r.decor) return DECOR[r.decor]?.name ?? 'Decoration';
+  if (r.creature) return `${species(r.creature).name} (exclusive ${species(r.creature).rarity})`;
   return '';
 }
 
@@ -120,7 +125,7 @@ export function claimPassTier(state: GameState, tier: number, track: 'free' | 'p
   const list = track === 'free' ? p.free : p.paid;
   if (list.includes(tier)) return { ok: false, error: 'Already claimed.' };
   const r = PASS_TIERS[tier - 1][track === 'free' ? 0 : 1];
-  if (r.egg && state.eggs.filter((e) => e.nest === null).length >= TUNING.basketSize) {
+  if (r.egg && state.eggs.filter((e) => e.nest === null && !e.nurseryId).length >= TUNING.basketSize) {
     return { ok: false, error: 'Your egg basket is full. Hatch an egg first, then claim this.' };
   }
   if (r.coins) state.glimmer += r.coins;
@@ -129,11 +134,17 @@ export function claimPassTier(state: GameState, tier: number, track: 'free' | 'p
   if (r.food) state.food[r.food[0]] = (state.food[r.food[0]] ?? 0) + r.food[1];
   if (r.decor) state.decorOwned[r.decor] = (state.decorOwned[r.decor] ?? 0) + 1;
   if (r.egg) layEgg(state, rollEggTier(state, r.egg), 'shop', t).tier = r.egg;
+  if (r.creature) giveGiftCreature(state, r.creature, 'A Halloween Pass exclusive.', { how: 'pass' }, t);
   list.push(tier);
-  return { ok: true, message: `${describeReward(r)}${r.decor ? ' is in your Decor satchel' : r.egg ? ' is warming in a nest' : ''}!` };
+  return { ok: true, message: `${describeReward(r)}${r.decor ? ' is in your Decor satchel' : r.egg ? ' is warming in a nest' : r.creature ? ' has joined your sanctuary' : ''}!` };
 }
 
-/** The paid track, after a successful purchase. */
-export function unlockPass(state: GameState): void {
+/** The creature every pass holder gets the moment they unlock it. */
+export const PASS_CREATURE: SpeciesId = 'pumpkit';
+
+/** The paid track, after a successful purchase. Returns the new creature's id, if one joined. */
+export function unlockPass(state: GameState, t: number): string | null {
   passState(state).premium = true;
+  if (state.creatures.some((c) => c.species === PASS_CREATURE) || state.journal.species[PASS_CREATURE]) return null;
+  return giveGiftCreature(state, PASS_CREATURE, 'A Halloween Pass exclusive.', { how: 'pass' }, t);
 }

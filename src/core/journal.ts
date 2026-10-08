@@ -39,3 +39,11 @@ export function addNote(state: GameState, key: string, text: string, t: number):
   state.journal.notes.unshift({ t, key, text });
   return true;
 }
+
+/** Remember one way to get a creature (at most 6 per creature). */
+export function addHowTo(state: GameState, sp: SpeciesId, line: string): void {
+  const all = (state.journal.howTo ??= {});
+  const list = (all[sp] ??= []);
+  if (!list.includes(line)) list.unshift(line);
+  if (list.length > 6) list.length = 6;
+}

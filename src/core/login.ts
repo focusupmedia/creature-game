@@ -36,7 +36,7 @@ export function claimLogin(state: GameState, t: number): { ok: true; reward: Log
   state.glimmer += reward.coins;
   state.shards += reward.shards;
   if (reward.egg) {
-    if (state.eggs.filter((e) => e.nest === null).length < TUNING.basketSize) layEgg(state, rollEggTier(state, 'starry'), 'shop', t).tier = 'starry';
+    if (state.eggs.filter((e) => e.nest === null && !e.nurseryId).length < TUNING.basketSize) layEgg(state, rollEggTier(state, 'starry'), 'shop', t).tier = 'starry';
     else state.shards += Math.round(EGG_TIERS.starry.price / 2);
   }
   return { ok: true, reward };

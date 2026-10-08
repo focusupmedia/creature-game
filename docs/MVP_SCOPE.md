@@ -9,7 +9,7 @@ Specifically: do lures, pairings, eggs and the sky create "I wonder what happens
 |---|---|---|
 | 8 to 12 creatures | 12 wild + 6 created (18) | ✅ |
 | 2 to 3 bait types | 4 lures (Mossberry, Riverweed, Honeydew, Moonpetal) | ✅ |
-| Basic combining | Kindred Font: shared-trait rule, trait resonance, sky lending | ✅ |
+| Basic combining | Kindred Fountain: shared-trait rule, trait resonance, sky lending | ✅ |
 | Eggs | Physical eggs, clues, patterns, shake/glow, sky absorption | ✅ |
 | 1 to 2 incubators | 2 free nests + 2 premium nests (Starshards) + egg basket | ✅ |
 | A small sanctuary | Floating forest island: pond, glade, Font, nests, stall | ✅ |

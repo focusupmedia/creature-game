@@ -244,7 +244,7 @@ export function takeDeal(state: GameState, dealId: string, t: number, rng: State
       if (why) return { ok: false, error: why };
       const r = species(c.species).rarity;
       const tier = r === 'common' ? 'wild' : 'starry';
-      if (state.eggs.filter((e) => e.nest === null).length >= TUNING.basketSize) return { ok: false, error: 'Your egg basket is full.' };
+      if (state.eggs.filter((e) => e.nest === null && !e.nurseryId).length >= TUNING.basketSize) return { ok: false, error: 'Your egg basket is full.' };
       state.creatures = state.creatures.filter((x) => x !== c);
       const egg = layEgg(state, rollEggTier(state, tier), 'shop', t);
       egg.tier = tier;

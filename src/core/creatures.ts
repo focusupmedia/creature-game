@@ -192,7 +192,7 @@ const BASE_KG: Partial<Record<SpeciesId, number>> = {
   glidemanta: 60, sandotter: 9, conchsnail: 0.7, dunefox: 2.5, aurorastag: 220, prismkoi: 5,
   cloudlamb: 30, kitewing: 1.5, zephyrwisp: 0.01, breezedrake: 120, jackalope: 3, kitsune: 8,
   flyingsnake: 1, pegasus: 480, griffin: 350, hippocampus: 260, thunderbird: 90, baku: 180,
-  sphinx: 260, unicorn: 450, moonrabbit: 2.5, tanuki: 7, shisa: 40, leviathan: 6000, worldturtle: 9000,
+  sphinx: 260, unicorn: 450, moonrabbit: 2.5, tanuki: 7, shisa: 40, leviathan: 6000, worldturtle: 9000, pumpkit: 3, wispstag: 180,
   sunmane: 190, embertiger: 160, mossyphant: 900, bamboopanda: 100, waddlefin: 12, duskbat: 0.2,
 };
 

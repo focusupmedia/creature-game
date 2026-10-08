@@ -1,3 +1,4 @@
+import { UPDATES } from '../content/updates';
 import { SPECIES, species } from '../content/species';
 import { DECOR, EGG_TIERS, EVENTS, FOODS, GIFTABLE_MUTATIONS, TOOLS, ITEMS, LEGENDARY, LEGENDARY_ORDER, LURES, MUTATIONS, SKY_ITEMS, SPOTS, spotOpen } from '../content/world';
 import { ISLANDS, ISLAND_ORDER, SIZE_NAMES, SIZE_PRICE } from '../content/islands';
@@ -15,6 +16,7 @@ import type { WelcomeGift } from '../core/away';
 import type { SaveSummary } from '../core/cloud';
 import { GAME_NAME } from './brand';
 import { halloweenEndsAt, inHalloween } from '../content/seasons';
+import { hasSpecial } from '../core/shop';
 import { PASS, PASS_TIERS, type PassReward, claimPassTier, describeReward, passClaimable, passState, passTier } from '../core/pass';
 import { eggIcon, eggName, tierEggIcon } from './eggLook';
 import { wandererDeals } from '../core/wanderers';
@@ -32,16 +34,19 @@ import { voiceOf } from '../render/voices';
 import { LOGIN_REWARDS, canClaimLogin, loginDay } from '../core/login';
 import { COLLECTIONS, claimableCollections } from '../core/collections';
 import { THEMES, contestReady, placeFor, rivals, scorePet, themeOf, weekEnds, weekOf } from '../core/contests';
-import { DECOR_CATS, DECOR_LIST } from '../content/decor';
+import { DECOR_CATS, DECOR_LIST, GADGET_IDS } from '../content/decor';
+/** Decorations for looks only (gadgets are sold on their own tab). */
+const CATALOG = DECOR_LIST.filter((d) => !GADGET_IDS.includes(d.id));
 import { WANDERERS } from '../content/wanderers';
 import { deleteQuirk, wipeQuirks } from '../core/quirks';
 import { MAX_LEVEL, STAR_LEVEL, levelOf, levelProgress, levelReward, starRank, type LevelUp } from '../core/levels';
+import { RUMOUR_REWARD, rumourText, todaysRumour } from '../core/rumours';
 import { DAILY_POOL, LASTING, claimable, claimableBy, lastingReward, refreshDailies } from '../core/quests';
 import { type AwayFind, canSell, collectorHere, findVisitor, isHungry, visitorThanks, nextSlotPrice, ripeFruit, sellPrice, sellWarning, storedCount } from '../core/care';
 import { rarityTag } from './rarity';
 
 type PetsSort = 'newest' | 'rarity' | 'name' | 'size' | 'hunger';
-type ShopTab = 'lure' | 'egg' | 'item' | 'decor' | 'shards' | 'food';
+type ShopTab = 'lure' | 'egg' | 'item' | 'decor' | 'gadget' | 'shards' | 'food';
 interface QueuedToast { text: string; kind: 'info' | 'discovery'; image?: string; ms: number; pri: number; at: number; action?: { label: string; run: () => void } }
 
 /** Which shop tab fixes "you're out of…" (null when the shop isn't the answer). */
@@ -52,6 +57,7 @@ export function shopTabFor(text: string): ShopTab | null {
   if (/lure/.test(t)) return 'lure';
   if (/pantry|food|snack|feast|feedbag|berr/.test(t)) return 'food';
   if (/spray|tonic|deleter|wiper|stone|mist|tracker|summon|item|charm|chart|telescope/.test(t)) return 'item';
+  if (/nest|nursery|totem|berry tree|gadget/.test(t)) return 'gadget';
   if (/decor/.test(t)) return 'decor';
   if (/egg/.test(t)) return 'egg';
   return null;
@@ -66,7 +72,8 @@ const HABITAT_ICON: Partial<Record<Trait | 'Any', string>> = { Grove: '🌳', Ti
 const MUTATION_TRAITS: Trait[] = ['Lunar', 'Storm', 'Giant', 'Prismatic', 'Starlit', 'Frost', 'Angelic', 'Infernal', 'Abyssal', 'Aurora', 'Misty'];
 
 /** What Mango says on each shop tab; the line changes with every new stock. */
-const MANGO_LINES: Record<'lure' | 'egg' | 'item' | 'decor' | 'shards' | 'food', string[]> = {
+const MANGO_LINES: Record<ShopTab, string[]> = {
+  gadget: ['Handy things that DO things!', 'Gadgets come and go. Grab them while you can!', 'Only a few of these at a time.'],
   egg: ['Ooh-ooh! Fresh eggs, still warm!', 'Who knows what is inside? Not me!', 'Shake it gently... I hear wings!'],
   lure: ['A good smell brings good friends.', 'This one makes my nose twitch!', 'Lures! Tastier than bananas. Almost.'],
   item: ['Curious things from far islands.', 'Do not ask where I found these.', 'Handle with care, keeper!'],
@@ -137,6 +144,7 @@ export class UI {
   private shopTab: ShopTab = 'egg';
   private coachDismissed = -1;
   seenShopRotation = 0;
+  private toldRotation = -1;
   private seenNotes = 0;
   readonly labels: WorldLabels;
 
@@ -270,6 +278,14 @@ export class UI {
     this.banner.className = `banner ${cls} ${text ? '' : 'hidden'}`;
 
     this.shopDot.classList.toggle('hidden', s.shop.rotation === this.seenShopRotation);
+    // a little heads-up when Mango restocks (and a bigger one when it's something rare)
+    if (s.shop.rotation !== this.toldRotation) {
+      if (this.toldRotation >= 0 && s.tutorial >= 6) {
+        if (hasSpecial(s.shop)) this.toast('✨ Mango has something special in stock! Come and see.', 'discovery', undefined, 5000, { priority: 2, action: { label: 'Shop', run: () => this.showShop() } });
+        else this.toast('🛒 Mango has new stock.', 'info', undefined, 2600, { action: { label: 'Shop', run: () => this.showShop() } });
+      }
+      this.toldRotation = s.shop.rotation;
+    }
     const ads = A.adsLeft(s, t);
     if (this.adsBadge.textContent !== String(ads)) this.adsBadge.textContent = String(ads);
     this.journalDot.classList.toggle('hidden', s.journal.notes.length === this.seenNotes && !claimableCollections(s).length);
@@ -317,6 +333,8 @@ export class UI {
 
   /** Something you tried didn't work: say why right away, with a shortcut to the shop when that's the fix. */
   fail(text: string): void {
+    // a soft "nope" sound for anything that doesn't work
+    this.game.audio.play('error');
     const tab = shopTabFor(text);
     this.toast(text, 'info', undefined, tab ? 4200 : 3200, { priority: 3, action: tab ? { label: 'Shop', run: () => this.openShopFor(tab) } : undefined });
   }
@@ -648,6 +666,7 @@ export class UI {
         case 'shop': how = `Hatched from a ${m.tier ? EGG_TIERS[m.tier]?.name ?? 'shop egg' : 'shop egg'} from Mango's shop.`; break;
         case 'dug': how = 'Hatched from an egg one of your creatures dug up.'; break;
         case 'level': how = `A gift for reaching keeper level ${m.level ?? '?'}.`; break;
+        case 'pass': how = 'A Halloween Pass exclusive.'; break;
         default: break;
       }
     } else if (sp.origin === 'reward') how = 'A gift for levelling up.';
@@ -1253,6 +1272,11 @@ export class UI {
         const st = [...picks.values()].filter((x) => x === 'store').length;
         confirm.disabled = n === 0;
         setText(confirm, n ? `Confirm (${st ? `store ${st}` : ''}${st && n - st ? ', ' : ''}${n - st ? `release ${n - st}` : ''})` : 'Pick who to store or release');
+        list.querySelectorAll<HTMLElement>('.item[data-row]').forEach((row) => {
+          const a = picks.get(row.dataset.row!);
+          row.classList.toggle('pick-store', a === 'store');
+          row.classList.toggle('pick-release', a === 'release');
+        });
         list.querySelectorAll<HTMLButtonElement>('button[data-id]').forEach((b) => {
           const on = picks.get(b.dataset.id!) === b.dataset.act;
           b.classList.toggle('secondary', !on);
@@ -1261,12 +1285,14 @@ export class UI {
       };
       const pickBtn = (c: Creature, act: 'store' | 'release', label: string, cls: string, disabled: boolean) =>
         h('button', { class: `btn small ${cls} secondary`, 'data-id': c.id, 'data-act': act, disabled, onClick: () => {
-          if (picks.get(c.id) === act) picks.delete(c.id);
+          const had = picks.get(c.id);
+          if (had === act) picks.delete(c.id);
+          else if (had) return this.fail(`${displayName(c)} is set to ${had === 'store' ? 'Store' : 'Release'}. Tap it again to undo first.`);
           else picks.set(c.id, act);
           refresh();
         } }, label);
       for (const c of here) {
-        list.append(h('div', { class: 'item' }, this.portrait(c, 'swatch-img'),
+        list.append(h('div', { class: 'item', 'data-row': c.id }, this.portrait(c, 'swatch-img'),
           h('div', { class: 'grow' }, h('div', { class: 'name' }, `${c.favorite ? '♥ ' : ''}${displayName(c)}`), h('div', { class: 'desc' }, rarityTag(species(c.species).rarity))),
           pickBtn(c, 'store', 'Store', '', room() <= 0),
           pickBtn(c, 'release', 'Release', 'danger', !!c.favorite)));
@@ -1359,6 +1385,13 @@ export class UI {
         return;
       }
       if (this.questTab === 'daily') {
+        const rumour = todaysRumour(s, this.game.now());
+        if (rumour) {
+          b.append(h('div', { class: `item rumour ${rumour.found ? 'done' : ''}` }, h('div', { class: 'grow' },
+            h('div', { class: 'name' }, rumour.found ? '🦎 Rumour solved! ✓' : '🦎 Today\'s rumour'),
+            h('div', { class: 'desc' }, rumourText(rumour.species)),
+            h('div', { class: 'desc' }, rich(rumour.found ? `You found the ${species(rumour.species).name}.` : `Find it today for {coin} ${RUMOUR_REWARD.coins} and {gem} ${RUMOUR_REWARD.shards}.`)))));
+        }
         const left = Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), new Date().getUTCDate() + 1) - Date.now();
         b.append(h('p', { class: 'muted' }, `New daily quests in ${fmtDuration(left)}.`));
         for (const q of s.quests.daily) {
@@ -1506,14 +1539,14 @@ export class UI {
     }, '🎁');
   }
 
-  // ---- Kindred Font
+  // ---- Kindred Fountain
 
   showFont(): void {
     const s = this.game.state;
     this.ensureHome();
     this.game.world.focus(FONT, 15, 'home');
     if (s.tutorial === 3) this.game.setTutorial(3.5);
-    this.openSheet('Kindred Font', 'Two creatures who share something can make an egg together.', (b) => {
+    this.openSheet('Kindred Fountain', 'Two creatures who share something can make an egg together.', (b) => {
       const [aId, bId] = this.fontPick;
       const a = s.creatures.find((c) => c.id === aId) ?? null;
       const bb = s.creatures.find((c) => c.id === bId) ?? null;
@@ -1528,7 +1561,7 @@ export class UI {
         b.append(h('div', { class: `verdict ${comp.ok ? 'ok' : 'no'}` },
           comp.ok ? h('div', null, 'They feel kindred. They share ', this.traitChips(comp.shared, comp.shared)) : comp.reason ?? ''));
         const sky = activeEvent(s, this.game.now());
-        if (comp.ok && sky) b.append(h('p', { class: 'muted' }, `The ${EVENTS[sky.kind].name.toLowerCase()} overhead makes the Font shimmer strangely...`));
+        if (comp.ok && sky) b.append(h('p', { class: 'muted' }, `The ${EVENTS[sky.kind].name.toLowerCase()} overhead makes the Fountain shimmer strangely...`));
         b.append(h('button', {
           class: 'btn wide', style: 'margin-top:12px', disabled: !comp.ok || free === 0,
           onClick: () => this.game.combine(a.id, bb.id),
@@ -1543,7 +1576,7 @@ export class UI {
   private pickForFont(i: 0 | 1): void {
     const s = this.game.state;
     const other = s.creatures.find((c) => c.id === this.fontPick[1 - i]) ?? null;
-    this.openSheet('Choose a creature', other ? `Pairing with ${displayName(other)}` : 'Who will visit the Font?', (b) => {
+    this.openSheet('Choose a creature', other ? `Pairing with ${displayName(other)}` : 'Who will visit the Fountain?', (b) => {
       const grid = h('div', { class: 'grid' });
       for (const c of s.creatures.filter((x) => !x.stored)) {
         const comp = other ? compatibility(other, c) : { ok: true, shared: [] as Trait[] };
@@ -1569,9 +1602,9 @@ export class UI {
     const egg = nestOccupant(s, id);
     if (!egg) {
       this.openSheet('Empty nest', `On ${ISLANDS[island].name} · ready for an egg`, (b) => {
-        b.append(h('p', null, 'Eggs you breed settle in a free nest on the world you\'re on. Breed at the Kindred Font, or drop one pet onto another.'));
+        b.append(h('p', null, 'Eggs you breed settle in a free nest on the world you\'re on. Breed at the Kindred Fountain, or drop one pet onto another.'));
         b.append(h('div', { class: 'btns' },
-          h('button', { class: 'btn', onClick: () => this.showFont() }, '⛲ Kindred Font'),
+          h('button', { class: 'btn', onClick: () => this.showFont() }, '⛲ Kindred Fountain'),
           h('button', { class: 'btn secondary', onClick: () => this.beginPlacement('nest', id) }, '✋ Move'),
           h('button', { class: 'btn secondary', onClick: () => {
             const r = A.storeDecor(s, id);
@@ -1651,7 +1684,7 @@ export class UI {
   showBasket(): void {
     this.ensureHome();
     const s = this.game.state;
-    const waiting = s.eggs.filter((e) => e.nest === null);
+    const waiting = s.eggs.filter((e) => e.nest === null && !e.nurseryId);
     this.openSheet('Egg basket', `${waiting.length} of ${TUNING.basketSize} waiting`, (b) => {
       if (!waiting.length) b.append(h('p', { class: 'muted' }, 'Eggs from the traveling merchant wait here until a nest is free.'));
       for (const e of waiting) {
@@ -1677,7 +1710,7 @@ export class UI {
       const line = MANGO_LINES[this.shopTab][s.shop.rotation % MANGO_LINES[this.shopTab].length];
       b.append(h('div', { class: 'shopkeeper' }, I.icon(I.MONKEY, 'icon mango'), h('div', { class: 'speech' }, line)));
       const tabs: [typeof this.shopTab, string, string][] = [
-        ['egg', 'EGGS', I.CREATE], ['lure', 'LURES', I.LURE], ['food', 'FOOD', I.FOOD], ['item', 'ITEMS', I.POTION], ['decor', 'DECOR', I.DECOR], ['shards', 'BANK', I.GEM],
+        ['egg', 'EGGS', I.CREATE], ['lure', 'LURES', I.LURE], ['food', 'FOOD', I.FOOD], ['item', 'ITEMS', I.POTION], ['gadget', 'GADGETS', I.SUMMON], ['decor', 'DECOR', I.DECOR], ['shards', 'BANK', I.GEM],
       ];
       b.append(h('div', { class: 'shop-tabs' }, ...tabs.map(([id, label, icon]) =>
         h('button', { class: `shop-tab ${this.shopTab === id ? 'on' : ''}`, 'aria-label': label, onClick: () => { this.game.audio.play('tap'); this.shopTab = id; this.rerender(); } },
@@ -1736,8 +1769,8 @@ export class UI {
           h('button', { class: 'btn small secondary', disabled: !(s.food.feedbag ?? 0), onClick: () => g.hangBag(here) }, `🎒 Hang a feedbag on ${ISLANDS[here].name} (${s.feedbags[here] ?? 0} left)`)));
         b.append(h('p', { class: 'muted' }, 'Feed a creature from its card. Berry Trees grow free berries: plant one from the list below.'));
       }
-      const offers = s.shop.offers.filter((x) => x.kind === this.shopTab || (this.shopTab === 'item' && (x.kind === 'tool' || x.kind === 'sky'))
-        || (this.shopTab === 'food' && x.kind === 'decor' && x.ref === 'fruittree')).filter((x) => !(this.shopTab === 'decor' && x.ref === 'fruittree'));
+      const offers = s.shop.offers.filter((x) => x.kind === this.shopTab || (this.shopTab === 'item' && (x.kind === 'tool' || x.kind === 'sky')) || (this.shopTab === 'gadget' && x.kind === 'decor'))
+        .filter((x) => (x.kind === 'decor') === (this.shopTab === 'gadget'));
       if (!offers.length) list.append(h('p', { class: 'muted' }, 'Nothing of this kind today. Check back when new stock arrives!'));
       // special stock (Epic, Legendary, Mythical) goes first, with a sparkle
       const gradeOf = (o: (typeof offers)[number]) => (o.kind === 'egg' ? EGG_TIERS[o.ref]?.grade : o.kind === 'lure' ? LURES[o.ref]?.grade : undefined);
@@ -1780,7 +1813,7 @@ export class UI {
         ));
       }
       // nests are always in stock (eight more in all), and go to your Decor satchel to place on any world
-      if (this.shopTab === 'egg') {
+      if (this.shopTab === 'gadget') {
         const price = A.nestPrice(s);
         list.append(h('div', { class: 'item' },
           h('div', { class: 'swatch' }, '🪺'),
@@ -1809,7 +1842,7 @@ export class UI {
     b.append(h('div', { class: 'world-filter' }, chip('all', 'All'), ...DECOR_CATS.map((c) => chip(c.id, `${c.icon} ${c.name}`))));
     const sorts = [['level', 'Unlock level'], ['price', 'Price'], ['name', 'Name']] as const;
     const cur = sorts.find(([k]) => k === this.decorSort) ?? sorts[0];
-    b.append(h('div', { class: 'sort-row' }, h('span', { class: 'muted' }, `${DECOR_LIST.filter((d) => lvl >= (d.level ?? 1)).length} of ${DECOR_LIST.length} unlocked`),
+    b.append(h('div', { class: 'sort-row' }, h('span', { class: 'muted' }, `${CATALOG.filter((d) => lvl >= (d.level ?? 1)).length} of ${CATALOG.length} unlocked`),
       h('button', { class: 'sort-btn', onClick: () => { this.decorSort = sorts[(sorts.indexOf(cur) + 1) % sorts.length][0]; this.rerender(); } }, `Sort: ${cur[1]} ▾`)));
     const cmp: Record<string, (a: DecorDef, b2: DecorDef) => number> = {
       level: (a, b2) => (a.level ?? 1) - (b2.level ?? 1) || a.price - b2.price,
@@ -1818,7 +1851,7 @@ export class UI {
       name: (a, b2) => a.name.localeCompare(b2.name),
     };
     const list = h('div', { class: 'list decor-list' });
-    for (const d of DECOR_LIST.filter((x) => this.decorCat === 'all' || x.cat === this.decorCat).sort(cmp[this.decorSort])) {
+    for (const d of CATALOG.filter((x) => this.decorCat === 'all' || x.cat === this.decorCat).sort(cmp[this.decorSort])) {
       const locked = lvl < (d.level ?? 1);
       const owned = s.decorOwned[d.id] ?? 0;
       const placed = s.placedDecor.filter((p) => p.decor === d.id).length;
@@ -1949,12 +1982,30 @@ export class UI {
     const s = this.game.state;
     const sp = species(id);
     const entry = s.journal.species[id];
+    const ways = s.journal.howTo?.[id] ?? [];
     this.modal((m, close) => {
+      const body = h('div');
+      const tab = (key: 'about' | 'how', label: string) => h('button', { class: key === 'about' ? 'on' : '', onClick: (e: Event) => {
+        m.querySelectorAll('.tabs button').forEach((b) => b.classList.toggle('on', b === e.currentTarget));
+        show(key);
+      } }, label);
+      const show = (key: 'about' | 'how') => {
+        body.replaceChildren();
+        if (key === 'about') {
+          body.append(h('p', null, entry ? sp.blurb : `“${sp.hint}”`),
+            entry ? h('p', { class: 'muted' }, `First seen ${this.when(entry.firstAt)}`) : '');
+        } else if (!ways.length) {
+          body.append(h('p', { class: 'muted' }, sp.origin === 'reward' && entry ? sp.hint : entry ? 'Get another one yourself to write down how.' : 'Find or breed one to write down how.'));
+        } else {
+          body.append(h('div', { class: 'list' }, ...ways.map((w) => h('div', { class: 'item' }, h('div', { class: 'grow' }, h('div', { class: 'name' }, w))))));
+        }
+      };
+      show('about');
       m.append(
         h('div', { class: 'row' }, img(this.game.world.portraits.get(id, [], !entry), 'portrait big'),
           h('div', { class: 'col' }, h('h2', null, entry ? sp.name : '???'), entry ? this.traitChips(sp.traits) : h('span', { class: 'muted' }, sp.origin === 'hybrid' ? 'Cannot be lured. Must be created.' : 'Not yet seen.'))),
-        h('p', null, entry ? sp.blurb : `“${sp.hint}”`),
-        entry ? h('p', { class: 'muted' }, `First seen ${this.when(entry.firstAt)}`) : '',
+        h('div', { class: 'tabs' }, tab('about', '📖 About'), tab('how', `🔍 How to get${ways.length ? ` (${ways.length})` : ''}`)),
+        body,
         h('button', { class: 'btn wide', onClick: close }, 'Close'),
       );
     });
@@ -1965,15 +2016,21 @@ export class UI {
   showDecor(): void {
     const s = this.game.state;
     this.openSheet('Decorate', 'Make the sanctuary yours.', (b) => {
-      const owned = Object.entries(s.decorOwned).filter(([, n]) => n > 0);
-      if (!owned.length) b.append(h('p', { class: 'muted' }, 'You have no decorations to place. Mango sells nearly a hundred in his DECOR tab, and more unlock as you level up.'));
-      const list = h('div', { class: 'list' });
-      for (const [id, n] of owned) {
-        list.append(h('div', { class: 'item' }, img(this.game.world.portraits.decor(id), 'swatch-img'),
-          h('div', { class: 'grow' }, h('div', { class: 'name' }, `${DECOR[id].name} ×${n}`), h('div', { class: 'desc' }, DECOR[id].blurb)),
-          h('button', { class: 'btn small', onClick: () => this.beginPlacement(id) }, 'Place')));
+      const owned = Object.entries(s.decorOwned).filter(([id, n]) => n > 0 && DECOR[id]);
+      if (!owned.length) b.append(h('p', { class: 'muted' }, 'Nothing to place yet. Mango sells decorations on the DECOR tab and gadgets on the GADGETS tab.'));
+      // gadgets (things that do something) first, then decorations
+      for (const [title, keep] of [['✨ Gadgets', true], ['🌿 Decorations', false]] as [string, boolean][]) {
+        const rows = owned.filter(([id]) => GADGET_IDS.includes(id) === keep);
+        if (!rows.length) continue;
+        b.append(h('div', { class: 'section-title' }, title));
+        const list = h('div', { class: 'list' });
+        for (const [id, n] of rows) {
+          list.append(h('div', { class: 'item' }, img(this.game.world.portraits.decor(id), 'swatch-img'),
+            h('div', { class: 'grow' }, h('div', { class: 'name' }, `${DECOR[id].name} ×${n}`), h('div', { class: 'desc' }, DECOR[id].blurb)),
+            h('button', { class: 'btn small', onClick: () => this.beginPlacement(id) }, 'Place')));
+        }
+        b.append(list);
       }
-      b.append(list);
       b.append(h('p', { class: 'muted' }, 'Tap a placed decoration to put it back in your satchel. Tap a scenery tree to chop it down and make room.'));
       b.append(h('button', { class: 'btn secondary wide', style: 'margin-top:12px', onClick: () => { this.shopTab = 'decor'; this.showShop(); } }, 'Browse the decor catalog'));
     }, I.DECOR);
@@ -2030,9 +2087,11 @@ export class UI {
     if (!d) return;
     const island = d.island ?? 'home';
     const pair = d.pair?.map((pid) => s.creatures.find((c) => c.id === pid)).filter((c): c is Creature => !!c) ?? [];
+    const ready = s.eggs.find((e) => e.nurseryId === id);
+    if (ready) b.append(h('button', { class: 'btn wide', style: 'margin-bottom:8px', onClick: () => g.hatch(ready.id) }, `🐣 Hatch the ${eggName(ready)}`));
     if (pair.length === 2) {
       b.append(h('div', { class: 'slots' }, ...pair.map((c) => h('div', { class: 'slot filled' }, this.portrait(c, ''), displayName(c)))));
-      b.append(h('p', { class: 'muted' }, `Next egg in ${fmtDuration(Math.max(0, (d.nextAt ?? 0) - g.now()))}, if a nest is free. They never go hungry in here.`));
+      b.append(h('p', { class: 'muted' }, ready ? 'Hatch this egg and they\'ll make the next one.' : `Next egg in ${fmtDuration(Math.max(0, (d.nextAt ?? 0) - g.now()))}. They never go hungry in here.`));
       b.append(h('button', { class: 'btn secondary wide', style: 'margin-bottom:8px', onClick: () => { A.setNurseryPair(s, id, null, g.now()); g.saveSoon(); this.rerender(); } }, 'Take them out'));
       return;
     }
@@ -2133,7 +2192,9 @@ export class UI {
       b.append(h('div', { class: 'item' }, h('div', { class: 'grow' }, h('div', { class: 'name' }, 'Reminders'),
         h('div', { class: 'desc' }, 'At most two gentle notifications while you\'re away (egg ready, rare visitor, pet home, the Collector). Never at night.')),
         h('button', { class: 'btn small secondary', onClick: () => { g.setReminders(!g.remindersOn); this.rerender(); } }, g.remindersOn ? 'On' : 'Off')));
-      b.append(h('button', { class: 'btn secondary small', onClick: () => this.showControls() }, '👆 How to get around'));
+      b.append(h('div', { class: 'btns' },
+        h('button', { class: 'btn secondary small', onClick: () => this.showControls() }, '👆 How to get around'),
+        h('button', { class: 'btn secondary small', onClick: () => this.showUpdates() }, '📜 What\'s new')));
       b.append(h('div', { class: 'section-title' }, 'Playtest tools'));
       b.append(h('p', { class: 'muted' }, 'These exist to test the prototype quickly and will not ship.'));
       if (g.cloudStatus?.service === 'Test cloud' && g.cloudStatus.signedIn) {
@@ -2156,6 +2217,19 @@ export class UI {
             h('button', { class: 'btn danger', onClick: () => g.reset() }, 'Erase & restart')));
       }) }, 'Start over'));
     }, '⚙️');
+  }
+
+  /** Settings → What's new: the update log. */
+  showUpdates(): void {
+    this.modal((m, close) => {
+      m.append(h('h2', null, 'What\'s new'));
+      const list = h('div', { class: 'updates' });
+      for (const u of UPDATES) {
+        list.append(h('div', { class: 'section-title' }, `Update ${u.version} · ${u.date}`),
+          h('ul', null, ...u.lines.map((l) => h('li', null, l))));
+      }
+      m.append(list, h('button', { class: 'btn wide', onClick: close }, 'Close'));
+    });
   }
 
   // ------------------------------------------------------------------ modal
@@ -2252,6 +2326,14 @@ export class UI {
     this.toasts.replaceChildren();
     this.coachEl.classList.add('hidden');
     this.dock.classList.add('hidden');
+    let done = false;
+    const finish = () => {
+      if (done) return;
+      done = true;
+      this.revealHost.replaceChildren();
+      this.dock.classList.remove('hidden');
+      onDone();
+    };
     return {
       phase: (p: string) => {
         if (p === 'burst') prompt.remove();
@@ -2268,12 +2350,13 @@ export class UI {
           h('p', null, sp.blurb),
           isOutlier(creature.size) ? h('p', { style: 'color:#d0602a;font-weight:700' }, creature.size > 1 ? '✦ A Colossal one! It will grow far bigger than any other.' : '✦ A Teeny one! It will stay tiny forever.') : null,
           muts.some((m) => newMuts.includes(m)) ? h('p', { style: 'color:#6a4fd6;font-weight:600' }, `First ${muts.filter((m) => newMuts.includes(m)).map((m) => MUTATIONS[m].name).join(' & ')} creature you've ever seen!`) : null,
-          h('button', { class: 'btn wide', style: 'margin-top:12px', onClick: () => {
-            this.revealHost.replaceChildren();
-            this.dock.classList.remove('hidden');
-            onDone();
-          } }, 'Welcome home'),
+          h('button', { class: 'btn wide', style: 'margin-top:12px', onClick: (e: Event) => { e.stopPropagation(); finish(); } }, 'Welcome home'),
         ));
+        // after the spin, a tap anywhere says hello
+        setTimeout(() => {
+          ui.style.pointerEvents = 'auto';
+          ui.addEventListener('click', finish);
+        }, 1300);
       },
     };
   }
@@ -2396,14 +2479,14 @@ export class UI {
     const step = s.tutorial;
     let text = '';
     switch (step) {
-      case 0: text = 'Welcome, keeper. This sanctuary is yours now. Tap the glowing ring in the Mossy Glade to set out a lure.'; break;
-      case 1: text = 'Lures draw visitors. Watch for a while, or come back later. The sanctuary keeps living without you.'; break;
-      case 2: text = 'Someone arrived at your lure! Tap the visitor with the ! to say hello, then Keep it or Send it on its way.'; break;
-      case 3: text = 'Creatures who share a trait can make an egg together. Tap the stone Font, or the ⛲ Create button.'; break;
-      case 3.5: text = 'Choose two creatures. Look for the 💚. Kindred creatures share at least one trait.'; break;
+      case 0: text = 'Welcome! Tap the glowing ring to set out a lure.'; break;
+      case 1: text = 'Now wait a moment. Visitors are on their way!'; break;
+      case 2: text = 'A visitor! Tap the ! and Keep it.'; break;
+      case 3: text = 'Two pets that share a type can make an egg. Tap ⛲ Create.'; break;
+      case 3.5: text = 'Pick two pets. A 💚 means they match.'; break;
       case 4: {
         const ready = s.eggs.some((e) => e.progressMs >= e.incubationMs);
-        text = ready ? 'Your egg is ready! Tap its nest to hatch it.' : 'Your egg is warming in a nest. Eggs hatch over time, and they feel the weather too.';
+        text = ready ? 'Your egg is ready! Tap it to hatch.' : 'Your egg is warming. It hatches soon.';
         break;
       }
       default:
@@ -2414,6 +2497,8 @@ export class UI {
     // never talk over a pop-up (like the first-time controls card)
     if (!text || this.coachDismissed === step || this.sheetOpen && step !== 3.5 && step !== 4 || this.game.world.revealing || this.modalHost.childElementCount > 0) {
       this.coachEl.classList.add('hidden');
+      this.coachTarget?.classList.remove('coach-target');
+      this.coachTarget = null;
       return;
     }
     if (this.coachEl.dataset.step !== String(step) || this.coachEl.classList.contains('hidden')) {
@@ -2449,21 +2534,21 @@ export class UI {
     const dock = (label: string) => () => [...this.dock.querySelectorAll<HTMLElement>('button')].find((b) => b.textContent?.includes(label)) ?? null;
     const q = (sel: string) => () => document.querySelector<HTMLElement>(sel);
     const steps = [
-      { text: 'Wonderful, your first hatchling! Let me show you around. Tap Next for each tip, or Skip tour any time.', target: () => null },
-      { text: 'LURES: set a lure on a glowing ring to draw visitors. Different lures and places bring different creatures, and day and night matter too.', target: dock('LURES') },
-      { text: 'CREATE: pick two pets that share a type to make an egg. You can also press and hold a pet and drop it onto another. Eggs warm in the nests on the world you\'re on.', target: dock('CREATE') },
-      { text: 'EVENT: the sky changes on its own every few minutes. Storms, eclipses and rarer skies can change your pets and eggs with mutations. Watch an ad here to bring one now.', target: q('.hud-tile[aria-label="Watch an ad to summon a sky event"]') },
-      { text: 'Your keeper level: everything you do earns stars. Tap it to see the rewards at every level, including special creatures you can only get there.', target: q('.level-badge') },
-      { text: 'QUESTS: daily and lasting goals pay coins and Starshards. A ! means something is ready to claim. Daily gifts and the weekly pet contest are in here too.', target: q('.hud-tile.quests') },
-      { text: 'WORLDS: new worlds open as you level up, each with its own creatures. Tap Worlds to travel, or drag the globe toward a neighbour. A ! means something is waiting there.', target: q('.hud-tile.islands') },
-      { text: 'SHOP: Mango sells lures, eggs, food, sprays, decorations and more nests. The stock changes often, so look out for Legendary and Mythical eggs!', target: dock('SHOP') },
-      { text: 'PETS: feed, store, explore and sell your pets. Press and hold one to pick several. The Market tab has buyers who pay extra for exactly what they want.', target: dock('PETS') },
-      { text: 'Selling: every world has a Sell booth. The travelling Collector (the top hat) pays double while he visits. Legendary pets always ask before they go.', target: () => null },
-      { text: 'Visitors: wanderers drop by now and then. Tap them for gifts and deals. If a Goblin turns up, shoo it before it pinches something!', target: () => null },
-      { text: 'DECOR: decorate your worlds. Press and hold anything you placed (nests too) to move it or put it away. Some pieces, like the Nursery and totems, do special things.', target: dock('DECOR') },
-      { text: 'JOURNAL: every creature, mutation and trait you discover. Finish a page for a big reward. There are many more pets and worlds to find. Have fun!', target: dock('JOURNAL') },
+      { text: 'Your first baby! Here\'s a quick tour.', target: () => null },
+      { text: 'LURES bring new visitors.', target: dock('LURES') },
+      { text: 'CREATE makes eggs from two pets.', target: dock('CREATE') },
+      { text: 'EVENT skies can change pets and eggs.', target: q('.hud-tile[aria-label="Watch an ad to summon a sky event"]') },
+      { text: 'Your level. Tap it to see rewards.', target: q('.level-badge') },
+      { text: 'QUESTS give prizes, plus a daily rumour!', target: q('.hud-tile.quests') },
+      { text: 'WORLDS: travel to new islands.', target: q('.hud-tile.islands') },
+      { text: 'SHOP: lures, eggs, food and more.', target: dock('SHOP') },
+      { text: 'PETS: feed, store and sell. Buyers wait in Market.', target: dock('PETS') },
+      { text: 'Pet your pets! Friends bring gifts. Strangers may not listen.', target: () => null },
+      { text: 'Visitors drop by with deals. Shoo the Goblin!', target: () => null },
+      { text: 'DECOR: make it yours. Hold to move.', target: dock('DECOR') },
+      { text: 'JOURNAL: everything you find. Have fun!', target: dock('JOURNAL') },
     ];
-    if (inHalloween(this.game.now())) steps.splice(6, 0, { text: 'PASS: it\'s Halloween! Spooky skies come every hour and leave rare marks. Everything you do earns Candy for the Halloween Pass rewards.', target: () => (this.passTile.classList.contains('hidden') ? null : this.passTile) });
+    if (inHalloween(this.game.now())) steps.splice(6, 0, { text: 'PASS: Halloween rewards. Play to earn Candy!', target: () => (this.passTile.classList.contains('hidden') ? null : this.passTile) });
     return steps;
   }
 

@@ -8,7 +8,7 @@ import { TUNING } from '../content/tuning';
 import { makeCreature } from './creatures';
 import { recordSpecies } from './journal';
 import { ISLANDS, ISLAND_ORDER, SIZE_CAPACITY } from '../content/islands';
-import type { GameState, IslandId, SpeciesId } from './types';
+import type { CreatureOrigin, GameState, IslandId, SpeciesId } from './types';
 
 export const MAX_LEVEL = 100;
 /** Past this level you're a Star Keeper and your badge changes. */
@@ -75,11 +75,16 @@ export interface LevelUp extends LevelReward {
 /** Add XP; applies the rewards of any levels reached and returns them. */
 /** A level-only creature joins: on the first world with room, or resting in storage if every world is full. */
 function giveLevelCreature(state: GameState, sp: SpeciesId, level: number, t: number): string {
+  return giveGiftCreature(state, sp, `A gift for reaching keeper level ${level}.`, { how: 'level', level }, t);
+}
+
+/** A gift creature joins: on the first world with room, or resting in storage if every world is full. */
+export function giveGiftCreature(state: GameState, sp: SpeciesId, note: string, met: CreatureOrigin, t: number): string {
   const owned = ISLAND_ORDER.filter((id) => state.islands[id]?.owned);
   const room = (id: IslandId) => state.creatures.filter((c) => c.island === id && !c.stored).length
     < (SIZE_CAPACITY[state.islands[id]?.size ?? 0] ?? 10) + (ISLANDS[id]?.capacityBonus ?? 0);
   const island = owned.find(room);
-  const c = makeCreature(state, sp, [], t, `A gift for reaching keeper level ${level}.`, { island: island ?? 'home', met: { how: 'level', level } });
+  const c = makeCreature(state, sp, [], t, note, { island: island ?? 'home', met });
   if (!island) {
     c.stored = true;
     c.storedAt = t;

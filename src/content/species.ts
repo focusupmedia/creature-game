@@ -509,6 +509,18 @@ export const SPECIES: SpeciesDef[] = [
     blurb: 'Carries a whole tiny island on its back, trees and all. Very old, very wise, very slow.',
     hint: 'A gift for reaching keeper level 100.', eggColors: ['#5fa35a', '#c8b88a'],
   },
+  {
+    id: 'pumpkit', name: 'Pumpkit', traits: ['Mammal', 'Grove', 'Spirit'], rarity: 'legendary',
+    activity: 'night', movement: 'walk', origin: 'reward',
+    blurb: 'A fox kit that wears a pumpkin hat with a candle inside. It lights the way home on dark nights.',
+    hint: 'Only from the Halloween Pass.', eggColors: ['#ff8a2a', '#3a2a4a'],
+  },
+  {
+    id: 'wispstag', name: 'Wisp Stag', traits: ['Mammal', 'Spirit', 'Mystic'], rarity: 'mythical',
+    activity: 'night', movement: 'walk', origin: 'reward',
+    blurb: 'A see-through stag with little ghost lights hanging from its antlers. Every wisp is a happy memory.',
+    hint: 'Only from the last tier of the Halloween Pass.', eggColors: ['#c8e8ff', '#a87aff'],
+  },
 ];
 
 export const SPECIES_BY_ID: Record<string, SpeciesDef> = Object.fromEntries(SPECIES.map((s) => [s.id, s]));

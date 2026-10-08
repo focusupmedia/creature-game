@@ -65,7 +65,7 @@ export function claimExpedition(state: GameState, creatureId: string, t: number)
   const coins = Math.round(rng.int(def.coins[0], def.coins[1]) * boost);
   const shards = rng.chance(def.shardChance * (hasQuirk(c, 'lucky') ? 1.5 : 1)) ? rng.int(def.shards[0], def.shards[1]) : 0;
   const item = rng.chance(def.itemChance) ? rng.pick(def.items.filter((i) => ITEMS[i])) : undefined;
-  const basketRoom = state.eggs.filter((x) => x.nest === null).length < TUNING.basketSize;
+  const basketRoom = state.eggs.filter((x) => x.nest === null && !x.nurseryId).length < TUNING.basketSize;
   const egg = basketRoom && rng.chance(def.eggChance);
   state.glimmer += coins;
   state.shards += shards;

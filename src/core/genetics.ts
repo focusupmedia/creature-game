@@ -112,7 +112,7 @@ export function combine(a: Creature, b: Creature, rng: StateRng, sky: EventKind 
 
   // 1b. Legendary and mythical parents rarely pass on their own kind: they stay special.
   const rarest = (id: SpeciesId) => ['legendary', 'mythical'].includes(species(id).rarity);
-  if (!chosen && !relative && rarest(sp) && rng.chance(TUNING.rareCopyDamp)) {
+  if (!chosen && !relative && rarest(sp) && rng.chance(species(sp).rarity === 'mythical' ? TUNING.mythicCopyDamp : TUNING.rareCopyDamp)) {
     const other = sp === a.species ? b.species : a.species;
     const rel = relatives(a, b);
     if (!rarest(other)) sp = other;

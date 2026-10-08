@@ -248,7 +248,7 @@ export interface Visitor {
 }
 
 export interface CreatureOrigin {
-  how: 'starter' | 'lure' | 'bred' | 'shop' | 'dug' | 'level' | 'island' | 'other';
+  how: 'starter' | 'lure' | 'bred' | 'shop' | 'dug' | 'level' | 'island' | 'pass' | 'other';
   /** What was happening in the sky when you met. */
   sky?: EventKind | LegendaryKind | null;
   lure?: string;
@@ -286,6 +286,10 @@ export interface Egg {
   parentQuirks?: QuirkId[][];
   /** Egg shop tier it came from, if bought. */
   tier?: string;
+  /** The sky when the egg was made (for the Journal's "how to find"). */
+  laySky?: EventKind;
+  /** Made by a Nursery: waits beside it, ready to hatch. */
+  nurseryId?: string;
 }
 
 export interface ActiveLure {
@@ -386,6 +390,8 @@ export interface JournalState {
   resonances: Record<string, number>;
   notes: { t: number; key: string; text: string }[];
   eventsSeen: Partial<Record<EventKind, number>>;
+  /** How you've found each creature: breeding pairs and lures (shown in the Journal). */
+  howTo?: Record<SpeciesId, string[]>;
   /** Behaviour traits you've seen on your own pets (first time seen). */
   quirks?: Partial<Record<QuirkId, number>>;
 }
@@ -411,6 +417,8 @@ export interface GameState {
   quests: { day: string; daily: { id: string; progress: number; claimed: boolean }[]; tiers: Record<string, number> };
   /** Lifetime counts that quests read. */
   questStats: Record<string, number>;
+  /** Today's whisper about an undiscovered creature (core/rumours.ts). */
+  rumour?: { day: string; species: SpeciesId; found: boolean; told?: boolean };
   /** Pantry: fruit, snack, feast, feedbag. */
   food: Record<string, number>;
   /** Feedbag portions hanging on each island; they feed hungry creatures while you're away. */

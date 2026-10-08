@@ -2787,6 +2787,46 @@ Object.assign(BUILDERS, {
   },
 } satisfies Record<string, Builder>);
 
+// ---------------------------------------------------------------- Halloween Pass creatures
+
+Object.assign(PALETTES, {
+  pumpkit: { main: '#3a2e3a', second: '#ff9a2a', accent: '#1a1420', belly: '#f2e4d0' },
+  wispstag: { main: '#d8ecff', second: '#a87aff', accent: '#b8fff0', belly: '#f4f8ff' },
+});
+Object.assign(MYTHIC_GLOW, { wispstag: '#b8a0ff' });
+
+Object.assign(BUILDERS, {
+  pumpkit: (k, P, m) => {
+    BUILDERS.fernkit(k, P, m);
+    const b = m.body;
+    // a little jack-o'-lantern hat with a warm glow inside
+    const hat = new THREE.Group();
+    hat.position.set(0, 0.84, 0.3);
+    hat.scale.setScalar(1.7);
+    for (let i = 0; i < 5; i++) {
+      const a = (i / 5) * Math.PI * 2;
+      hat.add(k.ball(0.075, '#ff8a2a', [Math.cos(a) * 0.05, 0, Math.sin(a) * 0.05], [0.8, 0.85, 0.8]));
+    }
+    hat.add(k.mesh(G.cyl, '#5a8a3a', [0.015, 0.06, 0.015], [0, 0.09, 0]));
+    for (const s of [1, -1]) hat.add(k.ball(0.016, '#ffe14d', [s * 0.035, 0.015, 0.1], [1, 1, 0.4], '#ffe14d'));
+    hat.add(k.ball(0.022, '#ffe14d', [0, -0.03, 0.11], [1.6, 0.6, 0.4], '#ffe14d'));
+    b.add(hat);
+    const glow = glowSprite('#ffb84a', 0.8, 0.4);
+    glow.position.set(0, 0.86, 0.32);
+    b.add(glow);
+  },
+  wispstag: (k, P, m) => {
+    BUILDERS.aurorastag(k, P, m);
+    // ghost lights bobbing around it
+    for (let i = 0; i < 4; i++) {
+      const a = (i / 4) * Math.PI * 2;
+      const w = glowSprite(i % 2 ? '#b8fff0' : '#c8a8ff', 0.35, 0.8);
+      w.position.set(Math.cos(a) * 0.55, 1.1 + (i % 2) * 0.2, Math.sin(a) * 0.55);
+      m.body.add(w);
+    }
+  },
+} satisfies Record<string, Builder>);
+
 // ---------------------------------------------------------------- Cloud Isle creatures
 
 Object.assign(PALETTES, {

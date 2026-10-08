@@ -209,7 +209,9 @@ export class Reveal {
       const pop = Math.min(1, this.time * 3);
       const s = this.model.baseScale * 1.4 * (0.6 + 0.4 * (1 + Math.sin(pop * Math.PI) * 0.25));
       this.model.root.scale.setScalar(s);
-      this.model.root.rotation.y = Math.sin(this.time * 0.8) * 0.6;
+      // a quick spin that slows to face the player, then a gentle sway
+      const spin = Math.min(1, this.time / 1.3);
+      this.model.root.rotation.y = spin < 1 ? (1 - (1 - spin) ** 3) * Math.PI * 4 : Math.sin((this.time - 1.3) * 0.8) * 0.15;
       this.model.root.position.y = (this.model.movement === 'fly' || this.model.movement === 'float') ? 0.6 + Math.sin(this.time * 2) * 0.1 : 0;
       this.model.wings.forEach((w, i) => (w.rotation.z = Math.sin(this.time * 10) * 0.5 * (i % 2 ? -1 : 1)));
       for (const g of this.model.glows) (g.material as THREE.SpriteMaterial).opacity = 0.5;

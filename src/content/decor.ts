@@ -104,7 +104,7 @@ const COIN_ROWS: Row[] = [
   ['slide', 'Little Slide', 'fun', 280, 10, 0.9, 'A tiny slide for tiny friends.'],
   ['windmill', 'Windmill', 'fun', 500, 17, 0.8, 'Its sails turn slowly all day long.'],
   ['airballoon', 'Hot Air Balloon', 'fun', 900, 25, 0.8, 'Tethered, just in case.'],
-  ['nursery', 'Nursery', 'cozy', 2500, 10, 0.9, 'Leave two pets here and they make an egg every few hours, even while you\'re away. Needs a free nest.'],
+  ['nursery', 'Nursery', 'cozy', 2500, 10, 0.9, 'Leave two pets here and they make an egg every few hours, even while you\'re away. Max 2.'],
 ];
 
 const SHARD_ROWS: Row[] = [
@@ -134,3 +134,8 @@ const toDef = (currency: 'glimmer' | 'shards') => ([id, name, cat, price, level,
   ({ id, name, blurb, price, currency, rotating: false, cat, level, r });
 
 export const DECOR_LIST: DecorDef[] = [...COIN_ROWS.map(toDef('glimmer')), ...SHARD_ROWS.map(toDef('shards'))];
+
+/** Decorations that do something. They're sold on Mango's GADGETS tab (random stock), not the catalog. */
+export const GADGET_IDS = ['fruittree', 'nursery', 'totemrare', 'totemepic', 'totemlegend', 'nest'];
+/** How many of a gadget you can own at once (placed + in the satchel). */
+export const GADGET_LIMIT: Record<string, number> = { nursery: 2 };

@@ -8,7 +8,7 @@ import { DIG_KINDS, EVENTS, LURES, MUTATIONS, SPOTS, spotOpen } from '../content
 import { TUNING } from '../content/tuning';
 import { ISLAND_ORDER, ISLANDS, SIZE_CAPACITY, islandGeo, randomLand } from '../content/islands';
 import { addMutation, creatureTraits, displayName, growth, makeCreature, newId } from './creatures';
-import { addNote, recordMutation, recordSpecies } from './journal';
+import { addHowTo, addNote, recordMutation, recordSpecies } from './journal';
 import { arrivalChance, arrivalMutations, arrivalWeights, totemBoost, TOTEMS } from './lures';
 import { StateRng } from './rng';
 import { refreshShop } from './shop';
@@ -92,11 +92,16 @@ function step(state: GameState, t: number, dt: number, out: GameEvent[], live = 
       d.nextAt = undefined;
       continue;
     }
-    const r = startCombine(state, d.pair[0], d.pair[1], t, island, true);
+    // one egg waits by the Nursery at a time, ready to hatch (no nest needed)
+    if (state.eggs.some((e) => e.nurseryId === d.id)) {
+      d.nextAt = t + 10 * MIN;
+      continue;
+    }
+    const r = startCombine(state, d.pair[0], d.pair[1], t, island, d.id);
     if (r.ok) {
       d.nextAt = t + TUNING.nurseryHours * 3_600_000;
       out.push({ type: 'nurseryEgg', egg: r.egg, island, t });
-    } else d.nextAt = t + 10 * MIN; // every nest busy: try again in a little while
+    } else d.nextAt = t + 10 * MIN;
   }
 
   // ---- rarity totems crumble away when their magic runs out
@@ -163,6 +168,7 @@ function step(state: GameState, t: number, dt: number, out: GameEvent[], live = 
       out.push({ type: 'visitorLeft', creature: oldest.creature, t });
     }
     state.visitors.push({ creature: c, spot: spotId, island, until: t + TUNING.visitorWaitHours * 60 * MIN });
+    addHowTo(state, sp, `${lure.name} at the ${SPOTS[spotId].name}${sky ? ` in a ${EVENTS[sky].name}` : ''}${dark ? ' after dark' : ''}`);
     out.push({ type: 'arrival', creature: c, spot: spotId, discovered, t });
   }
   for (const v of state.visitors) {
@@ -181,7 +187,7 @@ function step(state: GameState, t: number, dt: number, out: GameEvent[], live = 
     }
   }
   for (const egg of state.eggs) {
-    if (egg.nest !== null) continue;
+    if (egg.nest !== null || egg.nurseryId) continue;
     const n = freeNest(state);
     if (n === null) break;
     egg.nest = n;
@@ -210,7 +216,7 @@ function step(state: GameState, t: number, dt: number, out: GameEvent[], live = 
       };
       if (lucky > 1) gift.glimmer = Math.round(gift.glimmer * 1.5);
       if (rng.chance(TUNING.digItemChance * curious)) gift.item = rng.chance(0.75) ? 'warmstone' : 'rootswell';
-      else if (rng.chance(TUNING.digEggChance * curious) && state.eggs.filter((e) => e.nest === null).length < TUNING.basketSize) {
+      else if (rng.chance(TUNING.digEggChance * curious) && state.eggs.filter((e) => e.nest === null && !e.nurseryId).length < TUNING.basketSize) {
         gift.item = 'egg';
       }
       state.gifts.push(gift);

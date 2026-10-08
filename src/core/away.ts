@@ -73,7 +73,7 @@ export function welcomeBackGift(state: GameState, awayMs: number, t: number): We
     coins: Math.round(((big ? 1500 : 500) + lvl * (big ? 60 : 30)) / 10) * 10,
     shards: big ? 40 : 15,
     charm: true,
-    egg: big && state.eggs.filter((e) => e.nest === null).length < TUNING.basketSize,
+    egg: big && state.eggs.filter((e) => e.nest === null && !e.nurseryId).length < TUNING.basketSize,
     text: big ? 'You were gone a while! Everyone saved up a big welcome-home gift.' : 'We missed you! Here\'s a little something to say welcome back.',
   };
   state.glimmer += gift.coins;

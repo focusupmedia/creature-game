@@ -17,22 +17,41 @@ export function generateShop(seed: number, rotation: number, t: number, owned: I
   const offers: ShopOffer[] = [];
   const add = (o: Omit<ShopOffer, 'id'>) => offers.push({ ...o, id: `o${rotation}-${offers.length}` });
 
-  add({ kind: 'lure', ref: 'mossberry', price: 20, currency: 'glimmer', qty: 1, stock: 99 });
-  add({ kind: 'lure', ref: 'riverweed', price: 25, currency: 'glimmer', qty: 1, stock: 99 });
-  // Curious lures rotate. The first visit always shows Moonpetal as a tease.
-  if (rotation === 0 || r() < 0.55) add({ kind: 'lure', ref: 'moonpetal', price: 60, currency: 'glimmer', qty: 1, stock: 2 });
-  if (rotation === 0 || r() < 0.7) add({ kind: 'lure', ref: 'honeydew', price: 35, currency: 'glimmer', qty: 1, stock: 3 });
+  // Lures: every kind can turn up at random; rarer ones less often and in smaller stacks.
+  const lure = (ref: string, chance: number, stock: number) => {
+    if (r() < chance) add({ kind: 'lure', ref, price: LURES[ref].price, currency: 'glimmer', qty: 1, stock });
+  };
+  lure('mossberry', 0.8, 8);
+  lure('riverweed', 0.8, 8);
+  lure('honeydew', 0.65, 6);
+  if (rotation === 0) add({ kind: 'lure', ref: 'moonpetal', price: LURES.moonpetal.price, currency: 'glimmer', qty: 1, stock: 3 });
+  else lure('moonpetal', 0.45, 3);
+  const scents: [IslandId, string][] = [['volcano', 'emberpepper'], ['lagoon', 'saltkelp'], ['beach', 'seaspray'], ['desert', 'sunbaked'], ['cloud', 'breeze']];
+  for (const [isl, ref] of scents) if (owned.includes(isl)) lure(ref, 0.65, 5);
+  // never an empty lure shelf: a couple of everyday lures at least
+  if (offers.filter((o) => o.kind === 'lure').length < 2) {
+    for (const ref of ['mossberry', 'riverweed']) if (!offers.some((o) => o.ref === ref)) add({ kind: 'lure', ref, price: LURES[ref].price, currency: 'glimmer', qty: 1, stock: 6 });
+  }
 
-  // Island scents are always stocked once you own the island.
-  if (owned.includes('volcano')) add({ kind: 'lure', ref: 'emberpepper', price: 45, currency: 'glimmer', qty: 1, stock: 99 });
-  if (owned.includes('lagoon')) add({ kind: 'lure', ref: 'saltkelp', price: 45, currency: 'glimmer', qty: 1, stock: 99 });
-  if (owned.includes('beach')) add({ kind: 'lure', ref: 'seaspray', price: 50, currency: 'glimmer', qty: 1, stock: 99 });
-  if (owned.includes('desert')) add({ kind: 'lure', ref: 'sunbaked', price: 55, currency: 'glimmer', qty: 1, stock: 99 });
-  if (owned.includes('cloud')) add({ kind: 'lure', ref: 'breeze', price: 65, currency: 'glimmer', qty: 1, stock: 99 });
+  // Food comes and goes too (snacks nearly always)
+  const food = (ref: string, chance: number, stock: number) => {
+    if (r() < chance) add({ kind: 'food', ref, price: FOODS[ref].price, currency: 'glimmer', qty: 1, stock });
+  };
+  food('snack', 0.9, 8);
+  food('sprout', 0.5, 3);
+  food('feast', 0.45, 2);
+  food('feedbag', 0.35, 2);
 
-  // food is always stocked
-  for (const f of ['snack', 'sprout', 'feast', 'feedbag']) add({ kind: 'food', ref: f, price: FOODS[f].price, currency: 'glimmer', qty: 1, stock: 99 });
-  add({ kind: 'decor', ref: 'fruittree', price: DECOR.fruittree.price, currency: 'glimmer', qty: 1, stock: 99 });
+  // Gadgets (decorations that do something): a few at a time, rarer ones seldom
+  const gadget = (ref: string, chance: number, stock: number) => {
+    if (r() < chance) add({ kind: 'decor', ref, price: DECOR[ref].price, currency: DECOR[ref].currency, qty: 1, stock });
+  };
+  gadget('fruittree', 0.6, 2);
+  gadget('totemrare', 0.5, 2);
+  gadget('totemepic', 0.3, 1);
+  gadget('totemlegend', 0.12, 1);
+  gadget('nursery', 0.35, 1);
+
   // trait tools are always stocked, for Starshards
   for (const t of Object.values(TOOLS)) add({ kind: 'tool', ref: t.id, price: t.price, currency: 'shards', qty: 1, stock: 99 });
 
@@ -95,4 +114,21 @@ export function refreshShop(state: GameState, t: number): void {
     pity.mythical = has('mythical') ? 0 : pity.mythical + 1;
   }
   state.shop = generateShop(state.seed, state.shop.rotation + 1, t, owned, { legendary: pity.legendary >= PITY.legendary, mythical: pity.mythical >= PITY.mythical });
+}
+
+/** Something rare in a stock: a Legendary or Mythical egg, or a Golden or Mythic lure. */
+export function hasSpecial(shop: ShopState): boolean {
+  return shop.offers.some((o) => (o.kind === 'egg' && (o.ref === 'legendary' || o.ref === 'mythical')) || (o.kind === 'lure' && (o.ref === 'golden' || o.ref === 'mythic')));
+}
+
+/** Peek at the next stock (it's decided by the seed), for the "something rare arrived" reminder. */
+export function nextStockIsSpecial(state: GameState): boolean {
+  const owned = (Object.keys(state.islands ?? {}) as IslandId[]).filter((k) => state.islands[k].owned);
+  const pity = { ...(state.shopPity ?? { legendary: 0, mythical: 0 }) };
+  if (state.shop.viewed) {
+    const has = (ref: string) => state.shop.offers.some((o) => o.kind === 'egg' && o.ref === ref);
+    pity.legendary = has('legendary') ? 0 : pity.legendary + 1;
+    pity.mythical = has('mythical') ? 0 : pity.mythical + 1;
+  }
+  return hasSpecial(generateShop(state.seed, state.shop.rotation + 1, state.shop.nextRefreshAt, owned, { legendary: pity.legendary >= PITY.legendary, mythical: pity.mythical >= PITY.mythical }));
 }

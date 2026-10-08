@@ -499,7 +499,7 @@ function buildHome(view: IslandView, M: Merger, g: Geo, rand: () => number, clea
     M.add(new THREE.SphereGeometry(r.s * 0.55, 6, 4), '#6fae55', { x: r.x + 0.1, y: r.s * 0.75, z: r.z }, { x: 0, y: 0, z: 0 }, { x: 1, y: 0.35, z: 1 });
   }
 
-  // the Kindred Font (combining): stands as one piece
+  // the Kindred Fountain (combining): stands as one piece
   M.anchor = { x: FONT.x, z: FONT.z };
   const font = new THREE.Group();
   font.position.set(FONT.x, 0, FONT.z);

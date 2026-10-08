@@ -38,6 +38,8 @@ export const TUNING = {
   tonicGiantChance: 0.6,
   /** Chance a legendary or mythical parent's baby is NOT a copy of it (they stay special). */
   rareCopyDamp: 0.75,
+  /** Mythicals almost never pass on their own kind: they must be found. */
+  mythicCopyDamp: 0.97,
   /** Hidden pity: a keeper's eggs are sure to hold a legendary (that shares a type with a parent) after this many without one; the first time sooner. */
   legendaryPity: { first: 30, then: 50 },
   /** Chance a baby carries one of its parents' mutations (most hatch with none). */

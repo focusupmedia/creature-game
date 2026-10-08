@@ -8,6 +8,7 @@ import { nextHungryAt } from './care';
 import { EVENTS } from '../content/world';
 import { eventInWindow, windowAt } from './world';
 import { canClaimLogin } from './login';
+import { nextStockIsSpecial } from './shop';
 import { weekEnds } from './contests';
 import type { EventKind } from './types';
 import type { GameState } from './types';
@@ -34,6 +35,10 @@ const RARE_SKIES: EventKind[] = ['starry', 'fullmoon', 'blizzard', 'aurora', 'me
 
 export function planNotifications(state: GameState, now: number): PlannedNote[] {
   const out: PlannedNote[] = [];
+  // something rare is about to arrive at Mango's (we don't say what: open the shop to find out)
+  if (state.shop.nextRefreshAt > now && nextStockIsSpecial(state)) {
+    out.push({ id: 'shop-rare', at: outsideQuietHours(state.shop.nextRefreshAt), title: 'Mango has something special ✨', body: 'Something rare just arrived at the shop. Come and see what it is!', priority: 4 });
+  }
   // the most important: a rare sky is about to start (only if it isn't the middle of the night)
   for (let w = windowAt(state, now); w < windowAt(state, now) + 96; w++) {
     const e = eventInWindow(state, w);
