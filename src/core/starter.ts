@@ -15,14 +15,16 @@ export const STARTER_STEPS: StarterStep[] = [
   { text: 'Set out a lure', kind: 'lure', target: 1, tip: 'Tap LURES, then a glowing lure spot.' },
   { text: 'Welcome a visitor', kind: 'arrival', target: 1, tip: 'Tap the ! over a visitor and Keep it.' },
   { text: 'Pet a creature', kind: 'befriend', target: 1, tip: 'Tap a creature, then Pet.' },
-  { text: 'Feed a creature', kind: 'feed', target: 1, tip: 'Tap a creature, then Feed. Berries grow on trees.' },
   { text: 'Buy an egg from Mango', kind: 'shopEgg', target: 1, tip: 'Tap SHOP, then the EGGS tab.' },
   { text: 'Make an egg', kind: 'breed', target: 1, tip: 'Tap CREATE and pick two pets that match.' },
   { text: 'Hatch 3 eggs', kind: 'hatch', target: 3, tip: 'Tap an egg in a nest when it is ready.' },
 ];
 
 export function starterState(state: GameState) {
-  return (state.starter ??= { step: 0, progress: 0, done: false, open: true });
+  const q = (state.starter ??= { step: 0, progress: 0, done: false, open: true, v: 2 });
+  // v2 dropped the old 4th step (Feed a creature): saves past it move back one
+  if (q.v !== 2) { if (q.step > 3 && !q.done) q.step--; q.v = 2; }
+  return q;
 }
 
 export function starterStep(state: GameState): StarterStep | null {
