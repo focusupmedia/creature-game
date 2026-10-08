@@ -10,10 +10,11 @@
 
 export const STORE_KEYS = {
   admob: {
-    /** true until your own ad units are in: shows Google's test ads only. */
+    /** Pocket Grove's own ad units are in. Keep this true while testing on your own phones
+     *  (Google bans accounts that view or tap their own real ads); set it to false for the store release. */
     testing: true,
-    rewardedAndroid: 'ca-app-pub-3940256099942544/5224354917',
-    rewardedIos: 'ca-app-pub-3940256099942544/1712485313',
+    rewardedAndroid: 'ca-app-pub-9126133036218343/1867964409',
+    rewardedIos: 'ca-app-pub-9126133036218343/7328085350',
   },
   revenuecat: {
     android: 'goog_REPLACE_ME',

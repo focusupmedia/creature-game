@@ -7,5 +7,5 @@
     <!-- Play Games Services project id (Play Console → Play Games Services → Configuration). Replace before release. -->
     <string name="game_services_project_id" translatable="false">000000000000</string>
     <!-- AdMob app id: Google's TEST id until your own is in (admob.google.com → Apps). -->
-    <string name="admob_app_id" translatable="false">ca-app-pub-3940256099942544~3347511713</string>
+    <string name="admob_app_id" translatable="false">ca-app-pub-9126133036218343~8223645886</string>
 </resources>

@@ -11,9 +11,9 @@ Until the keys below are filled in, the apps show Google's **test** ads.
 ## Keys to fill in (one time)
 | What | Where to get it | Where it goes |
 |---|---|---|
-| AdMob app id (Android) | admob.google.com → Apps → add app | `android/app/src/main/res/values/strings.xml` → `admob_app_id` |
-| AdMob app id (iOS) | same | `ios/App/App/Info.plist` → `GADApplicationIdentifier` |
-| AdMob rewarded ad unit ids | AdMob → app → Ad units → Rewarded | `src/platform/storeKeys.ts` (and set `testing: false`) |
+| AdMob app id (Android) ✅ filled in | admob.google.com → Apps → add app | `android/app/src/main/res/values/strings.xml` → `admob_app_id` |
+| AdMob app id (iOS) ✅ filled in | same | `ios/App/App/Info.plist` → `GADApplicationIdentifier` |
+| AdMob rewarded ad unit ids ✅ filled in | AdMob → app → Ad units → Rewarded | `src/platform/storeKeys.ts` (set `testing: false` only for the store release) |
 | RevenueCat API keys (Apple + Google) | app.revenuecat.com → project → API keys | `src/platform/storeKeys.ts` |
 | Play Games project id | Play Console → Play Games Services → Configuration | `strings.xml` → `game_services_project_id` |
 
@@ -34,3 +34,9 @@ App name, short and full description, screenshots (phone sizes), the 1024px icon
 
 - **iPhone:** App Store Connect → your app → Game Center. Add 3 leaderboards with the ids `pg_level`, `pg_species`, `pg_streak`, and one achievement per id in `src/platform/storeKeys.ts` (`pg_first_hatch`, `pg_hatch_50`, …). Turn on the Game Center capability in Xcode.
 - **Android:** Play Console → Play Games Services → Leaderboards and Achievements. Create the same ones, then paste each generated id (like `CgkI…`) into `GAME_SERVICE_IDS.android` in `src/platform/storeKeys.ts`.
+
+## app-ads.txt (AdMob)
+
+Put a file named `app-ads.txt` at the root of the website listed as the developer site in both stores, containing exactly:
+
+    google.com, pub-9126133036218343, DIRECT, f08c47fec0942fa0

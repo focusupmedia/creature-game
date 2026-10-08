@@ -68,7 +68,7 @@
 	<true/>
 	<key>GADApplicationIdentifier</key>
 	<!-- AdMob app id: Google's TEST id until your own is in (admob.google.com → Apps) -->
-	<string>ca-app-pub-3940256099942544~1458002511</string>
+	<string>ca-app-pub-9126133036218343~3722128248</string>
 	<key>NSUserTrackingUsageDescription</key>
 	<string>This lets us show you ads that are more relevant. Pocket Grove works the same either way.</string>
 	<key>SKAdNetworkItems</key>
