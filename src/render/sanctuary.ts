@@ -161,7 +161,7 @@ function islandPatches(g: Geo, pal: (typeof ISLANDS)['home']['palette'], rand: (
     const s = 1.2 + rand() * 1.8;
     // keep patches clear of ponds and lava
     if ([...g.water, ...g.lava].some((c) => Math.hypot(x - c.x, z - c.z) < c.r + s * 1.1)) continue;
-    soft.add(new THREE.RingGeometry(0.001, s, 20, 6), i % 3 ? pal.patch : mix(pal.top, '#ffffff', 0.12), { x, y: 0.04 + i * 0.0006, z }, { x: -Math.PI / 2, y: 0, z: 0 }, { x: 1, y: 0.75 + rand() * 0.5, z: 1 }, 'drape');
+    soft.add(new THREE.RingGeometry(0.001, s, 40, 6), i % 3 ? pal.patch : mix(pal.top, '#ffffff', 0.12), { x, y: 0.04 + i * 0.0006, z }, { x: -Math.PI / 2, y: 0, z: 0 }, { x: 1, y: 0.75 + rand() * 0.5, z: 1 }, 'drape');
   }
 }
 
@@ -201,6 +201,33 @@ function globeMesh(g: Geo, color: string): THREE.Mesh {
   return mesh;
 }
 
+const PETAL = new THREE.SphereGeometry(0.045, 6, 4);
+const FLOWER_MID = new THREE.SphereGeometry(0.035, 6, 4);
+
+/** Round leafy bushes around a green island's rim (their own random numbers, so the rest of the island's layout never moves). */
+function scatterBushes(M: Merger, g: Geo, clear: { x: number; z: number; r: number }[], count: number, seed: number): void {
+  let st = seed >>> 0;
+  const rnd = () => { st = (st + 0x6d2b79f5) >>> 0; let t = st; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+  const greens = ['#4fb83a', '#62c947', '#3fa535'];
+  let placed = 0;
+  for (let i = 0; i < count * 20 && placed < count; i++) {
+    const a = rnd() * Math.PI * 2;
+    const r = (0.62 + rnd() * 0.3) * (g.r - 0.6);
+    const x = g.ox + Math.cos(a) * r;
+    const z = g.oz + Math.sin(a) * r;
+    if (inWater(g, x, z, 0.8) || isBlocked(g, x, z, 0.8)) continue;
+    if (clear.some((c) => Math.hypot(x - c.x, z - c.z) < c.r + 0.6)) continue;
+    placed++;
+    const s = 0.28 + rnd() * 0.14;
+    for (let j = 0; j < 3; j++) {
+      const ox = (j - 1) * s * 0.75, oz = (rnd() - 0.5) * s * 0.6;
+      M.add(new THREE.IcosahedronGeometry(s * (j === 1 ? 1.15 : 0.9), 1), greens[(i + j) % 3], { x: x + ox, y: s * 0.7, z: z + oz }, { x: 0, y: 0, z: 0 }, { x: 1, y: 0.85, z: 1 });
+    }
+    // some bushes carry little pink or white blossoms
+    if (rnd() < 0.5) for (let j = 0; j < 3; j++) M.add(new THREE.SphereGeometry(0.06, 6, 4), j % 2 ? '#ffd1e3' : '#ffffff', { x: x + (rnd() - 0.5) * s * 1.6, y: s * 1.35, z: z + (rnd() - 0.5) * s * 0.8 });
+  }
+}
+
 /** Sparse grass and flowers in a darker, shaded green, kept away from anything tappable. No outlines. */
 function scatterGrass(G: Merger, g: Geo, pal: (typeof ISLANDS)['home']['palette'], rand: () => number, clear: { x: number; z: number; r: number }[], count: number, flowers = true): void {
   const blade = new THREE.ConeGeometry(0.06, 0.32, 4);
@@ -216,9 +243,15 @@ function scatterGrass(G: Merger, g: Geo, pal: (typeof ISLANDS)['home']['palette'
     if (inWater(g, x, z, 0.4) || isBlocked(g, x, z, 0.2)) continue;
     if (clear.some((c) => Math.hypot(x - c.x, z - c.z) < c.r)) continue;
     placed++;
-    if (flowers && rand() < 0.22) {
+    if (flowers && rand() < 0.4) {
+      // a little five-petal flower with a sunny middle
+      const col = flowerColors[Math.floor(rand() * flowerColors.length)];
       G.add(new THREE.CylinderGeometry(0.015, 0.015, 0.25, 3), root, { x, y: 0.12, z });
-      G.add(new THREE.SphereGeometry(0.07, 6, 4), flowerColors[Math.floor(rand() * flowerColors.length)], { x, y: 0.27, z });
+      for (let p = 0; p < 5; p++) {
+        const a2 = (p / 5) * Math.PI * 2;
+        G.add(PETAL, col, { x: x + Math.cos(a2) * 0.055, y: 0.27, z: z + Math.sin(a2) * 0.055 });
+      }
+      G.add(FLOWER_MID, '#ffd23d', { x, y: 0.285, z });
     } else {
       for (let j = 0; j < 3; j++) {
         G.addBlade(blade, root, tip, { x: x + (j - 1) * 0.07, y: 0.15, z: z + (rand() - 0.5) * 0.08 }, { x: (j - 1) * 0.35, y: 0, z: (rand() - 0.5) * 0.45 });
@@ -326,7 +359,7 @@ function tree(view: IslandView, M: Merger, t: { x: number; z: number; s: number 
   standOn(canopy, view.groundGeo);
   canopy.userData.placed = true;
   blobs.forEach(([px, pz, rx, ry, rz], i) => {
-    const blob = new THREE.Mesh(new THREE.IcosahedronGeometry((1.2 - i * 0.18) * t.s, 0), toon(greens[i]));
+    const blob = new THREE.Mesh(new THREE.IcosahedronGeometry((1.2 - i * 0.18) * t.s, 1), toon(greens[i]));
     blob.position.set((px - 0.5) * 0.6 * t.s, i * 0.65 * t.s, (pz - 0.5) * 0.6 * t.s);
     blob.rotation.set(rx, ry, rz);
     blob.castShadow = true;
@@ -412,7 +445,8 @@ export function buildIsland(id: IslandId, size: number, owned: boolean, chopped:
   view.spotDishes = lureSpots(M, id, size, view.pickables, group, id === 'volcano' ? '#4a3a3a' : '#8d8f86');
   view.booth = sellBooth(view, g, def.booth);
 
-  scatterGrass(G, g, def.palette, rand, clear, id === 'home' ? 46 : id === 'lagoon' ? 22 : 18, id !== 'volcano');
+  scatterGrass(G, g, def.palette, rand, clear, id === 'home' ? 110 : id === 'lagoon' ? 40 : 26, id !== 'volcano');
+  if (id === 'home' || id === 'lagoon') scatterBushes(M, g, [...clear, ...(id === 'home' ? [...TREES.map((t) => ({ x: t.x, z: t.z, r: 1.6 })), ...ROCKS.map((r) => ({ x: r.x, z: r.z, r: 1.2 })), { x: POND.x, z: POND.z, r: POND.r + 1 }] : [])], id === 'home' ? 14 : 6, id === 'home' ? 7 : 13);
   // Stand every separately-built piece (water, nests, font, shop, lure dishes...) on the dome.
   for (const o of group.children) if (o !== view.ground && !o.userData.placed) standOn(o, g);
   const scenery = M.build();
@@ -460,7 +494,7 @@ function buildHome(view: IslandView, M: Merger, g: Geo, rand: () => number, clea
   flatDisc(M, POND.r + 0.15, '#5f8e4a', POND.x, POND.z, 0.03);
   for (let i = 0; i < 16; i++) {
     const a = (i / 16) * Math.PI * 2 + rand() * 0.2;
-    M.add(new THREE.DodecahedronGeometry(0.22 + rand() * 0.12, 0), i % 3 ? '#a3a59c' : '#8b8e86',
+    M.add(new THREE.DodecahedronGeometry(0.22 + rand() * 0.12, 1), i % 3 ? '#a3a59c' : '#8b8e86',
       { x: POND.x + Math.cos(a) * (POND.r + 0.1), y: 0.05, z: POND.z + Math.sin(a) * (POND.r + 0.1) }, { x: 0, y: 0, z: 0 }, { x: 1, y: 0.6, z: 1 });
   }
   const water = waterDisc(g, POND, '#36c6ff', '#1a8fd0');
@@ -495,7 +529,7 @@ function buildHome(view: IslandView, M: Merger, g: Geo, rand: () => number, clea
     }
   }
   for (const r of ROCKS) {
-    M.add(new THREE.DodecahedronGeometry(r.s, 0), '#9ea3a0', { x: r.x, y: r.s * 0.35, z: r.z }, { x: rand(), y: rand(), z: rand() }, { x: 1, y: 0.7, z: 1 });
+    M.add(new THREE.DodecahedronGeometry(r.s, 1), '#9ea3a0', { x: r.x, y: r.s * 0.35, z: r.z }, { x: rand(), y: rand(), z: rand() }, { x: 1, y: 0.7, z: 1 });
     M.add(new THREE.SphereGeometry(r.s * 0.55, 6, 4), '#6fae55', { x: r.x + 0.1, y: r.s * 0.75, z: r.z }, { x: 0, y: 0, z: 0 }, { x: 1, y: 0.35, z: 1 });
   }
 

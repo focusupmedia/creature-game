@@ -50,6 +50,9 @@ Friend codes without a server (`core/friends.ts`: snapshot of name/level/best pe
 ## Onboarding round (A91, built)
 Buttons unlock one at a time (`ui/features.ts`, `state.features`, "New!" toast + glow), quiet start while Lotl's Quest runs (≤10 min: rumour/week/login/achievement news wait, `Game.quiet()`), toasts at the very top edge over the coin bar (owner's choice) with tap-to-dismiss, Lotl's Quest moved to the lower-left above the dock so they never overlap, visitor Keep/Send away moves tutorial + Lotl (`meet` event), the controls card replaced by just-in-time gesture tips (`ui/hints.ts`; full card still in Settings), shorter tour, tutorial arrow on buttons only (owner's choice; world things keep their own ! signs) (`UI.arrowTarget`, `I.TUT_ARROW`, `.tut-*` button classes) with 3-6 word coach lines, name-your-first-baby prompt (`UI.nameFirstPet`), Lotl's Egg always has a glowing mutation, Sleepy Egg that hatches the next morning (`starter.ts tomorrowMorning`, egg tier `sleepy`).
 
+## Art pass (built, in progress)
+Step 1 (all creatures): kawaii eyes with two sparkles, auto blush (`Kit.noBlush` for species with their own cheeks), softer 4-band toon ramp, thinner outlines, blinking (`model.eyes`, CreatureActor). Step 2: hand polish of the 15 starter-area creatures (no mouths: owner removed the added smiles). Home island: rounder canopies and rocks, smoother ground patches, petal flowers, more grass, rim bushes (`scatterBushes`, own RNG so layout never shifts). Next: the remaining ~60 creatures in groups, with before/after pictures for the owner.
+
 ## Phone apps (built)
 `ios/` and `android/` Capacitor projects with icons/splash. Real AdMob rewarded ads + RevenueCat purchases in `src/platform/nativeServices.ts` (keys in `storeKeys.ts`; test ads until filled). Cloud-save plugins wired in. Release steps: docs/STORE_RELEASE.md.
 
