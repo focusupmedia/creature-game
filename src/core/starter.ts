@@ -2,12 +2,12 @@
 // new keeper gets after the tutorial. It teaches the main loop and pays out
 // Lotl's Egg, which always hatches a creature the keeper doesn't have yet.
 
-import { EGG_TIERS } from '../content/world';
+import { EGG_TIERS, MUTATIONS } from '../content/world';
 import { SPECIES } from '../content/species';
-import { layEgg } from './actions';
+import { layEgg, rollEggTier } from './actions';
 import type { PlayEvent } from './progress';
 import { StateRng } from './rng';
-import type { GameState, SpeciesId } from './types';
+import type { GameState, MutationId, SpeciesId } from './types';
 
 export interface StarterStep { text: string; kind: PlayEvent['kind']; target: number; tip: string }
 
@@ -53,13 +53,30 @@ export function lotlSpecies(state: GameState): SpeciesId {
   return new StateRng(state).weighted(pool) ?? 'axolotl';
 }
 
-/** Hand over Lotl's Egg. */
+/** Lotl's Egg always holds something that glows. */
+const GLOWS: MutationId[] = ['starlit', 'glowing', 'frost', 'misty', 'breezy', 'bubbly'];
+
+/** When tomorrow's egg wakes: 8am tomorrow (local), and at least 8 hours away. */
+export function tomorrowMorning(t: number): number {
+  const d = new Date(t);
+  const wake = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1, 8).getTime();
+  return Math.max(wake, t + 8 * 3_600_000);
+}
+
+/** Hand over Lotl's Egg (glowing, a creature you don't have), plus a Sleepy Egg that hatches tomorrow. */
 export function claimStarter(state: GameState, t: number): boolean {
   const q = starterState(state);
   if (!q.claimable) return false;
   q.claimable = false;
   q.done = true;
+  const rng = new StateRng(state);
   const egg = layEgg(state, lotlSpecies(state), 'shop', t);
   egg.tier = 'lotl';
+  const glow = rng.pick(GLOWS.filter((m) => MUTATIONS[m]));
+  if (glow && !egg.mutations.includes(glow)) egg.mutations.push(glow);
+  egg.incubationMs = Math.min(egg.incubationMs, 180_000);
+  const sleepy = layEgg(state, rollEggTier(state, 'sleepy'), 'shop', t);
+  sleepy.tier = 'sleepy';
+  sleepy.incubationMs = tomorrowMorning(t) - t;
   return true;
 }

@@ -127,8 +127,9 @@ button:focus-visible { outline: 3px solid var(--white); outline-offset: 2px; }
 .toasts {
   /* above sheets and pop-ups, so a toast's Shop button can always be tapped */
   z-index: 50;
-  position: absolute; top: calc(var(--safe-top) + 150px); left: 0; right: 0;
-  display: flex; flex-direction: column; align-items: center; gap: 6px; pointer-events: none; padding: 0 16px;
+  /* at the bottom, just above the buttons (and above Lotl's tips when they show), so the top of the screen stays clear */
+  position: absolute; bottom: calc(var(--safe-bottom) + 96px); left: 0; right: 0;
+  display: flex; flex-direction: column-reverse; align-items: center; gap: 6px; pointer-events: none; padding: 0 16px; transition: bottom .25s;
 }
 .toast {
   background: var(--white); color: var(--ink); border: var(--outline); border-radius: 14px; padding: 8px 12px; font-size: 14px;
@@ -136,10 +137,12 @@ button:focus-visible { outline: 3px solid var(--white); outline-offset: 2px; }
 }
 .toast.discovery { background: linear-gradient(180deg, #fff6b8, var(--orange-1)); }
 .toast .toast-btn { pointer-events: auto; flex: none; margin-left: 4px; }
+.toast { pointer-events: auto; cursor: pointer; }
+.coach:not(.hidden) + .toasts { bottom: calc(var(--safe-bottom) + 220px); }
 .toast.urgent { border-color: var(--ink); }
-.toast.out { opacity: 0; transform: translateY(-8px); transition: all .4s; }
+.toast.out { opacity: 0; transform: translateY(8px); transition: all .4s; }
 .toast img { width: 34px; height: 34px; }
-@keyframes toast-in { from { opacity: 0; transform: translateY(-10px) scale(.9); } }
+@keyframes toast-in { from { opacity: 0; transform: translateY(10px) scale(.9); } }
 
 /* ---------------------------------------------------------------- dock: orange tiles */
 .dock {
@@ -863,3 +866,20 @@ input.rename { font-family: var(--display); font-size: 22px; border: var(--outli
 .ach-list { max-height: 55vh; overflow-y: auto; }
 .ach-list .item.locked { opacity: .6; }
 .share-preview { width: 100%; border-radius: 14px; border: var(--outline); }
+/* ---- buttons that unlock as you play */
+.feature-off { display: none !important; }
+.new-feature { animation: new-feature 1s ease-in-out 6; position: relative; z-index: 4; }
+@keyframes new-feature { 50% { transform: scale(1.12); box-shadow: 0 0 0 4px #fff, 0 0 18px 8px #ffe14d; } }
+.found-chip { pointer-events: auto; align-self: flex-start; margin-top: 6px; border: var(--outline); border-radius: 12px; padding: 3px 10px; background: var(--white);
+  box-shadow: 0 3px 0 var(--ink); font-family: var(--display); font-size: 15px; color: var(--ink); cursor: pointer; }
+.found-chip img { width: 18px; height: 18px; vertical-align: -3px; }
+/* ---- gesture tips (never block taps) */
+.gesture-hint { position: absolute; left: 50%; top: 56%; transform: translate(-50%, -50%); z-index: 20; pointer-events: none;
+  display: flex; align-items: center; gap: 10px; max-width: min(320px, calc(100% - 32px)); padding: 10px 14px;
+  background: rgba(27, 42, 74, .82); color: #fff; border-radius: 18px; font-weight: 800; font-size: 15px; line-height: 1.25;
+  animation: toast-in .35s ease; transition: opacity .4s; }
+.gesture-hint.out { opacity: 0; }
+.gesture-hint .gh-ico { width: 52px; height: 52px; flex: none; animation: gh-wiggle 1.4s ease-in-out infinite; }
+.gesture-hint .gh-ico .icon, .gesture-hint .gh-ico svg { display: block; width: 100%; height: 100%; }
+@keyframes gh-wiggle { 50% { transform: translateX(8px) rotate(6deg); } }
+@media (prefers-reduced-motion: reduce) { .gesture-hint .gh-ico { animation: none; } }

@@ -440,8 +440,10 @@ export interface GameState {
   /** Achievements earned (core/achievements.ts) and the last scores sent to leaderboards. */
   achieved?: string[];
   boards?: Record<string, number>;
+  /** Buttons the keeper has unlocked so far (ui/features.ts). */
+  features?: string[];
   /** Lotl's starter quest (core/starter.ts). */
-  starter?: { step: number; progress: number; done: boolean; open: boolean; claimable?: boolean; v?: number };
+  starter?: { step: number; progress: number; done: boolean; open: boolean; claimable?: boolean; v?: number; startedAt?: number };
   /** Today's whisper about an undiscovered creature (core/rumours.ts). */
   rumour?: { day: string; species: SpeciesId; found: boolean; told?: boolean };
   /** Pantry: fruit, snack, feast, feedbag. */

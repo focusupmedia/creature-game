@@ -669,6 +669,12 @@ export interface EggTier {
 
 export const EGG_TIERS: Record<string, EggTier> = {
   // never sold: Lotl's reward for finishing the starter quest (always a creature you don't have)
+  // never sold: Lotl's goodnight gift at the end of the starter quest; it hatches the next day
+  sleepy: {
+    id: 'sleepy', name: 'Sleepy Egg', price: 0, currency: 'shards', habitats: [], includeBred: true,
+    weights: { common: 0, uncommon: 4, rare: 5, legendary: 1 }, colors: ['#c8c8ff', '#ffe680'],
+    blurb: 'Snoring softly. It wakes up tomorrow.',
+  },
   lotl: {
     id: 'lotl', name: "Lotl's Egg", price: 0, currency: 'shards', habitats: [], includeBred: true,
     weights: { common: 2, uncommon: 4, rare: 4, legendary: 1 }, colors: ['#ffb0d8', '#7ad8ff'],

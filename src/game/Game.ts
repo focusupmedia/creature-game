@@ -12,7 +12,7 @@ import { claimContest, enterContest } from '../core/contests';
 import { planNotifications } from '../core/notify';
 import { voiceOf } from '../render/voices';
 import { EXPEDITIONS, type ExpeditionId } from '../content/expeditions';
-import { claimDaily, claimLasting, questEvent, refreshDailies } from '../core/quests';
+import { claimDaily, claimLasting, questEvent, refreshDailies, today } from '../core/quests';
 import { claimStarter, starterEvent, starterStep } from '../core/starter';
 import { changedScores, checkAchievements } from '../core/achievements';
 import { gameServices } from '../platform/gameServices';
@@ -52,7 +52,6 @@ const SAVE_KEY = 'kindred-grove.save.v1';
 const CLOUD_LOADED_KEY = 'kindred-grove.cloud.loaded';
 const CLOUD_EVERY_S = 300;
 const SETTINGS_KEY = 'kindred-grove.settings';
-const SPIN_HINT_KEY = 'kindred-grove.hint.globe';
 const REMINDERS_KEY = 'kindred-grove.reminders';
 const LIVE_TICK_S = 0.25;
 const AWAY_REPORT_MS = 90_000;
@@ -147,10 +146,7 @@ export class Game {
     setTimeout(() => void this.cloudSync(), 1500);
     this.analytics.track('session_start', { creatures: this.state.creatures.length, away_min: Math.round(away / 60000) });
     this.world.start();
-    if (!this.storage.load(SPIN_HINT_KEY)) {
-      this.storage.save(SPIN_HINT_KEY, '1');
-      setTimeout(() => this.ui.showControls(), 2500);
-    }
+    // gestures are taught with small tips when they're useful (ui/hints.ts); the full card lives in Settings
   }
 
   now(): number {
@@ -375,8 +371,21 @@ export class Game {
 
   /** The day's login gift pops up the first time you open the game each day (after the tutorial). */
   offerLogin(): void {
-    if (this.state.tutorial < 6 || !canClaimLogin(this.state, this.now())) return;
+    if (this.state.tutorial < 6 || this.quiet() || !canClaimLogin(this.state, this.now())) return;
+    this.loginOffered = today(this.now());
     setTimeout(() => this.ui.showLoginCalendar(), 900);
+  }
+  private loginOffered = '';
+
+  /**
+   * A new keeper's first stretch is kept calm: while Lotl's Quest is running (for up to
+   * 10 minutes), the rumour, weekly event, login gift and achievement news wait their turn.
+   */
+  quiet(): boolean {
+    const q = this.state.starter;
+    if (this.state.tutorial < 6 || !q || q.done) return false;
+    q.startedAt ??= this.now();
+    return this.now() - q.startedAt < 10 * 60_000;
   }
 
   claimCollection(id: string): void {
@@ -850,6 +859,8 @@ export class Game {
         this.world.emote(r.creature.id, r.newSpecies ? '✨' : '💕');
         this.world.noteCreature(r.creature.id, 'Just hatched 🐣');
         this.ui.selectCreature(r.creature.id);
+        // the very first baby gets a name: it makes it yours
+        if (this.state.stats.hatches === 1) setTimeout(() => this.ui.nameFirstPet(r.creature.id), 700);
       }, 50);
       for (const note of r.notes) this.ui.toast(`📝 Journal: ${note}`, 'info', undefined, 5000);
       this.saveSoon();
@@ -971,14 +982,15 @@ export class Game {
   claimStarter(): void {
     if (!claimStarter(this.state, this.now())) return;
     this.audio.play('discover');
-    this.ui.toast('🥚 Lotl\'s Egg is warming! It holds a creature you\'ve never had.', 'discovery', undefined, 5000, { priority: 3 });
+    this.ui.toast('🥚 Lotl\'s Egg is warming, and it glows! It holds a creature you\'ve never had.', 'discovery', undefined, 5000, { priority: 3 });
+    this.ui.toast('🦎 Lotl also tucked a Sleepy Egg into a nest. It wakes up tomorrow, so come back and see who it is!', 'info', undefined, 7000, { priority: 2 });
     this.saveSoon();
   }
 
   private toldWeek = '';
   /** New achievements get a toast (and go to Game Center / Play Games); better scores go to the leaderboards. */
   private checkAchievements(): void {
-    if (this.state.tutorial < 6) return;
+    if (this.state.tutorial < 6 || this.quiet()) return;
     // older saves: count what they already earned quietly
     const quiet = this.state.achieved === undefined;
     for (const a of checkAchievements(this.state)) {
@@ -999,7 +1011,9 @@ export class Game {
 
   /** Once a day (after the tutorial) Lotl whispers a new rumour. */
   private tellRumour(t: number): void {
-    if (this.state.tutorial < 6 || this.world.revealing) return;
+    if (this.state.tutorial < 6 || this.world.revealing || this.quiet()) return;
+    // the login gift that waited out the quiet start
+    if (this.loginOffered !== today(t) && canClaimLogin(this.state, t)) { this.offerLogin(); return; }
     // a new weekly event: say so once
     const w = weekState(this.state, t);
     if (this.toldWeek !== w.key && this.state.week) {

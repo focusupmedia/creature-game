@@ -45,6 +45,8 @@ import { FRIEND_GIFT, addFriend, canCollectGift, collectGift, giftsLeft, myFrien
 import { ACHIEVEMENTS } from '../core/achievements';
 import { gameServices } from '../platform/gameServices';
 import { makeShareCard, shareBlob, shareBlobText } from './shareCard';
+import { Hints } from './hints';
+import { FEATURES, featureOn, unlockFeatures, type FeatureId } from './features';
 import { STARTER_STEPS, starterState, starterStep } from '../core/starter';
 import { RUMOUR_REWARD, rumourText, todaysRumour } from '../core/rumours';
 import { DAILY_POOL, LASTING, claimable, claimableBy, lastingReward, refreshDailies } from '../core/quests';
@@ -133,6 +135,32 @@ export class UI {
     this.lotlQuest.replaceChildren(btn, card);
   }
 
+  /** Buttons that appear one at a time as the keeper progresses (ui/features.ts). */
+  private featureEl: Partial<Record<FeatureId, HTMLElement>> = {};
+  /** "🐾 3/76 found": the big goal, always in view. */
+  private foundChip = h('button', { class: 'found-chip hidden', 'aria-label': 'Creatures found', onClick: () => { this.game.audio.play('tap'); this.showJournal(); } });
+  private syncFeatures(): void {
+    const s = this.game.state;
+    this.featureEl.quests = this.questTile;
+    this.featureEl.friends = this.friendsTile;
+    this.featureEl.pass = this.passTile;
+    const fresh = unlockFeatures(s, this.game.now());
+    for (const f of FEATURES) {
+      const el = this.featureEl[f.id];
+      if (!el) continue;
+      const on = featureOn(s, f.id, this.game.now());
+      if (f.id === 'pass') { if (!on) el.classList.add('hidden'); } else el.classList.toggle('feature-off', !on);
+    }
+    for (const f of fresh) {
+      const el = this.featureEl[f.id];
+      this.game.audio.play('discover');
+      this.toast(`✨ New: ${f.name}! ${f.intro}`, 'discovery', undefined, 6000, { priority: 2, action: { label: 'Open', run: () => el?.click() } });
+      if (el) { el.classList.add('new-feature'); setTimeout(() => el.classList.remove('new-feature'), 9000); }
+    }
+    const found = Object.keys(s.journal.species).length;
+    this.foundChip.classList.toggle('hidden', s.tutorial < 5);
+    setText(this.foundChip, `🐾 ${found}/${SPECIES.length}`);
+  }
   private friendsBadge = h('span', { class: 'badge hidden' });
   private friendsTile = h('button', { class: 'hud-tile friends', 'aria-label': 'Friends', onClick: () => { this.game.audio.play('tap'); this.showFriends(); } },
     h('span', { class: 'icon emo' }, rich('🤝')), h('span', { class: 'lbl' }, 'FRIENDS'), this.friendsBadge);
@@ -199,12 +227,12 @@ export class UI {
             h('button', { class: 'bar-plus', 'aria-label': 'Get Starshards', onClick: () => this.showShop(true) }, I.icon(I.PLUS))),
         ),
         h('div', { class: 'hud-row', style: 'width:100%;align-items:flex-start' },
-          h('div', { class: 'hud-col' }, h('div', { class: 'hud-row', style: 'gap:6px' }, this.levelBadge, h('div', { class: 'sky-chip' }, this.skyChip)), this.widget, this.lotlQuest),
+          h('div', { class: 'hud-col' }, h('div', { class: 'hud-row', style: 'gap:6px' }, this.levelBadge, h('div', { class: 'sky-chip' }, this.skyChip)), this.foundChip, this.widget, this.lotlQuest),
           h('div', { class: 'spacer' }),
           h('div', { class: 'hud-col right' },
-            h('button', { class: 'hud-tile', 'aria-label': 'Watch an ad to summon a sky event', onClick: () => this.showSummon() },
+            this.featureEl.event = h('button', { class: 'hud-tile', 'aria-label': 'Watch an ad to summon a sky event', onClick: () => this.showSummon() },
               I.icon(I.SUMMON), h('span', { class: 'lbl' }, 'EVENT'), this.adsBadge),
-            h('button', { class: 'hud-tile islands', 'aria-label': 'Worlds', onClick: () => { this.game.audio.play('tap'); this.showIslands(this.firstAlert()); } },
+            this.featureEl.worlds = h('button', { class: 'hud-tile islands', 'aria-label': 'Worlds', onClick: () => { this.game.audio.play('tap'); this.showIslands(this.firstAlert()); } },
               I.icon(I.ISLANDS), h('span', { class: 'lbl' }, 'WORLDS'), this.islandsBadge),
             this.questTile,
             this.friendsTile,
@@ -221,11 +249,11 @@ export class UI {
       dockBtn(I.LURE, 'LURES', () => this.showLures()),
       dockBtn(I.CREATE, 'CREATE', () => this.showFont()),
       dockBtn(I.PAW, 'PETS', () => this.showPets(this.game.state.expeditions.some((e) => e.end <= this.game.now()) ? 'trips' : undefined), this.petsDot),
-      dockBtn(I.JOURNAL, 'JOURNAL', () => this.showJournal(), this.journalDot),
-      dockBtn(I.SHOP, 'SHOP', () => this.showShop(), this.shopDot),
-      dockBtn(I.DECOR, 'DECOR', () => this.showDecor()),
+      this.featureEl.journal = dockBtn(I.JOURNAL, 'JOURNAL', () => this.showJournal(), this.journalDot),
+      this.featureEl.shop = dockBtn(I.SHOP, 'SHOP', () => this.showShop(), this.shopDot),
+      this.featureEl.decor = dockBtn(I.DECOR, 'DECOR', () => this.showDecor()),
     );
-    this.root.append(top, this.banner, this.toasts, this.coachEl, this.dock, this.sheetHost, this.placeHost, this.modalHost, this.revealHost);
+    this.root.append(top, this.banner, this.coachEl, this.toasts, this.dock, this.sheetHost, this.placeHost, this.modalHost, this.revealHost);
     // a finger down on a sheet pauses its live refresh until it lifts (so taps always land)
     this.sheetHost.addEventListener('pointerdown', () => { this.pressing = true; });
     window.addEventListener('pointerup', () => { this.pressing = false; }, true);
@@ -283,7 +311,7 @@ export class UI {
     this.islandsBadge.classList.toggle('hidden', this.worldAlerts().size === 0 && openable.length === 0);
     // a quick heads-up the first time a new world becomes affordable (once per world each session)
     for (const id of openable) {
-      if (this.worldsAnnounced.has(id) || s.tutorial < 6) continue;
+      if (this.worldsAnnounced.has(id) || s.tutorial < 6 || this.game.quiet()) continue;
       this.worldsAnnounced.add(id);
       this.toast(`${ISLANDS[id].icon} A new world is ready to open: ${ISLANDS[id].name}! Tap Worlds.`, 'discovery', undefined, undefined, { action: { label: 'Worlds', run: () => this.showIslands(id) } });
     }
@@ -292,7 +320,8 @@ export class UI {
     const season = inHalloween(t);
     this.passTile.classList.toggle('hidden', !season);
     this.syncLotl();
-    this.friendsTile.classList.toggle('hidden', s.tutorial < 6);
+    this.syncFeatures();
+    this.syncHints();
     const gl = giftsLeft(s, t);
     this.friendsBadge.textContent = String(gl);
     this.friendsBadge.classList.toggle('hidden', gl === 0);
@@ -408,15 +437,19 @@ export class UI {
 
   private showToast(t: QueuedToast, done?: () => void): void {
     // The axolotl mascot delivers any news that doesn't come with its own picture.
-    const el = h('div', { class: `toast ${t.kind} ${t.pri >= 3 ? 'urgent' : ''}` }, t.image ? img(t.image) : I.icon(I.AXOLOTL, 'icon toast-mascot'), h('span', null, rich(t.text)),
-      t.action ? h('button', { class: 'btn small toast-btn', onClick: () => { el.remove(); t.action!.run(); } }, t.action.label) : null);
+    let gone = false;
+    const finish = () => { if (gone) return; gone = true; el.remove(); done?.(); };
+    // tap a toast to put it away early
+    const el = h('div', { class: `toast ${t.kind} ${t.pri >= 3 ? 'urgent' : ''}`, onClick: () => { el.classList.add('out'); setTimeout(finish, 200); } },
+      t.image ? img(t.image) : I.icon(I.AXOLOTL, 'icon toast-mascot'), h('span', null, rich(t.text)),
+      t.action ? h('button', { class: 'btn small toast-btn', onClick: (e: Event) => { e.stopPropagation(); finish(); t.action!.run(); } }, t.action.label) : null);
     if (t.pri >= 3) {
       // only one reply at a time
       this.toasts.querySelectorAll('.toast.urgent').forEach((e) => e.remove());
       this.toasts.prepend(el);
     } else this.toasts.append(el);
     setTimeout(() => el.classList.add('out'), t.ms);
-    setTimeout(() => { el.remove(); done?.(); }, t.ms + 450);
+    setTimeout(finish, t.ms + 450);
   }
 
   // ------------------------------------------------------------------ sheets
@@ -2404,6 +2437,27 @@ export class UI {
     });
   }
 
+  /** The first baby hatched: give it a name. */
+  nameFirstPet(id: string): void {
+    const g = this.game;
+    const c = g.state.creatures.find((x) => x.id === id);
+    if (!c || c.nickname) return;
+    this.modal((m, close) => {
+      const input = h('input', { class: 'rename', placeholder: speciesTitle(c), maxLength: 18, 'aria-label': 'Name' }) as HTMLInputElement;
+      const save = () => {
+        if (input.value.trim()) { A.rename(g.state, c.id, input.value); g.audio.play('coin'); this.toast(`Welcome to the family, ${displayName(c)}! 💕`, 'discovery'); g.saveSoon(); }
+        close();
+      };
+      input.addEventListener('keydown', (e) => { if (e.key === 'Enter') save(); });
+      m.append(h('h2', null, 'Name your first baby!'), this.portrait(c, 'portrait big'),
+        h('p', { class: 'muted' }, `Your very first ${species(c.species).name}. What will you call it?`), input,
+        h('div', { class: 'btns', style: 'margin-top:10px' },
+          h('button', { class: 'btn secondary', onClick: close }, 'Maybe later'),
+          h('button', { class: 'btn', onClick: save }, 'That\'s the name!')));
+      setTimeout(() => input.focus(), 100);
+    });
+  }
+
   /** Make a "look what I found" picture of a pet and share it. */
   async shareCreature(c: Creature): Promise<void> {
     const g = this.game;
@@ -2775,27 +2829,34 @@ export class UI {
   }
 
   private coachTarget: HTMLElement | null = null;
+  readonly hints = new Hints(document.body);
+  /** Gesture tips at the moments they help. */
+  private syncHints(): void {
+    const s = this.game.state;
+    if (this.modalHost.childElementCount || this.sheetOpen || this.game.world.revealing) return;
+    if (s.tutorial === 1) this.hints.show('drag');                     // waiting for the first visitor
+    else if (s.tutorial === 4) this.hints.show('pinch');               // waiting for the first egg
+    else if (s.tutorial >= 6) {
+      const st = starterStep(s);
+      if (st?.kind === 'breed') this.hints.show('hold');
+      else if (st?.kind === 'hatch' || s.starter?.done) this.hints.show('twist');
+    }
+  }
 
   /** The after-the-first-hatch tour: one tip per feature, each pointing at its button. */
   private tour(): { text: string; target: () => HTMLElement | null }[] {
     const dock = (label: string) => () => [...this.dock.querySelectorAll<HTMLElement>('button')].find((b) => b.textContent?.includes(label)) ?? null;
     const q = (sel: string) => () => document.querySelector<HTMLElement>(sel);
+    // a short tour of what's on screen now; the other buttons appear one by one as you level up (ui/features.ts)
     const steps = [
-      { text: 'Your first baby! Here\'s a quick tour.', target: () => null },
+      { text: 'Your first baby! A quick tour.', target: () => null },
       { text: 'LURES bring new visitors.', target: dock('LURES') },
       { text: 'CREATE makes eggs from two pets.', target: dock('CREATE') },
-      { text: 'EVENT skies can change pets and eggs.', target: q('.hud-tile[aria-label="Watch an ad to summon a sky event"]') },
-      { text: 'Your level. Tap it to see rewards.', target: q('.level-badge') },
-      { text: 'QUESTS give prizes, plus a daily rumour!', target: q('.hud-tile.quests') },
-      { text: 'WORLDS: travel to new islands.', target: q('.hud-tile.islands') },
-      { text: 'SHOP: lures, eggs, food and more.', target: dock('SHOP') },
-      { text: 'PETS: feed, store and sell. Buyers wait in Market.', target: dock('PETS') },
+      { text: 'PETS: feed, store and sell.', target: dock('PETS') },
+      { text: 'JOURNAL: everything you find. Can you find them all?', target: q('.found-chip') },
       { text: 'Pet your pets! Friends bring gifts. Strangers may not listen.', target: () => null },
-      { text: 'Visitors drop by with deals. Shoo the Goblin!', target: () => null },
-      { text: 'DECOR: make it yours. Hold to move.', target: dock('DECOR') },
-      { text: 'JOURNAL: everything you find. Have fun!', target: dock('JOURNAL') },
+      { text: 'More buttons unlock as you level up. Have fun!', target: q('.level-badge') },
     ];
-    if (inHalloween(this.game.now())) steps.splice(6, 0, { text: 'PASS: Halloween rewards. Play to earn Candy!', target: () => (this.passTile.classList.contains('hidden') ? null : this.passTile) });
     return steps;
   }
 
