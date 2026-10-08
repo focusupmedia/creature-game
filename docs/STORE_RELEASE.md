@@ -14,7 +14,7 @@ Until the keys below are filled in, the apps show Google's **test** ads.
 | AdMob app id (Android) ✅ filled in | admob.google.com → Apps → add app | `android/app/src/main/res/values/strings.xml` → `admob_app_id` |
 | AdMob app id (iOS) ✅ filled in | same | `ios/App/App/Info.plist` → `GADApplicationIdentifier` |
 | AdMob rewarded ad unit ids ✅ filled in | AdMob → app → Ad units → Rewarded | `src/platform/storeKeys.ts` (set `testing: false` only for the store release) |
-| RevenueCat API keys (Apple + Google) | app.revenuecat.com → project → API keys | `src/platform/storeKeys.ts` |
+| RevenueCat API keys (Apple ✅ filled in, Google still to do) | app.revenuecat.com → project → API keys | `src/platform/storeKeys.ts` |
 | Play Games project id | Play Console → Play Games Services → Configuration | `strings.xml` → `game_services_project_id` |
 
 ## In-app products to create (same ids in App Store Connect, Google Play and RevenueCat)

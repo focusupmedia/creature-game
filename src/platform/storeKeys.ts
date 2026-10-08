@@ -18,7 +18,7 @@ export const STORE_KEYS = {
   },
   revenuecat: {
     android: 'goog_REPLACE_ME',
-    ios: 'appl_REPLACE_ME',
+    ios: 'appl_UKiFmeHcOyGrzCjbeuWraHgRPBQ',
   },
 };
 
