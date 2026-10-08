@@ -40,6 +40,7 @@ const CATALOG = DECOR_LIST.filter((d) => !GADGET_IDS.includes(d.id));
 import { WANDERERS } from '../content/wanderers';
 import { deleteQuirk, wipeQuirks } from '../core/quirks';
 import { MAX_LEVEL, STAR_LEVEL, levelOf, levelProgress, levelReward, starRank, type LevelUp } from '../core/levels';
+import { STARTER_STEPS, starterState, starterStep } from '../core/starter';
 import { RUMOUR_REWARD, rumourText, todaysRumour } from '../core/rumours';
 import { DAILY_POOL, LASTING, claimable, claimableBy, lastingReward, refreshDailies } from '../core/quests';
 import { type AwayFind, canSell, sellBreakdown, collectorHere, findVisitor, isHungry, visitorThanks, nextSlotPrice, ripeFruit, sellPrice, sellWarning, storedCount } from '../core/care';
@@ -98,6 +99,35 @@ export class UI {
     h('span', { class: 'emoji' }, '📜'), h('span', { class: 'lbl' }, 'QUESTS'), this.questBadge);
   private passBadge = h('span', { class: 'count hidden' }, '0');
   /** The Halloween Pass: only on the HUD during the season. */
+  /** Lotl's starter quest: the axolotl button and its fold-out card. */
+  private lotlQuest = h('div', { class: 'lotl-quest hidden' });
+  private lotlKey = '';
+  private syncLotl(): void {
+    const s = this.game.state;
+    const q = starterState(s);
+    const show = s.tutorial >= 6 && !q.done;
+    this.lotlQuest.classList.toggle('hidden', !show);
+    if (!show) return;
+    const key = `${q.step}/${q.progress}/${q.open}/${q.claimable}`;
+    if (key === this.lotlKey) return;
+    this.lotlKey = key;
+    const st = starterStep(s);
+    const toggle = () => { this.game.audio.play('tap'); q.open = !q.open; this.game.saveSoon(); this.syncLotl(); };
+    const btn = h('button', { class: `lotl-btn ${q.claimable ? 'ready' : ''}`, 'aria-label': 'Lotl\'s quest', onClick: toggle },
+      I.icon(I.AXOLOTL, 'icon'), h('span', { class: 'lotl-count' }, q.claimable ? '!' : `${q.step + 1}/${STARTER_STEPS.length}`));
+    const card = !q.open ? '' : h('div', { class: 'lotl-card' },
+      h('div', { class: 'lotl-title' }, 'Lotl\'s Quest'),
+      q.claimable
+        ? h('div', null, h('div', { class: 'lotl-goal' }, 'All done! Here\'s my gift.'),
+          h('button', { class: 'btn small', onClick: () => this.game.claimStarter() }, rich('🥚 Claim Lotl\'s Egg')))
+        : h('div', null,
+          h('div', { class: 'lotl-goal' }, `${st!.text}${st!.target > 1 ? ` (${q.progress}/${st!.target})` : ''}`),
+          h('div', { class: 'lotl-tip' }, st!.tip),
+          h('div', { class: 'lotl-dots' }, ...STARTER_STEPS.map((_, i) => h('i', { class: i < q.step ? 'done' : i === q.step ? 'now' : '' }))),
+          h('div', { class: 'lotl-prize' }, rich('Prize: 🥚 an egg with a creature you don\'t have!'))));
+    this.lotlQuest.replaceChildren(btn, card);
+  }
+
   private passTile = h('button', { class: 'hud-tile pass hidden', 'aria-label': 'Halloween Pass', onClick: () => { this.game.audio.play('tap'); this.showPass(); } },
     h('span', { class: 'emoji' }, '🎃'), h('span', { class: 'lbl' }, 'PASS'), this.passBadge);
   private questTab: 'daily' | 'lasting' | 'contest' = 'daily';
@@ -161,7 +191,7 @@ export class UI {
             h('button', { class: 'bar-plus', 'aria-label': 'Get Starshards', onClick: () => this.showShop(true) }, I.icon(I.PLUS))),
         ),
         h('div', { class: 'hud-row', style: 'width:100%;align-items:flex-start' },
-          h('div', { class: 'hud-col' }, h('div', { class: 'hud-row', style: 'gap:6px' }, this.levelBadge, h('div', { class: 'sky-chip' }, this.skyChip)), this.widget),
+          h('div', { class: 'hud-col' }, h('div', { class: 'hud-row', style: 'gap:6px' }, this.levelBadge, h('div', { class: 'sky-chip' }, this.skyChip)), this.widget, this.lotlQuest),
           h('div', { class: 'spacer' }),
           h('div', { class: 'hud-col right' },
             h('button', { class: 'hud-tile', 'aria-label': 'Watch an ad to summon a sky event', onClick: () => this.showSummon() },
@@ -251,6 +281,7 @@ export class UI {
     const ready = claimable(s) + (contestReady(s, t) ? 1 : 0) + (canClaimLogin(s, t) && s.tutorial >= 5 ? 1 : 0);
     const season = inHalloween(t);
     this.passTile.classList.toggle('hidden', !season);
+    this.syncLotl();
     if (season) {
       const claim = passClaimable(s);
       this.passBadge.textContent = String(claim);
@@ -394,11 +425,11 @@ export class UI {
     this.sheetRender = () => {
       const scroll = body.scrollTop;
       // sideways-scrolling chip rows keep their place too
-      const rows = [...body.querySelectorAll<HTMLElement>('.world-filter, .tabs')].map((el) => el.scrollLeft);
+      const rows = [...body.querySelectorAll<HTMLElement>('.world-filter, .tabs, .pass-scroll')].map((el) => el.scrollLeft);
       body.replaceChildren();
       render(body);
       body.scrollTop = scroll;
-      body.querySelectorAll<HTMLElement>('.world-filter, .tabs').forEach((el, i) => { el.scrollLeft = rows[i] ?? 0; });
+      body.querySelectorAll<HTMLElement>('.world-filter, .tabs, .pass-scroll').forEach((el, i) => { el.scrollLeft = rows[i] ?? 0; });
     };
     this.sheetRender();
     this.refreshTimer = 1;
@@ -1290,12 +1321,15 @@ export class UI {
         });
         list.querySelectorAll<HTMLButtonElement>('button[data-id]').forEach((b) => {
           const on = picks.get(b.dataset.id!) === b.dataset.act;
+          // same as Store: grey until picked, then filled in (Release turns red) with a tick
           b.classList.toggle('secondary', !on);
+          if (b.dataset.act === 'release') b.classList.toggle('danger', on);
+          setText(b, `${on ? '✓ ' : ''}${b.dataset.act === 'store' ? 'Store' : 'Release'}`);
           if (b.dataset.act === 'store') b.disabled = !on && room() - st <= 0;
         });
       };
-      const pickBtn = (c: Creature, act: 'store' | 'release', label: string, cls: string, disabled: boolean) =>
-        h('button', { class: `btn small ${cls} secondary`, 'data-id': c.id, 'data-act': act, disabled, onClick: () => {
+      const pickBtn = (c: Creature, act: 'store' | 'release', label: string, disabled: boolean) =>
+        h('button', { class: 'btn small secondary', 'data-id': c.id, 'data-act': act, disabled, onClick: () => {
           const had = picks.get(c.id);
           if (had === act) picks.delete(c.id);
           else if (had) return this.fail(`${displayName(c)} is set to ${had === 'store' ? 'Store' : 'Release'}. Tap it again to undo first.`);
@@ -1305,8 +1339,8 @@ export class UI {
       for (const c of here) {
         list.append(h('div', { class: 'item', 'data-row': c.id }, this.portrait(c, 'swatch-img'),
           h('div', { class: 'grow' }, h('div', { class: 'name' }, `${c.favorite ? '♥ ' : ''}${displayName(c)}`), h('div', { class: 'desc' }, rarityTag(species(c.species).rarity))),
-          pickBtn(c, 'store', 'Store', '', room() <= 0),
-          pickBtn(c, 'release', 'Release', 'danger', !!c.favorite)));
+          pickBtn(c, 'store', 'Store', room() <= 0),
+          pickBtn(c, 'release', 'Release', !!c.favorite)));
       }
       m.append(list);
       if (room() <= 0) m.append(h('p', { class: 'muted' }, `Storage is full (${s.storageSlots} slots). You can add slots from the Storage list.`));
@@ -2374,7 +2408,9 @@ export class UI {
 
   /** The EVENT tile: watch an ad (or break a charm) to summon a sky event, and see what's coming. */
   /** The Halloween Pass: Candy from playing fills tiers; free rewards for all, more on the paid track. */
+  private passScrolled = false;
   showPass(): void {
+    this.passScrolled = false;
     const g = this.game;
     const s = g.state;
     const t = g.now();
@@ -2382,37 +2418,65 @@ export class UI {
       const p = passState(s);
       const tier = passTier(s);
       const into = p.points - tier * PASS.pointsPerTier;
-      b.append(h('div', { class: 'pass-top' },
-        h('div', { class: 'pass-tier' }, h('b', null, `Tier ${tier}`), h('span', null, `/ ${PASS.tiers}`)),
+      const pct = tier >= PASS.tiers ? 100 : Math.round((into / PASS.pointsPerTier) * 100);
+      const prod = p.premium ? null : g.purchases.products().find((x) => x.id === PASS.productId);
+      b.append(h('div', { class: 'pass-head' },
+        h('div', { class: 'pass-badge' }, h('b', null, String(tier)), h('span', null, 'TIER')),
         h('div', { class: 'grow' },
-          h('div', { class: 'progress' }, h('i', { style: `width:${tier >= PASS.tiers ? 100 : Math.round((into / PASS.pointsPerTier) * 100)}%` })),
-          h('div', { class: 'muted' }, tier >= PASS.tiers ? 'All tiers reached! ✨' : `🍬 ${into} / ${PASS.pointsPerTier} Candy to the next tier`))));
-      if (!p.premium) {
-        const prod = g.purchases.products().find((x) => x.id === PASS.productId);
-        b.append(h('div', { class: 'pass-buy' },
-          h('div', { class: 'grow' }, h('b', null, 'Unlock the Halloween Pass'), h('div', { class: 'muted' }, 'Every tier\'s second reward too: Legendary and Mythical Eggs, Golden and Mythic Lures, spooky decorations and lots of Starshards. Rewards from tiers you\'ve passed are waiting.')),
-          h('button', { class: 'btn shard', onClick: () => void g.buyPack(PASS.productId) }, prod?.price ?? 'Unlock')));
-      }
-      b.append(h('p', { class: 'muted' }, 'Candy comes from everything you do: lures, breeding, hatching, finds, trips and the Market. Spooky skies that leave a mark give a big handful!'));
-      const list = h('div', { class: 'list pass-list' });
+          h('div', { class: 'pass-bar' }, h('i', { style: `width:${pct}%` }), h('span', null, rich(tier >= PASS.tiers ? 'All tiers reached! ✨' : `🍬 ${into} / ${PASS.pointsPerTier}`))),
+          h('div', { class: 'pass-sub' }, 'Earn Candy from everything you do')),
+        p.premium ? h('div', { class: 'pass-owned' }, rich('✓ Unlocked'))
+          : h('button', { class: 'btn pass-unlock', onClick: () => void g.buyPack(PASS.productId) }, h('span', null, 'Unlock'), h('small', null, prod?.price ?? '')),
+      ));
+      if (!p.premium) b.append(h('p', { class: 'pass-pitch' }, rich('🎃 Unlock for Pumpkit right away, the Mythical Wisp Stag at tier 25, and a bonus reward every tier.')));
+      // the track: tickets on the left, tiers scroll sideways (premium on top, free below)
+      const ico = (r: PassReward): Node => {
+        if (r.coins) return I.icon(I.COIN, 'pc-ico');
+        if (r.shards) return I.icon(I.GEM, 'pc-ico');
+        if (r.egg) return I.icon(tierEggIcon(r.egg), 'pc-ico');
+        if (r.decor) return img(g.world.portraits.decor(r.decor), 'pc-img');
+        if (r.creature) return img(g.world.portraits.get(r.creature, [], false), 'pc-img');
+        if (r.lure) return h('span', { class: 'pc-emo' }, rich(HABITAT_ICON[LURES[r.lure[0]]?.attracts] ?? '✨'));
+        if (r.food) return h('span', { class: 'pc-emo' }, rich(FOODS[r.food[0]]?.icon ?? '🍓'));
+        return h('span');
+      };
+      const amount = (r: PassReward) => r.coins ? r.coins.toLocaleString() : r.shards ? String(r.shards) : r.lure ? `×${r.lure[1]}` : r.food ? `×${r.food[1]}` : r.egg ? 'Egg' : r.creature ? 'Creature!' : 'Decor';
+      const card = (i: number, r: PassReward, track: 'free' | 'paid') => {
+        const got = (track === 'free' ? p.free : p.paid).includes(i);
+        const lockedPass = track === 'paid' && !p.premium;
+        const ready = i <= tier && !got && !lockedPass;
+        return h('button', { class: `pc ${track} ${got ? 'got' : ''} ${ready ? 'ready' : ''} ${r.creature ? 'star' : ''}`, title: describeReward(r).replace(/\{\w+\}/g, ''), onClick: () => {
+          if (got) return this.toast(rich(`Already claimed: ${describeReward(r)}`).textContent ?? '');
+          if (lockedPass) return this.fail('Unlock the Halloween Pass to claim this.');
+          if (i > tier) return this.toast(`${describeReward(r).replace(/\{\w+\}/g, '').trim()} · reach tier ${i} to claim.`);
+          const res = claimPassTier(s, i, track, g.now());
+          if (!res.ok) return this.fail(res.error);
+          g.audio.play('coin');
+          this.toast(`🎃 ${res.message}`, 'discovery');
+          g.saveSoon();
+          this.rerender();
+        } }, h('div', { class: 'pc-art' }, ico(r)), h('div', { class: 'pc-amt' }, amount(r)),
+          got ? h('i', { class: 'pc-tick' }, rich('✓')) : lockedPass ? h('i', { class: 'pc-lock' }, rich('🔒')) : ready ? h('i', { class: 'pc-claim' }, 'CLAIM') : '');
+      };
+      const cols = h('div', { class: 'pass-cols' });
       for (let i = 1; i <= PASS.tiers; i++) {
         const [free, paid] = PASS_TIERS[i - 1];
-        const reached = i <= tier;
-        const cell = (r: PassReward, track: 'free' | 'paid') => {
-          const got = (track === 'free' ? p.free : p.paid).includes(i);
-          const locked = !reached || (track === 'paid' && !p.premium);
-          return h('button', { class: `pass-cell ${track} ${got ? 'got' : ''} ${locked ? 'locked' : 'ready'}`, disabled: got || locked, onClick: () => {
-            const res = claimPassTier(s, i, track, g.now());
-            if (!res.ok) return this.fail(res.error);
-            g.audio.play('coin');
-            this.toast(`🎃 ${res.message}`, 'discovery');
-            g.saveSoon();
-            this.rerender();
-          } }, rich(describeReward(r)), h('small', null, got ? '✓ Claimed' : locked ? (track === 'paid' && !p.premium ? '🔒 Pass' : `Tier ${i}`) : 'Claim!'));
-        };
-        list.append(h('div', { class: `pass-row ${reached ? 'reached' : ''}` }, h('div', { class: 'pass-num' }, String(i)), cell(free, 'free'), cell(paid, 'paid')));
+        const fill = i < tier ? 100 : i === tier ? pct : 0;
+        cols.append(h('div', { class: `pass-col ${i <= tier ? 'reached' : ''}` },
+          card(i, paid, 'paid'),
+          h('div', { class: 'pass-node' }, h('div', { class: 'pass-link' }, h('i', { style: `width:${i < PASS.tiers ? fill : 0}%` })), h('b', null, String(i))),
+          card(i, free, 'free')));
       }
-      b.append(list);
+      const scroller = h('div', { class: 'pass-scroll' }, cols);
+      b.append(h('div', { class: 'pass-board' },
+        h('div', { class: 'pass-tickets' },
+          h('div', { class: `pass-ticket gold ${p.premium ? 'on' : ''}` }, 'HALLOWEEN', h('br'), 'PASS'),
+          h('div', { class: 'pass-ticket free' }, 'FREE', h('br'), 'PASS')),
+        scroller));
+      if (!this.passScrolled) {
+        this.passScrolled = true;
+        requestAnimationFrame(() => { scroller.scrollLeft = Math.max(0, (Math.min(Math.max(tier, 1), PASS.tiers) - 1) * 112); });
+      }
     }, '🎃');
   }
 

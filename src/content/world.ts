@@ -668,6 +668,12 @@ export interface EggTier {
 }
 
 export const EGG_TIERS: Record<string, EggTier> = {
+  // never sold: Lotl's reward for finishing the starter quest (always a creature you don't have)
+  lotl: {
+    id: 'lotl', name: "Lotl's Egg", price: 0, currency: 'shards', habitats: [], includeBred: true,
+    weights: { common: 2, uncommon: 4, rare: 4, legendary: 1 }, colors: ['#ffb0d8', '#7ad8ff'],
+    blurb: 'A gift from Lotl. Always holds a creature you have never had.',
+  },
   meadow: {
     id: 'meadow', name: 'Meadow Egg', price: 120, currency: 'glimmer', habitats: ['Grove', 'Bloom', 'Tide'],
     weights: { common: 10, uncommon: 4, rare: 1, legendary: 0 }, colors: ['#9fe06a', '#ffffff'],

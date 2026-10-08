@@ -13,6 +13,7 @@ import { planNotifications } from '../core/notify';
 import { voiceOf } from '../render/voices';
 import { EXPEDITIONS, type ExpeditionId } from '../content/expeditions';
 import { claimDaily, claimLasting, questEvent, refreshDailies } from '../core/quests';
+import { claimStarter, starterEvent, starterStep } from '../core/starter';
 import { RUMOUR_REWARD, checkRumour, rumourText, todaysRumour } from '../core/rumours';
 import { awayFinds, bulkRelease, bulkRetrieve, bulkSell, bulkStore, buyStorageSlot, findVisitor, keepVisitor, releaseCreature, sendAwayVisitor, feastIsland, feedCreature, hangFeedbag, feedSprout, harvestTree, retrieveCreature, sellCreature, storeCreature } from '../core/care';
 import { islandCapacity } from '../core/sim';
@@ -942,8 +943,21 @@ export class Game {
       }
     }
     questEvent(this.state, ev);
+    if (this.state.tutorial >= 6) {
+      const step = starterEvent(this.state, ev);
+      if (step === 'done') { this.audio.play('discover'); this.ui.toast('🦎 Lotl\'s Quest complete! Claim your egg.', 'discovery', undefined, 4000, { priority: 3 }); }
+      else if (step === 'step') { this.audio.play('coin'); this.ui.toast(`🦎 Nice! Next: ${starterStep(this.state)?.text ?? ''}`, 'info', undefined, 3500, { priority: 2 }); }
+    }
     this.gainXp(xpFor(ev));
     addCandy(this.state, candyFor(ev), this.now());
+  }
+
+  /** Lotl's starter quest is finished: hand over Lotl's Egg. */
+  claimStarter(): void {
+    if (!claimStarter(this.state, this.now())) return;
+    this.audio.play('discover');
+    this.ui.toast('🥚 Lotl\'s Egg is warming! It holds a creature you\'ve never had.', 'discovery', undefined, 5000, { priority: 3 });
+    this.saveSoon();
   }
 
   /** Once a day (after the tutorial) Lotl whispers a new rumour. */

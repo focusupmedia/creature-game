@@ -927,3 +927,27 @@ describe('daily rumours', () => {
     expect(todaysRumour(s, T0 + 86_400_000)!.day).not.toBe(r.day);
   });
 });
+
+describe("Lotl's starter quest", () => {
+  it('walks through the steps in order and pays an egg with a creature you do not have', async () => {
+    const { STARTER_STEPS, starterEvent, claimStarter, starterState } = await import('../src/core/starter');
+    const s = fresh();
+    expect(starterEvent(s, { kind: 'breed' })).toBe(null);
+    let last = null;
+    for (const st of STARTER_STEPS) {
+      for (let i = 0; i < st.target; i++) {
+        const ev = st.kind === 'hatch' ? { kind: 'hatch' as const, species: 'mossfrog', newSpecies: false, newMutations: 0 }
+          : st.kind === 'arrival' ? { kind: 'arrival' as const, species: 'mossfrog', isNew: false } : { kind: st.kind } as never;
+        last = starterEvent(s, ev);
+      }
+    }
+    expect(last).toBe('done');
+    const eggs = s.eggs.length;
+    expect(claimStarter(s, T0)).toBe(true);
+    expect(claimStarter(s, T0)).toBe(false);
+    const egg = s.eggs[eggs];
+    expect(egg.tier).toBe('lotl');
+    expect(s.creatures.some((c) => c.species === egg.species)).toBe(false);
+    expect(starterState(s).done).toBe(true);
+  });
+});

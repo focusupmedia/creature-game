@@ -17,6 +17,9 @@ export const UPDATES: UpdateNote[] = [
       'Mythicals are rarer. Shorter tutorial. Placed items follow bigger worlds.',
       'Kindred Font is now the Kindred Fountain.',
       'Selling shows how each mutation multiplies the price.',
+      "Lotl's Quest: easy first goals that win an egg with a creature you don't have.",
+      'A brand-new Halloween Pass screen.',
+      'Make space: the Release button now lights up when picked, just like Store.',
     ],
   },
   {

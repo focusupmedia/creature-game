@@ -417,6 +417,8 @@ export interface GameState {
   quests: { day: string; daily: { id: string; progress: number; claimed: boolean }[]; tiers: Record<string, number> };
   /** Lifetime counts that quests read. */
   questStats: Record<string, number>;
+  /** Lotl's starter quest (core/starter.ts). */
+  starter?: { step: number; progress: number; done: boolean; open: boolean; claimable?: boolean };
   /** Today's whisper about an undiscovered creature (core/rumours.ts). */
   rumour?: { day: string; species: SpeciesId; found: boolean; told?: boolean };
   /** Pantry: fruit, snack, feast, feedbag. */
