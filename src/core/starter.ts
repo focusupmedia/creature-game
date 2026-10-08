@@ -5,6 +5,9 @@
 import { EGG_TIERS, MUTATIONS } from '../content/world';
 import { SPECIES } from '../content/species';
 import { layEgg, rollEggTier } from './actions';
+import { addWorldNest, placedNests } from './state';
+import { NESTS } from '../content/layout';
+import { ISLANDS } from '../content/islands';
 import type { PlayEvent } from './progress';
 import { StateRng } from './rng';
 import type { GameState, MutationId, SpeciesId } from './types';
@@ -79,6 +82,12 @@ export function claimStarter(state: GameState, t: number): boolean {
   egg.incubationMs = Math.min(egg.incubationMs, 180_000);
   const sleepy = layEgg(state, rollEggTier(state, 'sleepy'), 'shop', t);
   sleepy.tier = 'sleepy';
+  // every nest busy? Lotl brings a little nest for it, so it really does wake up tomorrow
+  if (sleepy.nest === null) {
+    const spot = NESTS.find((n) => !placedNests(state).some((d) => Math.hypot(d.x - ISLANDS.home.ox - n.x, d.z - ISLANDS.home.oz - n.z) < 0.5)) ?? { x: 0, z: -3 };
+    addWorldNest(state, 'home', spot);
+    sleepy.nest = placedNests(state).at(-1)!.id;
+  }
   sleepy.incubationMs = tomorrowMorning(t) - t;
   return true;
 }
