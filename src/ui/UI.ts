@@ -2277,21 +2277,24 @@ export class UI {
       b.append(h('div', { class: 'btns' },
         h('button', { class: 'btn secondary small', onClick: () => this.showControls() }, '👆 How to get around'),
         h('button', { class: 'btn secondary small', onClick: () => this.showUpdates() }, '📜 What\'s new')));
-      b.append(h('div', { class: 'section-title' }, 'Playtest tools'));
-      b.append(h('p', { class: 'muted' }, 'These exist to test the prototype quickly and will not ship.'));
-      if (g.cloudStatus?.service === 'Test cloud' && g.cloudStatus.signedIn) {
-        b.append(h('button', { class: 'btn secondary small', onClick: () => g.simulateOtherDevice() }, '☁️ Pretend another phone saved'));
+      // playtest tools: in the web playtest build only, never in the store apps
+      if (!gameServices.available) {
+        b.append(h('div', { class: 'section-title' }, 'Playtest tools'));
+        b.append(h('p', { class: 'muted' }, 'These exist to test the prototype quickly and will not ship.'));
+        if (g.cloudStatus?.service === 'Test cloud' && g.cloudStatus.signedIn) {
+          b.append(h('button', { class: 'btn secondary small', onClick: () => g.simulateOtherDevice() }, '☁️ Pretend another phone saved'));
+        }
+        const speed = h('div', { class: 'btns' }, ...[1, 10, 60].map((x) =>
+          h('button', { class: `btn small ${g.timeScale === x ? '' : 'secondary'}`, onClick: () => { g.timeScale = x; this.rerender(); } }, `${x}× time`)));
+        b.append(speed);
+        b.append(h('div', { class: 'btns' },
+          h('button', { class: 'btn small secondary', onClick: () => g.skip(5 * 60_000) }, '⏩ Skip 5 min'),
+          h('button', { class: 'btn small secondary', onClick: () => g.skip(60 * 60_000) }, '⏩ Skip 1 hour (away)'),
+          h('button', { class: 'btn small secondary', onClick: () => g.skipToNextEvent() }, '🌦️ Next sky event'),
+          ...LEGENDARY_ORDER.map((k) => h('button', { class: 'btn small secondary', onClick: () => { this.closeSheet(); g.summonLegendary(k); } }, `${LEGENDARY[k].icon} ${LEGENDARY[k].name}`)),
+          h('button', { class: 'btn small secondary', onClick: () => { g.state.glimmer += 500; g.state.shards += 50; } }, '+500 coins +50 gems'),
+        ));
       }
-      const speed = h('div', { class: 'btns' }, ...[1, 10, 60].map((x) =>
-        h('button', { class: `btn small ${g.timeScale === x ? '' : 'secondary'}`, onClick: () => { g.timeScale = x; this.rerender(); } }, `${x}× time`)));
-      b.append(speed);
-      b.append(h('div', { class: 'btns' },
-        h('button', { class: 'btn small secondary', onClick: () => g.skip(5 * 60_000) }, '⏩ Skip 5 min'),
-        h('button', { class: 'btn small secondary', onClick: () => g.skip(60 * 60_000) }, '⏩ Skip 1 hour (away)'),
-        h('button', { class: 'btn small secondary', onClick: () => g.skipToNextEvent() }, '🌦️ Next sky event'),
-        ...LEGENDARY_ORDER.map((k) => h('button', { class: 'btn small secondary', onClick: () => { this.closeSheet(); g.summonLegendary(k); } }, `${LEGENDARY[k].icon} ${LEGENDARY[k].name}`)),
-        h('button', { class: 'btn small secondary', onClick: () => { g.state.glimmer += 500; g.state.shards += 50; } }, '+500 coins +50 gems'),
-      ));
       b.append(h('div', { class: 'section-title' }, 'Save'));
       b.append(h('button', { class: 'btn danger', onClick: () => this.modal((m, close) => {
         m.append(h('h2', null, 'Start a new sanctuary?'), h('p', { class: 'muted' }, 'This erases your current save on this device.'),
