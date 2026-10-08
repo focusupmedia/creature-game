@@ -161,6 +161,17 @@ export class UI {
     this.foundChip.classList.toggle('hidden', s.tutorial < 5);
     setText(this.foundChip, `🐾 ${found}/${SPECIES.length}`);
   }
+  /** Toasts sit at the top, just under whatever is showing in the left column (so Lotl's card is never covered). */
+  private placeToasts(): void {
+    // a menu or pop-up is open: use the strip at the very top (the HUD behind it can't be tapped anyway)
+    const busy = this.sheetOpen || this.modalHost.childElementCount > 0;
+    const col = this.lotlQuest.parentElement;
+    const bottom = col ? col.getBoundingClientRect().bottom : 0;
+    const safe = parseFloat(getComputedStyle(this.root).getPropertyValue('--safe-top')) || 0;
+    const top = Math.round(busy ? safe + 8 : Math.max(150, bottom + 10));
+    if (this.toastTop !== top) { this.toastTop = top; this.toasts.style.setProperty('--toast-top', `${top}px`); }
+  }
+  private toastTop = 0;
   private friendsBadge = h('span', { class: 'badge hidden' });
   private friendsTile = h('button', { class: 'hud-tile friends', 'aria-label': 'Friends', onClick: () => { this.game.audio.play('tap'); this.showFriends(); } },
     h('span', { class: 'icon emo' }, rich('🤝')), h('span', { class: 'lbl' }, 'FRIENDS'), this.friendsBadge);
@@ -253,7 +264,7 @@ export class UI {
       this.featureEl.shop = dockBtn(I.SHOP, 'SHOP', () => this.showShop(), this.shopDot),
       this.featureEl.decor = dockBtn(I.DECOR, 'DECOR', () => this.showDecor()),
     );
-    this.root.append(top, this.banner, this.coachEl, this.toasts, this.dock, this.sheetHost, this.placeHost, this.modalHost, this.revealHost);
+    this.root.append(top, this.banner, this.toasts, this.coachEl, this.dock, this.sheetHost, this.placeHost, this.modalHost, this.revealHost);
     // a finger down on a sheet pauses its live refresh until it lifts (so taps always land)
     this.sheetHost.addEventListener('pointerdown', () => { this.pressing = true; });
     window.addEventListener('pointerup', () => { this.pressing = false; }, true);
@@ -322,6 +333,7 @@ export class UI {
     this.syncLotl();
     this.syncFeatures();
     this.syncHints();
+    this.placeToasts();
     const gl = giftsLeft(s, t);
     this.friendsBadge.textContent = String(gl);
     this.friendsBadge.classList.toggle('hidden', gl === 0);
@@ -496,7 +508,8 @@ export class UI {
    * (that would swallow the tap) or while typing a name: it catches up right after.
    */
   rerender(): void {
-    const typing = document.activeElement instanceof HTMLInputElement && this.sheetHost.contains(document.activeElement);
+    const a = document.activeElement;
+    const typing = (a instanceof HTMLInputElement || a instanceof HTMLTextAreaElement) && this.sheetHost.contains(a);
     if (this.pressing || typing) {
       this.pendingRender = true;
       return;
@@ -2346,14 +2359,24 @@ export class UI {
       const t = g.now();
       const code = myFriendCode(s);
       // my keeper name and code
-      const name = h('input', { class: 'rename', value: s.keeperName ?? '', placeholder: 'Your keeper name', maxLength: 20, 'aria-label': 'Your keeper name' }) as HTMLInputElement;
-      name.addEventListener('change', () => { s.keeperName = name.value.trim().slice(0, 20) || undefined; g.saveSoon(); this.rerender(); });
+      const name = h('input', { class: 'rename', value: s.keeperName ?? '', placeholder: 'Your keeper name', maxLength: 20, enterKeyHint: 'done', 'aria-label': 'Your keeper name' }) as HTMLInputElement;
+      const saveName = () => {
+        name.blur();   // closes the phone keyboard
+        const v = name.value.trim().slice(0, 20) || undefined;
+        if (v === s.keeperName) return;
+        s.keeperName = v;
+        g.saveSoon();
+        this.toast(v ? `Hello, ${v}!` : 'Name cleared.');
+        this.rerender();
+      };
+      name.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); saveName(); } });
       const codeBox = h('textarea', { class: 'friend-code', readOnly: true, rows: 3, 'aria-label': 'Your friend code' }, code) as HTMLTextAreaElement;
       const copy = async () => {
         try { await navigator.clipboard.writeText(code); this.toast('Friend code copied! Send it to a friend.'); } catch { codeBox.select(); this.toast('Press and hold the code to copy it.'); }
       };
       b.append(h('div', { class: 'friend-me' },
-        h('div', { class: 'section-title' }, 'You'), name,
+        h('div', { class: 'section-title' }, 'You'),
+        h('div', { class: 'row', style: 'gap:6px' }, name, h('button', { class: 'btn small', onClick: saveName }, 'Save')),
         h('div', { class: 'muted' }, 'Your friend code (it shows your best pets; share it again after you find new ones):'),
         codeBox,
         h('div', { class: 'btns' },

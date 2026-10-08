@@ -18,7 +18,9 @@ export type PlayEvent =
   | { kind: 'befriend' }
   | { kind: 'feed' }
   | { kind: 'trip' }
-  | { kind: 'deal' };
+  | { kind: 'deal' }
+  /** Met a lure visitor: kept it or sent it on its way. */
+  | { kind: 'meet'; kept: boolean };
 
 export function xpFor(ev: PlayEvent): number {
   const X = TUNING.xp;
@@ -37,5 +39,6 @@ export function xpFor(ev: PlayEvent): number {
     case 'feed': return 0;
     case 'trip': return X.trip ?? 10;
     case 'deal': return X.deal ?? 5;
+    case 'meet': return 0;
   }
 }

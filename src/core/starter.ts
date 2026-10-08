@@ -13,7 +13,7 @@ export interface StarterStep { text: string; kind: PlayEvent['kind']; target: nu
 
 export const STARTER_STEPS: StarterStep[] = [
   { text: 'Set out a lure', kind: 'lure', target: 1, tip: 'Tap LURES, then a glowing lure spot.' },
-  { text: 'Welcome a visitor', kind: 'arrival', target: 1, tip: 'Tap the ! over a visitor and Keep it.' },
+  { text: 'Meet a visitor', kind: 'meet', target: 1, tip: 'Tap the ! over a visitor, then Keep it or send it on its way.' },
   { text: 'Pet a creature', kind: 'befriend', target: 1, tip: 'Tap a creature, then Pet.' },
   { text: 'Buy an egg from Mango', kind: 'shopEgg', target: 1, tip: 'Tap SHOP, then the EGGS tab.' },
   { text: 'Make an egg', kind: 'breed', target: 1, tip: 'Tap CREATE and pick two pets that match.' },

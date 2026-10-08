@@ -1064,6 +1064,7 @@ export class Game {
     }
     if (this.careResult(r, 'chime')) {
       this.world.emote(id, '💕');
+      this.metVisitor(true);
       this.analytics.track('visitor_kept', { species: v.creature.species });
       if (to !== this.world.current) this.ui.toast(`${displayName(v.creature)} is off to ${ISLANDS[to].name}.`);
     }
@@ -1128,7 +1129,16 @@ export class Game {
 
   sendAwayVisitor(id: string): void {
     const v = findVisitor(this.state, id);
-    if (this.careResult(sendAwayVisitor(this.state, id), 'coin')) this.analytics.track('visitor_sent', { species: v?.creature.species ?? '' });
+    if (this.careResult(sendAwayVisitor(this.state, id), 'coin')) {
+      this.analytics.track('visitor_sent', { species: v?.creature.species ?? '' });
+      this.metVisitor(false);
+    }
+  }
+
+  /** Keeping or sending away a visitor moves the tutorial and Lotl's Quest along. */
+  private metVisitor(kept: boolean): void {
+    if (this.state.tutorial === 2) this.setTutorial(3);
+    this.record({ kind: 'meet', kept });
   }
 
   /** Say goodbye to a creature for good (favorites are protected). */
