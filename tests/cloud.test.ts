@@ -19,6 +19,11 @@ describe('cloud save decisions', () => {
     expect(decideSync(sum({ savedAt: T }), T, sum({ savedAt: T + 9000 }))).toEqual({ kind: 'download', quiet: true });
   });
 
+  it('just opening the game (an autosave, no progress) still downloads quietly', () => {
+    expect(decideSync(sum({ savedAt: T + 4000, sig: 'p1' }), T, sum({ savedAt: T + 9000 }), 'p1')).toEqual({ kind: 'download', quiet: true });
+    expect(decideSync(sum({ savedAt: T + 4000, sig: 'p2' }), T, sum({ savedAt: T + 9000 }), 'p1').kind).toBe('ask');
+  });
+
   it('asks when both devices played since the last sync', () => {
     expect(decideSync(sum({ savedAt: T + 4000 }), T, sum({ savedAt: T + 9000 })).kind).toBe('ask');
   });

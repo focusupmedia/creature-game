@@ -63,9 +63,10 @@ export function stepCare(state: GameState, t: number, dt: number, rng: StateRng,
   if (col.until && t >= col.until) {
     col.until = 0;
     col.nextAt = t + TUNING.collectorEveryHours * HOUR * (0.75 + rng.next() * 0.5);
+    // decided now, so the "the Collector is coming" reminder names the right kind
+    col.wants = rng.pick<Trait>(['Grove', 'Tide', 'Bloom', 'Mystic', 'Ember', 'Reef', 'Sand', 'Shore', 'Bird', 'Reptile', 'Mammal', 'Insect', 'Fish', 'Primate']);
   } else if (!col.until && t >= col.nextAt) {
     col.until = t + TUNING.collectorStayMin * MIN;
-    col.wants = rng.pick<Trait>(['Grove', 'Tide', 'Bloom', 'Mystic', 'Ember', 'Reef', 'Sand', 'Shore', 'Bird', 'Reptile', 'Mammal', 'Insect', 'Fish', 'Primate']);
     out.push({ type: 'collector', wants: col.wants, until: col.until, t });
   }
 }
@@ -124,7 +125,7 @@ export function hangFeedbag(state: GameState, island: IslandId): Result {
 /** Berries waiting on a Berry Tree. */
 export function ripeFruit(harvestedAt: number | undefined, t: number): number {
   if (harvestedAt === undefined) return 0;
-  return Math.min(TUNING.fruitMax, Math.floor((t - harvestedAt) / (TUNING.fruitEveryMin * MIN)));
+  return Math.max(0, Math.min(TUNING.fruitMax, Math.floor((t - harvestedAt) / (TUNING.fruitEveryMin * MIN))));
 }
 
 export function harvestTree(state: GameState, decorId: string, t: number): Result {

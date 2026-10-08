@@ -76,7 +76,12 @@ export function weekTheme(t: number): { key: string; theme: WeekTheme; endsAt: n
   }
   const { year, week } = weekOfYear(t);
   const dow = (d.getUTCDay() + 6) % 7;
-  const endsAt = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() - dow + 7);
+  let endsAt = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() - dow + 7);
+  // a holiday starting before Monday ends this week early
+  for (const [hm, a] of HOLIDAYS) {
+    const start = Date.UTC(d.getUTCFullYear(), hm - 1, a);
+    if (start > t && start < endsAt) endsAt = start;
+  }
   return { key: `${year}-w${week}`, theme: WEEK_THEMES[CYCLE[(week + year) % CYCLE.length]], endsAt };
 }
 

@@ -641,6 +641,7 @@ export function storeDecor(state: GameState, placedId: string): Result {
   const d = state.placedDecor.find((p) => p.id === placedId);
   if (!d) return fail('Not found.');
   if (d.decor === 'nest' && state.eggs.some((e) => e.nest === d.id)) return fail('There\'s an egg in this nest. Hatch it first.');
+  if (state.eggs.some((e) => e.nurseryId === d.id)) return fail('There\'s an egg waiting in the Nursery. Hatch it first.');
   if (TOTEMS[d.decor] && (d.expiresAt ?? 0) > state.lastTick) return fail('Its magic is already working. It will crumble away when it runs out.');
   state.placedDecor = state.placedDecor.filter((p) => p !== d);
   state.decorOwned[d.decor] = (state.decorOwned[d.decor] ?? 0) + 1;

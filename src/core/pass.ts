@@ -56,8 +56,15 @@ export const PASS_TIERS: [PassReward, PassReward][] = [
   [F({ shards: 50 }), F({ creature: 'gloomwing' })],
 ];
 
+/** This season's pass id: a fresh pass every year (2026 keeps the plain id). */
+function seasonPassId(state: GameState): string {
+  const year = new Date(state.lastTick || Date.now()).getUTCFullYear();
+  return year <= 2026 ? PASS.id : `${PASS.id}-${year}`;
+}
+
 export function passState(state: GameState) {
-  if (!state.pass || state.pass.id !== PASS.id) state.pass = { id: PASS.id, points: 0, free: [], paid: [], premium: false };
+  const id = seasonPassId(state);
+  if (!state.pass || state.pass.id !== id) state.pass = { id, points: 0, free: [], paid: [], premium: false };
   return state.pass;
 }
 

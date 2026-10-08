@@ -29,7 +29,7 @@ import { StateRng } from '../core/rng';
 import { refreshShop } from '../core/shop';
 import { fillWant } from '../core/market';
 import { fillAwayChest, openAwayChest, welcomeBackGift } from '../core/away';
-import { decideSync, summarize, type CloudBlob } from '../core/cloud';
+import { decideSync, progressSig, summarize, type CloudBlob } from '../core/cloud';
 import { createCloudSave, deviceName, TestCloudSave, type CloudSave, type CloudStatus } from '../platform/cloudSave';
 import { TUNING } from '../content/tuning';
 import * as A from '../core/actions';
@@ -252,7 +252,7 @@ export class Game {
         await this.cloudUpload(manual);
         return;
       }
-      const d = decideSync(local, this.state.cloud?.syncedAt, blob?.summary ?? null);
+      const d = decideSync(local, this.state.cloud?.syncedAt, blob?.summary ?? null, this.state.cloud?.syncedSig);
       switch (d.kind) {
         case 'update-needed':
           this.cloudBlocked = true;
@@ -292,12 +292,15 @@ export class Game {
       const t = this.now();
       this.state.cloud ??= { saveId: newSaveId(this.state.seed, this.state.createdAt) };
       const before = this.state.cloud.syncedAt;
+      const beforeSig = this.state.cloud.syncedSig;
       // stamp the sync time into the copy we send, so both sides agree on it
       this.state.cloud.syncedAt = t;
+      this.state.cloud.syncedSig = progressSig(this.state);
       const data = serialize(this.state, t);
       const ok = await this.cloud.save({ data, summary: summarize(this.state, deviceName()) });
       if (!ok) {
         this.state.cloud.syncedAt = before;
+        this.state.cloud.syncedSig = beforeSig;
         if (manual) this.ui.fail('Couldn\'t save to the cloud just now. Your game is safe on this device.');
         return false;
       }
@@ -337,7 +340,7 @@ export class Game {
     const mine = this.storage.load(SAVE_KEY);
     if (mine) this.storage.save(`${SAVE_KEY}.before-cloud`, mine);
     const st = deserialize(blob.data);
-    st.cloud = { saveId: blob.summary.saveId, syncedAt: blob.summary.savedAt };
+    st.cloud = { saveId: blob.summary.saveId, syncedAt: blob.summary.savedAt, syncedSig: blob.summary.sig };
     this.storage.save(SAVE_KEY, JSON.stringify(st));
     this.storage.save(CLOUD_LOADED_KEY, String(blob.summary.level));
     this.reloading = true;

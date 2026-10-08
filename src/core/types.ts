@@ -462,7 +462,7 @@ export interface GameState {
   /** Daily login calendar: the last day claimed (UTC date) and how many days claimed in all. */
   login?: { day: string; claimed: number };
   /** Cloud save: this game's id, and when this device last matched the cloud copy. */
-  cloud?: { saveId: string; syncedAt?: number };
+  cloud?: { saveId: string; syncedAt?: number; syncedSig?: string };
   /** Highest keeper level whose coin and Starshard reward has been paid. */
   levelPaid?: number;
   /** The away chest, filled while you were gone and waiting to be opened. */

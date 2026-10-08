@@ -4,6 +4,7 @@
 // "discover" goals, from the state itself.
 
 import { SPECIES } from '../content/species';
+import { LEVEL_CREATURES } from './levels';
 import { isOutlier, growth } from './creatures';
 import { hasQuirk } from './quirks';
 import type { PlayEvent } from './progress';
@@ -50,10 +51,14 @@ export const DAILY_POOL: DailyDef[] = [
   { id: 'd-hatchmut', stat: 'hatchMutated', target: 2, text: 'Hatch 2 eggs that carry a mutation', reward: { coins: 650, shards: 10, xp: 160 } },
   {
     id: 'd-new', stat: 'newSpecies', target: 1, text: 'Discover a creature you\'ve never met', reward: { coins: 600, shards: 10, xp: 150 },
-    when: (s) => Object.keys(s.journal.species).length < SPECIES.length,
+    when: (s) => FINDABLE.some((id) => !s.journal.species[id]),
   },
   { id: 'd-deal', stat: 'deal', target: 1, text: 'Take a deal from a wandering keeper', reward: { coins: 400, shards: 8, xp: 100 } },
 ];
+
+/** Species you can meet by playing (not level or pass rewards), for the "discover" daily. */
+const REWARD_ONLY = new Set<string>([...Object.values(LEVEL_CREATURES), 'pumpkit', 'peekaboo', 'gloomwing']);
+const FINDABLE = SPECIES.map((s) => s.id).filter((id) => !REWARD_ONLY.has(id));
 
 export interface LastingDef {
   id: string;

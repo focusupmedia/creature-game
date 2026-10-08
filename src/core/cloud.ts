@@ -27,6 +27,13 @@ export interface SaveSummary {
   worlds: number;
   /** Which device saved it, for the "pick a save" card. */
   device: string;
+  /** Progress fingerprint (changes only when the player does something). Older saves lack it. */
+  sig?: string;
+}
+
+/** Changes when the player makes progress, but not when the game is just opened and autosaved. */
+export function progressSig(state: GameState): string {
+  return `${state.xp}|${state.glimmer}|${state.shards}|${Object.keys(state.journal.species).length}`;
 }
 
 export interface CloudBlob {
@@ -55,6 +62,7 @@ export function summarize(state: GameState, device: string): SaveSummary {
     shards: state.shards,
     worlds: (Object.keys(state.islands) as IslandId[]).filter((k) => state.islands[k]?.owned).length,
     device,
+    sig: progressSig(state),
   };
 }
 
@@ -67,12 +75,13 @@ export function isFresh(s: SaveSummary): boolean {
  * What to do now. `local` is this device's save; `syncedAt` is when this
  * device last matched the cloud (undefined if never).
  */
-export function decideSync(local: SaveSummary, syncedAt: number | undefined, cloud: SaveSummary | null): SyncDecision {
+export function decideSync(local: SaveSummary, syncedAt: number | undefined, cloud: SaveSummary | null, syncedSig?: string): SyncDecision {
   if (!cloud) return { kind: 'upload' };
   if (cloud.version > SAVE_VERSION) return { kind: 'update-needed' };
   if (cloud.saveId === local.saveId) {
     const cloudMoved = syncedAt === undefined || cloud.savedAt > syncedAt;
-    const localMoved = syncedAt === undefined || local.savedAt > syncedAt;
+    // every launch autosaves, so the save time alone would always say "moved on"
+    const localMoved = syncedAt === undefined || (syncedSig !== undefined && local.sig !== undefined ? local.sig !== syncedSig : local.savedAt > syncedAt);
     if (!cloudMoved) return localMoved ? { kind: 'upload' } : { kind: 'none' };
     if (!localMoved) return { kind: 'download', quiet: true };
     // same game, both played since the last sync (two devices, or offline play)

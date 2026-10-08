@@ -85,6 +85,7 @@ export function enterContest(state: GameState, creatureId: string, t: number): {
   if (!c) return { ok: false, error: 'Who?' };
   if (growth(c, t) < 1) return { ok: false, error: 'Only grown-up pets can enter.' };
   if (state.contest?.week === week && state.contest.entry) return { ok: false, error: 'You\'ve already entered a pet this week.' };
+  if (contestReady(state, t)) return { ok: false, error: 'Collect last week\'s prize first!' };
   const score = scorePet(c, themeOf(week), week);
   state.contest = { week, entry: c.id, name: displayName(c), species: c.species, score, claimed: false };
   return { ok: true, score, message: `${displayName(c)} is entered in ${THEMES[themeOf(week)].name}! The judges gave ${score} points. Results when the week ends.` };
