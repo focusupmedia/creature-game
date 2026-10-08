@@ -161,17 +161,6 @@ export class UI {
     this.foundChip.classList.toggle('hidden', s.tutorial < 5);
     setText(this.foundChip, `🐾 ${found}/${SPECIES.length}`);
   }
-  /** Toasts sit at the top, just under whatever is showing in the left column (so Lotl's card is never covered). */
-  private placeToasts(): void {
-    // a menu or pop-up is open: use the strip at the very top (the HUD behind it can't be tapped anyway)
-    const busy = this.sheetOpen || this.modalHost.childElementCount > 0;
-    const col = this.lotlQuest.parentElement;
-    const bottom = col ? col.getBoundingClientRect().bottom : 0;
-    const safe = parseFloat(getComputedStyle(this.root).getPropertyValue('--safe-top')) || 0;
-    const top = Math.round(busy ? safe + 8 : Math.max(150, bottom + 10));
-    if (this.toastTop !== top) { this.toastTop = top; this.toasts.style.setProperty('--toast-top', `${top}px`); }
-  }
-  private toastTop = 0;
   private friendsBadge = h('span', { class: 'badge hidden' });
   private friendsTile = h('button', { class: 'hud-tile friends', 'aria-label': 'Friends', onClick: () => { this.game.audio.play('tap'); this.showFriends(); } },
     h('span', { class: 'icon emo' }, rich('🤝')), h('span', { class: 'lbl' }, 'FRIENDS'), this.friendsBadge);
@@ -238,7 +227,7 @@ export class UI {
             h('button', { class: 'bar-plus', 'aria-label': 'Get Starshards', onClick: () => this.showShop(true) }, I.icon(I.PLUS))),
         ),
         h('div', { class: 'hud-row', style: 'width:100%;align-items:flex-start' },
-          h('div', { class: 'hud-col' }, h('div', { class: 'hud-row', style: 'gap:6px' }, this.levelBadge, h('div', { class: 'sky-chip' }, this.skyChip)), this.foundChip, this.widget, this.lotlQuest),
+          h('div', { class: 'hud-col' }, h('div', { class: 'hud-row', style: 'gap:6px' }, this.levelBadge, h('div', { class: 'sky-chip' }, this.skyChip)), this.foundChip, this.widget),
           h('div', { class: 'spacer' }),
           h('div', { class: 'hud-col right' },
             this.featureEl.event = h('button', { class: 'hud-tile', 'aria-label': 'Watch an ad to summon a sky event', onClick: () => this.showSummon() },
@@ -264,7 +253,7 @@ export class UI {
       this.featureEl.shop = dockBtn(I.SHOP, 'SHOP', () => this.showShop(), this.shopDot),
       this.featureEl.decor = dockBtn(I.DECOR, 'DECOR', () => this.showDecor()),
     );
-    this.root.append(top, this.banner, this.toasts, this.coachEl, this.dock, this.sheetHost, this.placeHost, this.modalHost, this.revealHost);
+    this.root.append(top, this.banner, this.lotlQuest, this.toasts, this.coachEl, this.dock, this.sheetHost, this.placeHost, this.modalHost, this.revealHost);
     // a finger down on a sheet pauses its live refresh until it lifts (so taps always land)
     this.sheetHost.addEventListener('pointerdown', () => { this.pressing = true; });
     window.addEventListener('pointerup', () => { this.pressing = false; }, true);
@@ -333,7 +322,6 @@ export class UI {
     this.syncLotl();
     this.syncFeatures();
     this.syncHints();
-    this.placeToasts();
     const gl = giftsLeft(s, t);
     this.friendsBadge.textContent = String(gl);
     this.friendsBadge.classList.toggle('hidden', gl === 0);
