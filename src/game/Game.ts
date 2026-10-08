@@ -53,6 +53,8 @@ const CLOUD_LOADED_KEY = 'kindred-grove.cloud.loaded';
 const CLOUD_EVERY_S = 300;
 const SETTINGS_KEY = 'kindred-grove.settings';
 const REMINDERS_KEY = 'kindred-grove.reminders';
+/** Set by Start over: the next cloud check overwrites the cloud with the fresh game instead of loading the old one back. */
+const FRESH_KEY = 'kindred-grove.fresh-start';
 const LIVE_TICK_S = 0.25;
 const AWAY_REPORT_MS = 90_000;
 
@@ -242,6 +244,13 @@ export class Game {
       const blob = await this.cloud.load();
       this.save();
       const local = summarize(this.state, deviceName());
+      // right after Start over: the fresh game replaces the old one in the cloud too
+      if (this.storage.load(FRESH_KEY)) {
+        this.storage.remove(FRESH_KEY);
+        this.cloudBusy = false;
+        await this.cloudUpload(manual);
+        return;
+      }
       const d = decideSync(local, this.state.cloud?.syncedAt, blob?.summary ?? null);
       switch (d.kind) {
         case 'update-needed':
@@ -347,7 +356,11 @@ export class Game {
   }
 
   reset(): void {
-    this.storage.remove(SAVE_KEY);
+    // stop every save path (page hide, autosave, cloud upload) from writing the old game back
+    this.reloading = true;
+    for (const k of [SAVE_KEY, `${SAVE_KEY}.before-cloud`, CLOUD_LOADED_KEY, 'kindred-grove.hints', 'kindred-grove.testcloud']) this.storage.remove(k);
+    try { localStorage.removeItem('kindred-grove.hints'); } catch { /* fine */ }
+    this.storage.save(FRESH_KEY, '1');
     location.reload();
   }
 
