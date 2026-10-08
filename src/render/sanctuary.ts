@@ -515,7 +515,45 @@ function buildHome(view: IslandView, M: Merger, g: Geo, rand: () => number, clea
     const t = i / 8;
     const x = 0.8 * (1 - t) + FONT.x * t + Math.sin(i) * 0.3;
     const z = 3.4 * (1 - t) + (FONT.z + 1.4) * t;
-    M.add(new THREE.CylinderGeometry(0.32, 0.36, 0.06, 8), '#f4dfa0', { x, y: 0.01, z }, { x: 0, y: rand(), z: 0 });
+    M.add(new THREE.CylinderGeometry(0.32, 0.36, 0.06, 8), '#f4dfa0', { x, y: 0.07, z }, { x: 0, y: rand(), z: 0 });
+  }
+
+  // a soft winding dirt path under the stepping stones, with a branch to the shop door
+  const dirt = '#e6cf9a';
+  for (let i = 0; i <= 18; i++) {
+    const t = i / 18;
+    const x = 0.8 * (1 - t) + FONT.x * t + Math.sin(t * Math.PI * 2) * 0.35;
+    const z = 3.4 * (1 - t) + (FONT.z + 1.4) * t;
+    flatDisc(M, 0.52, dirt, x, z, 0.058);
+  }
+  for (let i = 0; i <= 7; i++) {
+    const t = i / 7;
+    flatDisc(M, 0.42, dirt, SHOP_STALL.x + 0.2 + t * 2.4, SHOP_STALL.z + 1.3 + Math.sin(t * Math.PI) * 0.4, 0.057);
+  }
+  // little wooden fences: beside the shop, and round the far side of the pond
+  const fence = (pts: { x: number; z: number }[]) => {
+    pts.forEach((p, i) => {
+      M.add(new THREE.CylinderGeometry(0.06, 0.07, 0.62, 6), '#b07a46', { x: p.x, y: 0.31, z: p.z });
+      M.add(new THREE.SphereGeometry(0.075, 6, 4), '#c8945a', { x: p.x, y: 0.64, z: p.z });
+      const q = pts[i + 1];
+      if (!q) return;
+      const len = Math.hypot(q.x - p.x, q.z - p.z);
+      const yaw = Math.atan2(q.x - p.x, q.z - p.z);
+      for (const h of [0.22, 0.46]) M.add(new THREE.BoxGeometry(0.06, 0.07, len), '#c8945a', { x: (p.x + q.x) / 2, y: h, z: (p.z + q.z) / 2 }, { x: 0, y: yaw, z: 0 });
+    });
+  };
+  fence([0, 1, 2, 3, 4].map((i) => ({ x: SHOP_STALL.x - 1.7, z: SHOP_STALL.z - 1.0 + i * 0.6 })));
+  fence([0, 1, 2, 3, 4].map((i) => { const a = -0.55 + i * 0.32; return { x: POND.x + Math.cos(a) * (POND.r + 1.1), z: POND.z + Math.sin(a) * (POND.r + 1.1) }; }));
+  // red-and-white toadstools at the foot of some trees
+  const shroom = (x: number, z: number, sc: number) => {
+    M.add(new THREE.CylinderGeometry(0.07 * sc, 0.09 * sc, 0.22 * sc, 7), '#fff4e0', { x, y: 0.11 * sc, z });
+    M.add(new THREE.SphereGeometry(0.17 * sc, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2), '#e2483e', { x, y: 0.2 * sc, z }, { x: 0, y: 0, z: 0 }, { x: 1, y: 0.75, z: 1 });
+    for (const [dx, dz] of [[0.07, 0.03], [-0.06, 0.06], [0, -0.08]]) M.add(new THREE.SphereGeometry(0.03 * sc, 6, 4), '#ffffff', { x: x + dx * sc, y: 0.3 * sc, z: z + dz * sc });
+  };
+  for (const [i, t] of TREES.slice(0, 7).entries()) {
+    const a = i * 2.1;
+    shroom(t.x + Math.cos(a) * 1.05, t.z + Math.sin(a) * 1.05, 1);
+    shroom(t.x + Math.cos(a + 0.45) * 1.25, t.z + Math.sin(a + 0.45) * 1.25, 0.7);
   }
 
   for (const t of TREES) tree(view, M, t, rand);

@@ -222,7 +222,7 @@ const BUILDERS: Record<string, Builder> = {
     k.eye(b, -0.09, 0.2, 0.27, 0.045);
     for (let i = 0; i < 6; i++) {
       const a = (i / 6) * Math.PI * 2;
-      const tent = pivot(Math.cos(a) * 0.2, 0.1, Math.sin(a) * 0.2, k.mesh(G.cyl, P.second, [0.025, 0.42, 0.025], [0, -0.21, 0], P.second));
+      const tent = pivot(Math.cos(a) * 0.2, 0.1, Math.sin(a) * 0.2, k.ball(0.035, P.second, [0, -0.2, 0], [1, 5.6, 1], P.second));
       b.add(tent);
       m.legs.push(tent);
     }
@@ -1958,7 +1958,7 @@ Object.assign(BUILDERS, {
     }
     for (const s of [1, -1]) {
       for (const z of [0.24, -0.3]) {
-        const leg = pivot(0.11 * s, 0.42, z, k.mesh(G.cyl, P.main, [0.04, 0.36, 0.04], [0, -0.18, 0]));
+        const leg = pivot(0.11 * s, 0.42, z, k.ball(0.055, P.main, [0, -0.18, 0], [1, 3.4, 1]));
         leg.add(k.ball(0.045, P.accent, [0, -0.38, 0], [1, 0.7, 1.2]));
         const puff = k.ball(0.06, '#ffffff', [0, -0.4, -0.02]);
         puff.castShadow = false;
@@ -2051,13 +2051,14 @@ interface BeastOpts {
 function beast(k: Kit, P: Palette, m: Parameters<Builder>[2], o: BeastOpts) {
   const b = m.body;
   const hip = o.tall;
-  b.add(k.ball(0.24, P.main, [0, hip + 0.06, -0.02], [0.8, 0.78, o.long]));
-  b.add(k.ball(0.17, P.belly, [0, hip + 0.02, 0.02], [0.72, 0.6, o.long * 0.9]));
+  // a plump, rounded body (it makes the legs read shorter and cuter)
+  b.add(k.ball(0.26, P.main, [0, hip + 0.06, -0.02], [0.86, 0.86, o.long]));
+  b.add(k.ball(0.19, P.belly, [0, hip + 0.0, 0.02], [0.76, 0.66, o.long * 0.9]));
   const neckZ = 0.24 * o.long;
   b.add(k.ball(0.11, P.main, [0, hip + 0.28, neckZ], [0.85, 1.4, 0.85]));
   const head = new THREE.Group();
   head.position.set(0, hip + 0.48, neckZ + 0.1);
-  head.add(k.ball(0.15, P.main, [0, 0, 0], [0.95, 0.95, 1.05]));
+  head.add(k.ball(0.17, P.main, [0, 0, 0], [0.97, 0.95, 1.02]));
   if (o.snout === 'horse') head.add(k.ball(0.1, P.main, [0, -0.05, 0.14], [0.9, 0.8, 1.4]));
   if (o.snout === 'fox') head.add(k.mesh(G.cone, P.main, [0.07, 0.18, 0.07], [0, -0.03, 0.17]).rotateX(Math.PI / 2));
   if (o.snout === 'cat') head.add(k.ball(0.07, P.belly, [0, -0.05, 0.12], [1.3, 0.8, 0.8]));
@@ -2072,15 +2073,15 @@ function beast(k: Kit, P: Palette, m: Parameters<Builder>[2], o: BeastOpts) {
     head.add(beak);
   }
   for (const s of [1, -1]) {
-    k.eye(head, s * 0.07, 0.04, 0.11, 0.04);
+    k.eye(head, s * 0.075, 0.045, 0.125, 0.048);
     if (o.ears === 'pointy') {
-      const ear = k.mesh(G.cone, P.main, [0.05, 0.13, 0.04], [s * 0.08, 0.15, -0.02]);
+      const ear = k.mesh(G.cone, P.main, [0.055, 0.14, 0.045], [s * 0.09, 0.17, -0.02]);
       ear.rotation.z = -0.25 * s;
       head.add(ear);
     } else if (o.ears === 'long') {
-      head.add(k.ball(0.05, P.main, [s * 0.06, 0.24, -0.03], [0.7, 2.6, 0.5]));
+      head.add(k.ball(0.05, P.main, [s * 0.065, 0.26, -0.03], [0.7, 2.6, 0.5]));
     } else if (o.ears === 'round') {
-      head.add(k.ball(0.05, P.main, [s * 0.11, 0.1, -0.02], [1, 1, 0.5]));
+      head.add(k.ball(0.055, P.main, [s * 0.125, 0.11, -0.02], [1, 1, 0.5]));
     }
     if (o.horn === 'antlers') {
       const a1 = k.mesh(G.cone, P.accent, [0.02, 0.15, 0.02], [s * 0.05, 0.2, 0.02]);
@@ -2091,8 +2092,9 @@ function beast(k: Kit, P: Palette, m: Parameters<Builder>[2], o: BeastOpts) {
       head.add(a2);
     }
     for (const z of [0.18 * o.long, -0.18 * o.long]) {
-      const leg = pivot(s * 0.1, hip - 0.04, z, k.mesh(G.cyl, P.main, [0.035, hip, 0.035], [0, -hip / 2, 0]));
-      leg.add(k.ball(0.04, o.snout === 'horse' ? P.accent : P.main, [0, -hip, 0.01], [1, 0.6, 1.2]));
+      // soft bean-shaped legs with round little paws (or hooves), not sticks
+      const leg = pivot(s * 0.11, hip - 0.04, z, k.ball(0.055, P.main, [0, -hip / 2, 0], [1, (hip / 0.11) * 0.95, 1]));
+      leg.add(k.ball(0.058, o.snout === 'horse' ? P.accent : P.main, [0, -hip + 0.01, 0.012], [1, 0.65, 1.2]));
       b.add(leg);
       m.legs.push(leg);
     }
@@ -2230,7 +2232,7 @@ Object.assign(BUILDERS, {
       const fin = k.mesh(G.cone, P.accent, [0.05, 0.14, 0.03], [s * 0.08, 0.13, -0.03]);
       fin.rotation.z = -0.3 * s;
       head.add(fin);
-      const leg = pivot(s * 0.1, 0.2, 0.2, k.mesh(G.cyl, P.main, [0.03, 0.16, 0.03], [0, -0.08, 0.02]));
+      const leg = pivot(s * 0.1, 0.2, 0.2, k.ball(0.045, P.main, [0, -0.08, 0.02], [1, 1.9, 1]));
       b.add(leg);
       m.wings.push(leg);
     }
@@ -2948,7 +2950,7 @@ Object.assign(BUILDERS, {
       head.add(ear);
       head.add(k.ball(0.025, P.accent, [s * 0.07, -0.05, 0.1], [1, 0.6, 0.5]));
       for (const z of [0.12, -0.18]) {
-        const leg = pivot(s * 0.11, 0.18, z, k.mesh(G.cyl, P.second, [0.035, 0.18, 0.035], [0, -0.08, 0]));
+        const leg = pivot(s * 0.11, 0.18, z, k.ball(0.05, P.second, [0, -0.08, 0], [1, 1.9, 1]));
         b.add(leg);
         m.legs.push(leg);
       }
