@@ -9,7 +9,7 @@ import { nestOccupant, placedNests } from '../core/state';
 import { activeEvent, isDark } from '../core/world';
 import type { Game } from '../game/Game';
 import { hearts } from '../core/friendship';
-import { h, setText } from './dom';
+import { fmtTimer, h, setText } from './dom';
 import { rarityTag } from './rarity';
 import { QUIRKS } from '../content/quirks';
 import { species } from '../content/species';
@@ -103,7 +103,7 @@ export class WorldLabels {
         const dormant = arrivalWeights(active.lure, spot.id, isDark(s(), now()), activeEvent(s(), now())?.kind ?? null).length === 0;
         if (dormant) return '💤 Waiting';
         const ms = Math.max(0, active.expiresAt - now());
-        return `${LURES[active.lure].name.split(' ')[0]} · ${Math.floor(ms / 60000)}:${String(Math.floor(ms / 1000) % 60).padStart(2, '0')}`;
+        return `${LURES[active.lure].name.split(' ')[0]} · ${fmtTimer(ms)}`;
       }, () => this.act.openSpot(spot.id), () => on(spot.island)() && spotOpen(s().islands, spot.id), () => (s().spots[spot.id] ? null : '!'));
     }
 
@@ -162,7 +162,7 @@ export class WorldLabels {
           if (!egg) return 'Empty nest';
           if (egg.progressMs >= egg.incubationMs) return '🐣 Ready!';
           const ms = remainingMs(egg);
-          return `🥚 ${Math.floor(ms / 60000)}:${String(Math.floor(ms / 1000) % 60).padStart(2, '0')}`;
+          return `🥚 ${fmtTimer(ms)}`;
         }, () => this.act.openNest(id), () => {
           const d = this.game.state.placedDecor.find((x) => x.id === id);
           return !!d && (d.island ?? 'home') === this.game.world.current;

@@ -22,7 +22,7 @@ import { eggIcon, eggName, tierEggIcon } from './eggLook';
 import { wandererDeals } from '../core/wanderers';
 import { activeEvent, dayPhase, daylight, isDark, nextEvent } from '../core/world';
 import type { Game } from '../game/Game';
-import { fmtDuration, h, img, rich, setText } from './dom';
+import { fmtDuration, fmtTimer, h, img, rich, setText } from './dom';
 import * as I from './icons';
 import { WorldLabels } from './Labels';
 import { QUIRKS, QUIRK_IDS } from '../content/quirks';
@@ -71,7 +71,7 @@ export function shopTabFor(text: string): ShopTab | null {
   return null;
 }
 
-const fmtClock = (ms: number) => `${Math.floor(Math.max(0, ms) / 60000)}:${String(Math.floor(Math.max(0, ms) / 1000) % 60).padStart(2, '0')}`;
+const fmtClock = fmtTimer;
 
 const MUT_ICON: Record<MutationId, string> = { lunar: '🌙', storm: '⚡', giant: '⛰️', prismatic: '🌈', starlit: '🌟', frost: '❄️', angelic: '😇', infernal: '😈', abyssal: '🫧', aurora: '🌌', misty: '🌫️', sunkissed: '☀️', blossom: '🌸', glowing: '✨', breezy: '🌬️', bubbly: '🫧', cosmic: '💫', crystal: '💎', golden: '👑',
   ghostly: '👻', calcified: '💀', mummified: '🧻', zombified: '🧟', vampire: '🧛', pumpkin: '🎃' };

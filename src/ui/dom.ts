@@ -28,6 +28,13 @@ export function h<K extends keyof HTMLElementTagNameMap>(tag: K, props: Props | 
   return el;
 }
 
+/** A countdown: "4:07" under an hour, "9h 32m" from an hour up. */
+export function fmtTimer(ms: number): string {
+  const s = Math.max(0, Math.floor(ms / 1000));
+  if (s >= 3600) return `${Math.floor(s / 3600)}h ${Math.floor(s / 60) % 60}m`;
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+}
+
 export function fmtDuration(ms: number): string {
   const s = Math.max(0, Math.ceil(ms / 1000));
   if (s < 60) return `${s}s`;
