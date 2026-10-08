@@ -2800,34 +2800,13 @@ export class UI {
       const r = e.getBoundingClientRect();
       return { x: r.left + r.width / 2, y: r.top, bottom: r.bottom };
     };
-    const at = (x: number, z: number, alt: number) => { const p = w.pinScreen(x, z, alt); return p.visible ? { x: p.x, y: p.y } : null; };
+    // buttons only: things in the world (lure ring, visitor, egg) already have their own "!" or Ready sign
     if (w.revealing) return null;
-    if (step === 0) {
-      const btn = el('.tut-place');
-      if (btn) return btn;
-      if (this.sheetOpen || this.modalHost.childElementCount) return null;
-      const spot = Object.values(SPOTS).find((p) => p.island === 'home' && !s.spots[p.id] && spotOpen(s.islands, p.id));
-      return spot ? at(spot.x, spot.z, 1.2) : null;
-    }
-    if (step === 2) {
-      const keep = el('.tut-keep');
-      if (keep) return keep;
-      if (this.sheetOpen || this.modalHost.childElementCount) return null;
-      const v = s.visitors[0];
-      const pos = v ? w.creaturePosition(v.creature.id) : null;
-      return pos ? at(pos.x, pos.z, 1.6) : null;
-    }
+    if (step === 0) return el('.tut-place');
+    if (step === 2) return el('.tut-keep');
     if (step === 3) return this.sheetOpen ? null : el('.dock button.tut-create');
     if (step === 3.5) return el('.tut-make') ?? el('.sheet .slots .slot:not(.filled)') ?? el('.sheet .grid .tile:not(.dim):not(.sel)');
-    if (step === 4) {
-      const ready = s.eggs.find((e) => e.nest && e.progressMs >= e.incubationMs);
-      if (!ready) return null;
-      const hatch = el('.tut-hatch');
-      if (hatch) return hatch;
-      if (this.sheetOpen || this.modalHost.childElementCount) return null;
-      const nest = s.placedDecor.find((d) => d.id === ready.nest);
-      return nest ? at(nest.x, nest.z, 1.2) : null;
-    }
+    if (step === 4) return el('.tut-hatch');
     if (step >= 5 && step < 6 && !this.coachEl.classList.contains('hidden')) {
       const t = this.tourStep(step)?.target();
       if (!t || t.offsetParent === null) return null;
