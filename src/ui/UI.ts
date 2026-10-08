@@ -1266,6 +1266,7 @@ export class UI {
     const g = this.game;
     const v = findVisitor(g.state, id);
     if (!v) return;
+    g.seenVisitors.add(id);
     const c = v.creature;
     const sp = species(c.species);
     const known = (g.state.journal.species[c.species]?.count ?? 0) > 1;

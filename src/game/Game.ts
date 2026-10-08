@@ -193,6 +193,8 @@ export class Game {
 
   /** How far away the Shop and Sell signs show (0-1; 1 = always). */
   signRange = 0.5;
+  /** Visitors the keeper has already tapped: their bright highlight goes away. */
+  seenVisitors = new Set<string>();
 
   setSignRange(v: number): void {
     this.signRange = Math.max(0, Math.min(1, v));

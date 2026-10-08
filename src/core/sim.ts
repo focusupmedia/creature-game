@@ -129,12 +129,13 @@ function step(state: GameState, t: number, dt: number, out: GameEvent[], live = 
     let p = arrivalChance(active.lure, dt, sky);
     // a Lure Lover on this world makes lures a little more tempting
     if (state.creatures.some((c) => !c.stored && !c.trip && c.island === SPOTS[spotId].island && hasQuirk(c, 'lurelover'))) p *= 1.15;
-    // First-ever lure: guarantee a quick first discovery.
-    if (state.stats.arrivals === 0 && t - active.placedAt > 6000) p = Math.max(p, 0.25 * (dt / 1000));
+    // First-ever lure (the tutorial): someone answers right away to keep the keeper's attention.
+    const first = state.stats.arrivals === 0 && t - active.placedAt > 1500;
+    if (first) p = 1;
     if (!rng.chance(p)) continue;
     // weights add up to at most 1: the rest of the time, nobody answers
     const total = weights.reduce((a, [, w]) => a + w, 0);
-    if (rng.next() > total) continue;
+    if (!first && rng.next() > total) continue;
     const sp = rng.weighted(weights.map(([s, w]) => [s.id, w] as [string, number]));
     if (!sp) continue;
     const muts = arrivalMutations(active.lure, sky, rng);

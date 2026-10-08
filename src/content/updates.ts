@@ -19,6 +19,7 @@ export const UPDATES: UpdateNote[] = [
       'Selling shows how each mutation multiplies the price.',
       "Lotl's Quest: easy first goals that win an egg with a creature you don't have.",
       'A brand-new Halloween Pass screen.',
+      'Your first lure gets a visitor right away, and new visitors glow (even through clouds) until you tap them.',
       'Make space: the Release button now lights up when picked, just like Store.',
     ],
   },
