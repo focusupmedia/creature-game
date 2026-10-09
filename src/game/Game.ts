@@ -383,17 +383,23 @@ export class Game {
       void this.cloudUpload();
       this.scheduleNotifications();
     } else if (this.hiddenAt) {
-      const away = this.now() - this.hiddenAt;
-      pauseSummoned(this.state, this.hiddenAt, this.now());
-      if (away > 60_000) this.preSyncSig = { sig: progressSig(this.state), at: performance.now() };
-      this.hiddenAt = 0;
-      const events = tick(this.state, this.now(), { maxStepMs: TUNING.offlineStepSec * 1000 });
-      this.dispatch(events, false);
-      this.welcomeBack(events, away);
-      if (this.loginOffered !== today(this.now())) this.offerLogin();
-      // another device may have played while we were away
-      if (away > 60_000) void this.cloudSync();
+      this.cameBack(this.hiddenAt);
     }
+  }
+
+  /** Back after time away (from the background, or a sleeping device): catch up with the away rules. */
+  private cameBack(since: number): void {
+    const away = this.now() - since;
+    this.lastFrameWall = Date.now(); // so the frame loop doesn't count this gap again
+    pauseSummoned(this.state, since, this.now());
+    if (away > 60_000) this.preSyncSig = { sig: progressSig(this.state), at: performance.now() };
+    this.hiddenAt = 0;
+    const events = tick(this.state, this.now(), { maxStepMs: TUNING.offlineStepSec * 1000 });
+    this.dispatch(events, false);
+    this.welcomeBack(events, away);
+    if (this.loginOffered !== today(this.now())) this.offerLogin();
+    // another device may have played while we were away
+    if (away > 60_000) void this.cloudSync();
   }
 
   /** The day's login gift pops up the first time you open the game each day (after the tutorial). */
@@ -404,6 +410,7 @@ export class Game {
   }
   private loginOffered = '';
   private preSyncSig?: { sig: string; at: number };
+  private lastFrameWall = 0;
 
   /**
    * A new keeper's first stretch is kept calm: while Lotl's Quest is running (for up to
@@ -480,6 +487,11 @@ export class Game {
   private frame(dt: number): void {
     if (this.timeScale !== 1) this.state.clockOffset += dt * (this.timeScale - 1) * 1000;
     this.tickAcc += dt;
+    // a long gap between frames with no "hidden" signal (a laptop asleep, some phone webviews): that was time away
+    const wall = Date.now();
+    const gap = this.lastFrameWall ? wall - this.lastFrameWall : 0;
+    this.lastFrameWall = wall;
+    if (gap > 90_000 && !this.hiddenAt) this.cameBack(this.now() - gap);
     if (this.tickAcc >= LIVE_TICK_S && !this.world.revealing) {
       this.tickAcc = 0;
       const events = tick(this.state, this.now(), { maxStepMs: 1000, live: true, here: this.world.current });
@@ -754,6 +766,7 @@ export class Game {
   /** Hop the camera to another island you own. */
   travel(id: IslandId): void {
     if (!this.state.islands[id]?.owned) return;
+    this.ui.stopPlacement();
     this.ui.closeSheet();
     this.world.travelTo(id);
     this.audio.play('place');

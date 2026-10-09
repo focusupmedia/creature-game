@@ -270,7 +270,7 @@ button:focus-visible { outline: 3px solid var(--white); outline-offset: 2px; }
 .progress { height: 18px; border-radius: 999px; background: var(--white); border: var(--outline); overflow: hidden; }
 .progress > i { display: block; height: 100%; background: linear-gradient(180deg, #ffe680, var(--orange-2)); border-radius: 999px; transition: width .5s; }
 
-.tabs { display: flex; gap: 6px; margin: 0 0 12px; overflow-x: auto; padding-bottom: 4px; }
+.tabs { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 12px; padding-bottom: 4px; } /* wrap so no tab hides off the edge */
 .tabs button {
   font-family: var(--display); font-size: 15px; padding: 6px 12px; border-radius: 12px; border: var(--outline); white-space: nowrap;
   background: var(--white); box-shadow: 0 3px 0 var(--ink);

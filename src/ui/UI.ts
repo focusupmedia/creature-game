@@ -464,6 +464,7 @@ export class UI {
   // ------------------------------------------------------------------ sheets
 
   private openSheet(title: string, sub: string, render: (body: HTMLElement) => void, icon?: string): void {
+    this.stopPlacement();
     this.closeSheet(false);
     const body = h('div', { class: 'body' });
     const sheet = h('section', { class: 'sheet', role: 'dialog', 'aria-label': title },
@@ -2225,6 +2226,11 @@ export class UI {
     this.game.placing = (x, z) => { w.moveGhost(x, z); };
   }
 
+  /** Placing or moving decor stops when you go somewhere else (a sheet, a pop-up, another world). */
+  stopPlacement(): void {
+    if (this.game.placing) this.endPlacement();
+  }
+
   private endPlacement(): void {
     this.game.world.cancelPlacement();
     this.placeHost.replaceChildren();
@@ -2557,6 +2563,7 @@ export class UI {
   /** A pop-up. `dismissable` false: tapping outside does nothing (a choice must be made). */
   /** `kind`: only one pop-up of this kind at a time (a newer one replaces the old). */
   modal(build: (m: HTMLElement, close: () => void) => void, dismissable = true, kind?: string): void {
+    this.stopPlacement();
     if (kind) this.modalHost.querySelector(`[data-kind="${kind}"]`)?.remove();
     const m = h('div', { class: 'modal', role: 'dialog' });
     const wrap = h('div', { class: 'modal-wrap' }, m);
@@ -2607,8 +2614,9 @@ export class UI {
     }
     const chest = s.awayChest;
     if (!lines.length && !chest && !gift) return;
-    if (!arrivals.length && !Object.values(s.spots).some(Boolean)) {
-      lines.push(h('div', { class: 'happen' }, h('span', { class: 'e' }, '🌿'), h('span', { class: 'muted' }, 'Tip: set out a lure before you leave. Visitors will be waiting when you return.')));
+    // (visitors wait a few hours, so after a longer absence the tip wouldn't hold)
+    if (!arrivals.length && !Object.values(s.spots).some(Boolean) && awayMs < TUNING.visitorWaitHours * 3_600_000) {
+      lines.push(h('div', { class: 'happen' }, h('span', { class: 'e' }, '🌿'), h('span', { class: 'muted' }, 'Tip: set out a lure before you leave. A visitor or two will be waiting when you return.')));
     }
     this.modal((m, close) => {
       m.append(h('h2', null, gift ? 'Welcome back!' : 'While you were away'), h('p', { class: 'muted' }, `${fmtDuration(awayMs)} passed in the sanctuary.`));
@@ -2909,8 +2917,10 @@ export class UI {
       this.coachTarget = null;
       return;
     }
-    if (this.coachEl.dataset.step !== String(step) || this.coachEl.classList.contains('hidden')) {
+    // rebuilt when the step or its line changes (e.g. "warming…" → "Tap your egg!")
+    if (this.coachEl.dataset.step !== String(step) || this.coachEl.dataset.text !== text || this.coachEl.classList.contains('hidden')) {
       this.coachEl.dataset.step = String(step);
+      this.coachEl.dataset.text = text;
       const order = [0, 1, 2, 3, 4, 5];
       const at = Math.floor(step);
       this.coachEl.replaceChildren(
