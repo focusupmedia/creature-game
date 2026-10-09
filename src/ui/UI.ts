@@ -1902,7 +1902,7 @@ export class UI {
               h('button', { class: `btn small ${cur === 'shards' ? 'shard' : ''}`, onClick: () => this.game.buyPack(p.id) }, p.price)));
           }
         }
-        b.append(iap, h('p', { class: 'muted' }, 'Starshards buy nests, decorations and time — never creatures or discoveries.'));
+        b.append(iap, h('p', { class: 'muted' }, 'Starshards buy special eggs and lures, nests, decorations and time savers.'));
         return;
       }
 
