@@ -23,8 +23,11 @@ public class CloudSavePlugin extends Plugin {
 
     @Override
     public void load() {
-        // Play Games v2 signs the player in automatically at launch.
+        // Play Games v2 signs the player in automatically at launch. Until the real project id is
+        // in strings.xml (game_services_project_id), leave Play Games off so nothing misbehaves.
         try {
+            String id = getContext().getString(R.string.game_services_project_id);
+            if (id.matches("0+")) { ready = false; return; }
             PlayGamesSdk.initialize(getContext());
             ready = true;
         } catch (Exception e) {
@@ -54,6 +57,7 @@ public class CloudSavePlugin extends Plugin {
 
     @PluginMethod
     public void load(PluginCall call) {
+        if (!ready) { call.resolve(obj().put("found", false)); return; }
         String slot = call.getString("slot", "main");
         SnapshotsClient snapshots = PlayGames.getSnapshotsClient(getActivity());
         snapshots.open(slot, false, SnapshotsClient.RESOLUTION_POLICY_MOST_RECENTLY_MODIFIED).addOnCompleteListener(task -> {
@@ -71,6 +75,7 @@ public class CloudSavePlugin extends Plugin {
 
     @PluginMethod
     public void save(PluginCall call) {
+        if (!ready) { call.resolve(obj().put("ok", false)); return; }
         String slot = call.getString("slot", "main");
         SnapshotsClient snapshots = PlayGames.getSnapshotsClient(getActivity());
         snapshots.open(slot, true, SnapshotsClient.RESOLUTION_POLICY_MOST_RECENTLY_MODIFIED).addOnCompleteListener(task -> {

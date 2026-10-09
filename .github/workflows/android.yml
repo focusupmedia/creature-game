@@ -1,0 +1,54 @@
+# Builds the Google Play file (.aab) in the cloud, so no Android Studio is needed.
+# Run it from GitHub: Actions → "Android build" → Run workflow. When it finishes,
+# download "pocket-grove-android" from the run page and upload the .aab to Play Console.
+# Signing: the upload key comes from two repository secrets,
+# ANDROID_KEYSTORE_BASE64 and ANDROID_KEYSTORE_PASSWORD (see docs/STORE_RELEASE.md).
+name: Android build
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Build the game
+        run: |
+          npm ci
+          npm run build
+          npx cap sync android
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Upload key
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          if [ -z "$KEYSTORE_BASE64" ]; then echo "::error::Add the ANDROID_KEYSTORE_BASE64 secret first"; exit 1; fi
+          echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/upload.jks"
+          echo "ANDROID_KEYSTORE_PATH=$RUNNER_TEMP/upload.jks" >> "$GITHUB_ENV"
+
+      - name: Build the Play Store bundle
+        working-directory: android
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        run: |
+          # a new, higher number for every build (Google Play requires it)
+          export ANDROID_VERSION_CODE=$((GITHUB_RUN_NUMBER + 1))
+          chmod +x gradlew
+          ./gradlew bundleRelease --no-daemon
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pocket-grove-android
+          path: android/app/build/outputs/bundle/release/app-release.aab

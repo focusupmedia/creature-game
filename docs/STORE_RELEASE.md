@@ -40,3 +40,13 @@ App name, short and full description, screenshots (phone sizes), the 1024px icon
 Put a file named `app-ads.txt` at the root of the website listed as the developer site in both stores, containing exactly:
 
     google.com, pub-9126133036218343, DIRECT, f08c47fec0942fa0
+
+## Android: cloud build (no Android Studio)
+`.github/workflows/android.yml` builds the signed Play Store bundle (.aab) on GitHub.
+- One-time: in GitHub → repo Settings → Secrets and variables → Actions, add `ANDROID_KEYSTORE_BASE64`
+  (the upload key, base64) and `ANDROID_KEYSTORE_PASSWORD`. The owner keeps the original `upload.jks` and
+  password somewhere safe (with Play App Signing, a lost upload key can be reset through Play support).
+- Each build: Actions → "Android build" → Run workflow, then download the `pocket-grove-android` artifact
+  and upload `app-release.aab` in Play Console. The version code goes up automatically per run.
+- Play Games stays off until `game_services_project_id` in `android/app/src/main/res/values/strings.xml`
+  holds the real project id.
