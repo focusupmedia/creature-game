@@ -7,3 +7,6 @@ playwright-report/
 .DS_Store
 ios/App/Pods/
 android/.gradle/
+
+# scratch scripts from playtest bots
+.tmp-*
