@@ -898,3 +898,5 @@ input.rename { font-family: var(--display); font-size: 22px; border: var(--outli
 
 
 .grow-world { background: linear-gradient(180deg, #fff6d6, #ffe9a8); border-color: #e0b84a; margin: 6px 0 10px; }
+
+.odds-link { background: none; border: 0; padding: 2px 0 0; color: #6b4de6; text-decoration: underline; font: inherit; font-size: 13px; cursor: pointer; }

@@ -20,7 +20,7 @@ import { refreshShop } from './shop';
 import { addWorldNest, freeNest } from './state';
 import { TOTEMS } from './lures';
 import { weekBoost } from '../content/weeks';
-import type { Creature, Egg, EventKind, GameState, Gift, IslandId, MutationId, SpeciesId, SpotId } from './types';
+import type { Creature, Egg, EventKind, GameState, Gift, IslandId, MutationId, Rarity, SpeciesId, SpotId } from './types';
 import { activeEvent, eventInWindow, windowAt, type SkyEvent } from './world';
 
 export type Result<T = object> = ({ ok: true } & T) | { ok: false; error: string };
@@ -266,13 +266,30 @@ export function workDigSpot(state: GameState, spotId: string, creatureId: string
 }
 
 /** Roll which species an egg from a shop tier holds. Decided now, revealed at hatching. */
-export function rollEggTier(state: GameState, tierId: string): SpeciesId {
+function eggPool(tierId: string) {
   const tier = EGG_TIERS[tierId] ?? EGG_TIERS.meadow;
-  const rng = new StateRng(state);
-  const pool = (tier.includeBred ? SPECIES.filter((s) => s.origin !== 'reward') : WILD_SPECIES)
+  return (tier.includeBred ? SPECIES.filter((s) => s.origin !== 'reward') : WILD_SPECIES)
     .filter((s) => !tier.habitats.length || s.traits.some((t) => tier.habitats.includes(t)))
-    .map((s) => [s.id, tier.weights[s.rarity] ?? 0] as [SpeciesId, number]);
-  return rng.weighted(pool) ?? 'mossfrog';
+    .map((s) => ({ s, w: tier.weights[s.rarity] ?? 0 }));
+}
+
+export function rollEggTier(state: GameState, tierId: string): SpeciesId {
+  const rng = new StateRng(state);
+  return rng.weighted(eggPool(tierId).map(({ s, w }) => [s.id, w] as [SpeciesId, number])) ?? 'mossfrog';
+}
+
+/** What an egg can hatch into, by rarity (shown before buying, as the App Store asks for random items). */
+export function eggOdds(tierId: string): { rarity: Rarity; pct: number; kinds: number }[] {
+  const pool = eggPool(tierId).filter((x) => x.w > 0);
+  const total = pool.reduce((n, x) => n + x.w, 0) || 1;
+  const out = new Map<Rarity, { pct: number; kinds: number }>();
+  for (const { s, w } of pool) {
+    const r = out.get(s.rarity) ?? { pct: 0, kinds: 0 };
+    r.pct += (w / total) * 100;
+    r.kinds += 1;
+    out.set(s.rarity, r);
+  }
+  return [...out.entries()].map(([rarity, v]) => ({ rarity, ...v }));
 }
 
 export function layEgg(state: GameState, sp: SpeciesId, source: Egg['source'], t: number, island?: IslandId): Egg {

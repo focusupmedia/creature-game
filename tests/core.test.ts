@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { SAVE_VERSION, createGame } from '../src/core/state';
 import { tick } from '../src/core/sim';
 import {
-  adHatch, buyIsland, buyOffer, canAdHatch, collectGift, hatch, moveCreature, placeLure, rollEggTier, startCombine,
+  adHatch, buyIsland, eggOdds, buyOffer, canAdHatch, collectGift, hatch, moveCreature, placeLure, rollEggTier, startCombine,
   summonEvent, upgradeIsland, useItem,
 } from '../src/core/actions';
 import { currentScale, growth } from '../src/core/creatures';
@@ -16,7 +16,7 @@ import { addMutation, creatureTraits, makeCreature, speciesTitle } from '../src/
 import { arrivalWeights, totemBoost } from '../src/core/lures';
 import { TUNING } from '../src/content/tuning';
 import { xpForLevel } from '../src/core/levels';
-import { LURES, SPOTS } from '../src/content/world';
+import { EGG_TIERS, LURES, SPOTS } from '../src/content/world';
 import type { Creature, GameState } from '../src/core/types';
 
 const T0 = Date.UTC(2026, 0, 1, 12);
@@ -344,6 +344,14 @@ describe('economy', () => {
     const r = collectGift(s, s.gifts[0].id);
     expect(r.ok).toBe(true);
     expect(s.glimmer).toBeGreaterThan(before);
+  });
+
+  it('every egg shows chances that add up to 100%', () => {
+    for (const id of Object.keys(EGG_TIERS)) {
+      const odds = eggOdds(id);
+      expect(odds.length).toBeGreaterThan(0);
+      expect(odds.reduce((n, o) => n + o.pct, 0)).toBeCloseTo(100, 5);
+    }
   });
 
   it('the egg shop sells coin eggs and a premium Starry Egg, all wild', () => {

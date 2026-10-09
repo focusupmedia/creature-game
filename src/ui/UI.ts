@@ -1359,6 +1359,22 @@ export class UI {
     });
   }
 
+  /** The chances for each rarity in an egg, before you buy it. */
+  private showEggOdds(tierId: string): void {
+    const odds = A.eggOdds(tierId);
+    const order = ['common', 'uncommon', 'rare', 'legendary', 'mythical'];
+    odds.sort((a, b) => order.indexOf(a.rarity) - order.indexOf(b.rarity));
+    const fmt = (p: number) => (p >= 10 ? p.toFixed(0) : p >= 1 ? p.toFixed(1) : p.toFixed(2));
+    this.modal((m, close) => {
+      m.append(h('h2', null, `${EGG_TIERS[tierId]?.name ?? 'Egg'}: chances`),
+        h('div', { class: 'list' }, ...odds.map((o) => h('div', { class: 'item' },
+          h('div', { class: 'grow' }, rarityTag(o.rarity), h('span', { class: 'muted', style: 'margin-left:8px' }, `${o.kinds} kind${o.kinds === 1 ? '' : 's'}`)),
+          h('b', null, `${fmt(o.pct)}%`)))),
+        h('p', { class: 'muted' }, `Any egg also has a ${(TUNING.prismaticChance * 100).toFixed(1)}% chance to glow (Prismatic). Within a rarity, each kind is equally likely.`),
+        h('button', { class: 'btn wide', onClick: close }, 'Got it'));
+    });
+  }
+
   /** "Make this world bigger" (more room, sometimes a new lure spot), or null when it's as big as it gets. */
   private growRow(id: IslandId, after?: () => void): HTMLElement | null {
     const s = this.game.state;
@@ -1961,7 +1977,8 @@ export class UI {
         list.append(h('div', { class: `item ${grade ? `special g-${grade}` : ''}` },
           h('div', { class: 'swatch', style }, icon.startsWith('<svg') ? I.icon(icon) : icon),
           h('div', { class: 'grow' }, h('div', { class: 'name' }, name, grade ? h('span', { class: `grade g-${grade}` }, `✦ ${grade[0].toUpperCase()}${grade.slice(1)}`) : ''), h('div', { class: 'desc' }, desc),
-            o.stock < 10 ? h('div', { class: 'muted' }, o.stock > 0 ? `${o.stock} left` : 'Sold out') : null),
+            o.stock < 10 ? h('div', { class: 'muted' }, o.stock > 0 ? `${o.stock} left` : 'Sold out') : null,
+            o.kind === 'egg' ? h('button', { class: 'link-btn odds-link', onClick: () => this.showEggOdds(o.ref) }, 'See chances') : null),
           h('button', { class: `btn small ${o.currency === 'shards' ? 'shard' : ''}`, disabled: !can, onClick: () => this.game.buy(o.id) },
             rich(`${o.currency === 'shards' ? '{gem}' : '{coin}'} ${o.price}`)),
         ));
