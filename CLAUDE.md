@@ -57,7 +57,7 @@ Step 1 (all creatures): kawaii eyes with two sparkles, auto blush (`Kit.noBlush`
 `ios/` and `android/` Capacitor projects with icons/splash. Real AdMob rewarded ads + RevenueCat purchases in `src/platform/nativeServices.ts` (keys in `storeKeys.ts`; test ads until filled). Cloud-save plugins wired in. Release steps: docs/STORE_RELEASE.md.
 
 ## Next up
-Monthly pass for November (theme, rewards, creatures: propose to the owner first), store listing.
+iOS 1.0 (build 3) submitted to App Review on Oct 9, 2026 with all 13 in-app purchases (auto-release on approval; EU skipped until the DSA trader info is set up; Vietnam skipped). After launch: link the app in AdMob, then the November monthly pass (propose to the owner first), Google Play.
 
 ## Open / later
 Android RevenueCat key + Play Console, first device test + TestFlight (owner builds from the zip on the Mac; steps in "START HERE (Mac).txt" we hand over), real phone home-screen widgets, final art and audio.
