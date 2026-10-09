@@ -54,7 +54,8 @@ function step(state: GameState, t: number, dt: number, out: GameEvent[], live = 
   const rng = new StateRng(state);
   // Sky events (and the mutations they bring) only happen while you're playing.
   // One that's still running when you come back starts then.
-  const ev = away ? null : activeEvent(state, t);
+  const real = activeEvent(state, t);
+  const ev = away ? null : real;
   const sky: EventKind | null = ev ? ev.kind : null;
   const dark = isDark(state, t);
 
@@ -84,7 +85,8 @@ function step(state: GameState, t: number, dt: number, out: GameEvent[], live = 
     if (ev.kind === 'meteor') meteorRocks(state, t, dt, ev.end - ev.start, rng, out);
   }
   for (const [key, rec] of Object.entries(state.eventsApplied)) {
-    if (rec.started && !rec.ended && (!ev || ev.key !== key)) {
+    // ends by the clock: one that started while you played isn't ended by a quick trip away
+    if (rec.started && !rec.ended && (!real || real.key !== key)) {
       rec.ended = true;
       out.push({ type: 'eventEnd', kind: rec.kind, t });
     }

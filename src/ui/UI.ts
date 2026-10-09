@@ -17,7 +17,7 @@ import type { SaveSummary } from '../core/cloud';
 import { GAME_NAME } from './brand';
 import { halloweenEndsAt, inHalloween } from '../content/seasons';
 import { hasSpecial } from '../core/shop';
-import { PASS, PASS_TIERS, type PassReward, claimPassTier, describeReward, passClaimable, passState, passTier } from '../core/pass';
+import { PASS, PASS_TIERS, type PassReward, claimPassTier, describeReward, passClaimable, passProductId, passState, passTier } from '../core/pass';
 import { eggIcon, eggName, tierEggIcon } from './eggLook';
 import { wandererDeals } from '../core/wanderers';
 import { activeEvent, dayPhase, daylight, isDark, nextEvent } from '../core/world';
@@ -2699,14 +2699,14 @@ export class UI {
       const tier = passTier(s);
       const into = p.points - tier * PASS.pointsPerTier;
       const pct = tier >= PASS.tiers ? 100 : Math.round((into / PASS.pointsPerTier) * 100);
-      const prod = p.premium ? null : g.purchases.products().find((x) => x.id === PASS.productId);
+      const prod = p.premium ? null : g.purchases.products().find((x) => x.id === passProductId(g.state));
       b.append(h('div', { class: 'pass-head' },
         h('div', { class: 'pass-badge' }, h('b', null, String(tier)), h('span', null, 'TIER')),
         h('div', { class: 'grow' },
           h('div', { class: 'pass-bar' }, h('i', { style: `width:${pct}%` }), h('span', null, rich(tier >= PASS.tiers ? 'All tiers reached! ✨' : `🍬 ${into} / ${PASS.pointsPerTier}`))),
           h('div', { class: 'pass-sub' }, 'Earn Candy from everything you do')),
         p.premium ? h('div', { class: 'pass-owned' }, rich('✓ Unlocked'))
-          : h('button', { class: 'btn pass-unlock', onClick: () => void g.buyPack(PASS.productId) }, h('span', null, 'GET PASS'), h('small', null, prod?.price ?? '')),
+          : h('button', { class: 'btn pass-unlock', onClick: () => void g.buyPack(passProductId(g.state)) }, h('span', null, 'GET PASS'), h('small', null, prod?.price ?? '')),
       ));
       if (!p.premium) {
         // what's waiting on the paid track right now (passed tiers), then the big headline offer
@@ -2717,7 +2717,7 @@ export class UI {
             h('b', null, '3 exclusive creatures + 25 bonus rewards'),
             h('div', null, 'Pumpkit right away, Peekaboo at tier 1 and the Mythical Gloomwing at tier 25. Only this Halloween!'),
             waiting ? h('div', { class: 'pass-waiting' }, rich(`🎁 ${waiting} bonus reward${waiting === 1 ? '' : 's'} already waiting for you`)) : ''),
-          h('button', { class: 'btn pass-cta', onClick: () => void g.buyPack(PASS.productId) }, h('span', null, 'UNLOCK NOW'), h('small', null, prod?.price ?? ''))));
+          h('button', { class: 'btn pass-cta', onClick: () => void g.buyPack(passProductId(g.state)) }, h('span', null, 'UNLOCK NOW'), h('small', null, prod?.price ?? ''))));
         if (gameServices.available) b.append(h('button', { class: 'link-btn pass-restore', onClick: () => void g.restorePurchases(true) }, 'Already bought it? Restore purchase'));
       }
       // the track: tickets on the left, tiers scroll sideways (premium on top, free below)

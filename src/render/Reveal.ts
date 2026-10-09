@@ -234,6 +234,10 @@ export class Reveal {
     disposeEgg(this.egg);
     for (const ch of this.chips) (ch.m.material as THREE.Material).dispose();
     disposeCreature(this.model);
+    const rayMat = this.rays.material as THREE.MeshBasicMaterial;
+    rayMat.map?.dispose();
+    rayMat.dispose();
+    (this.confetti.material as THREE.Material).dispose();
     this.scene.traverse((o) => {
       if (o instanceof THREE.Mesh || o instanceof THREE.Points) o.geometry.dispose();
     });

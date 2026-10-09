@@ -10,7 +10,7 @@ import { SPECIES_BY_ID } from '../src/content/species';
 import { islandCapacity } from '../src/core/sim';
 import { compatibility, combine } from '../src/core/genetics';
 import { StateRng } from '../src/core/rng';
-import { activeEvent, eventInWindow, isDark, nextEvent } from '../src/core/world';
+import { activeEvent, eventInWindow, isDark, nextEvent, pauseSummoned } from '../src/core/world';
 import { deserialize, serialize } from '../src/core/save';
 import { addMutation, creatureTraits, makeCreature, speciesTitle } from '../src/core/creatures';
 import { arrivalWeights, totemBoost } from '../src/core/lures';
@@ -103,6 +103,24 @@ describe('sky events', () => {
     const rocks = s.gifts.filter((g) => g.meteor);
     expect(rocks.length).toBeGreaterThan(0);
     expect(rocks.every((g) => g.shards >= 1)).toBe(true);
+  });
+
+  it('a summoned event pauses while the keeper is away and carries on when they return', () => {
+    const s = fresh();
+    const t = T0 + 30_000;
+    const r = summonEvent(s, t);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const live1 = tick(s, t + MIN, { maxStepMs: 1000, live: true });
+    expect(live1.some((e) => e.type === 'eventStart')).toBe(true);
+    const back = t + MIN + 20 * MIN;
+    pauseSummoned(s, t + MIN, back);
+    const away = tick(s, back, { maxStepMs: 10_000 });
+    expect(away.some((e) => e.type === 'eventEnd' || e.type === 'eventStart')).toBe(false);
+    expect(activeEvent(s, back + 1000)?.kind).toBe(r.kind);
+    const live2 = tick(s, back + 10 * MIN, { maxStepMs: 5000, live: true });
+    expect(live2.filter((e) => e.type === 'eventStart')).toHaveLength(0);
+    expect(live2.filter((e) => e.type === 'eventEnd')).toHaveLength(1);
   });
 
   it('an ad can summon a random event right now, within the daily ad cap', () => {

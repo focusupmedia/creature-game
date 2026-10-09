@@ -507,7 +507,7 @@ export interface GameState {
   /** The gift a legendary event left: give one creature any mutation you choose. */
   blessing?: { kind: LegendaryKind; expiresAt: number } | null;
   /** An event summoned by the player (rewarded ad). Takes precedence over the schedule. */
-  summoned?: { kind: EventKind; start: number; end: number } | null;
+  summoned?: { kind: EventKind; start: number; end: number; id?: string; pausedMs?: number } | null;
   tutorial: number;
   /** Season pass progress (Candy, claimed tiers, whether the paid track is unlocked). */
   pass?: { id: string; points: number; free: number[]; paid: number[]; premium: boolean };

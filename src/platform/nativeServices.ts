@@ -11,7 +11,10 @@ import { StubPurchases, type Ads, type Product, type Purchases } from './service
 
 const ios = () => Capacitor.getPlatform() === 'ios';
 /** Resolves a moment after the first tap anywhere (the app is active by then). */
+let tapped = false;
+window.addEventListener('pointerup', () => { tapped = true; }, { once: true, capture: true });
 const afterFirstTap = () => new Promise<void>((resolve) => {
+  if (tapped) return resolve(); // already active (e.g. a retry from an ad button tap)
   window.addEventListener('pointerup', () => setTimeout(resolve, 600), { once: true, capture: true });
 });
 const errText = (e: unknown) => String((e as { message?: unknown })?.message ?? e ?? 'unknown').slice(0, 80);

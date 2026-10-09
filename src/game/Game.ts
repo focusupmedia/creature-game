@@ -21,7 +21,7 @@ import { RUMOUR_REWARD, checkRumour, rumourText, todaysRumour } from '../core/ru
 import { awayFinds, bulkRelease, bulkRetrieve, bulkSell, bulkStore, buyStorageSlot, findVisitor, keepVisitor, releaseCreature, sendAwayVisitor, feastIsland, feedCreature, hangFeedbag, feedSprout, harvestTree, retrieveCreature, sellCreature, storeCreature } from '../core/care';
 import { islandCapacity } from '../core/sim';
 import { xpFor, type PlayEvent } from '../core/progress';
-import { addCandy, candyFor, markCandy, PASS, passState, unlockPass } from '../core/pass';
+import { addCandy, candyFor, markCandy, passProductId, passState, unlockPass } from '../core/pass';
 import { ISLANDS, islandGeo } from '../content/islands';
 import { WANDERERS } from '../content/wanderers';
 import { dismissWanderer, meetWanderer, takeDeal } from '../core/wanderers';
@@ -38,7 +38,7 @@ import { deserialize, serialize } from '../core/save';
 import { tick } from '../core/sim';
 import { createGame, newSaveId } from '../core/state';
 import type { GameEvent, GameState, IslandId, LegendaryKind, MutationId } from '../core/types';
-import { activeEvent, dayPhase, nextEvent } from '../core/world';
+import { activeEvent, dayPhase, nextEvent, pauseSummoned } from '../core/world';
 import { Audio } from '../platform/audio';
 import {
   ConsoleAnalytics, ConsoleCrash, OneAdAtATime, StubAds, StubPurchases, WebNotifications, WebStorage,
@@ -127,6 +127,8 @@ export class Game {
 
   start(): void {
     const away = this.now() - this.state.lastTick;
+    pauseSummoned(this.state, this.state.lastTick, this.now());
+    this.preSyncSig = { sig: progressSig(this.state), at: performance.now() }; // before away gifts, so the cloud check isn't fooled
     const events = tick(this.state, this.now(), { maxStepMs: TUNING.offlineStepSec * 1000 });
     this.world.sync(this.state, this.now(), activeEvent(this.state, this.now())?.kind ?? null);
     this.dispatch(events, false);
@@ -246,6 +248,10 @@ export class Game {
       const blob = await this.cloud.load();
       this.save();
       const local = summarize(this.state, deviceName());
+      // compare progress from before this launch's away gifts (they aren't "playing")
+      // (only right after launch/return: later on, real play may have happened since)
+      if (this.preSyncSig && performance.now() - this.preSyncSig.at < 20_000) local.sig = this.preSyncSig.sig;
+      this.preSyncSig = undefined;
       // right after Start over: the fresh game replaces the old one in the cloud too
       if (this.storage.load(FRESH_KEY)) {
         this.storage.remove(FRESH_KEY);
@@ -378,6 +384,8 @@ export class Game {
       this.scheduleNotifications();
     } else if (this.hiddenAt) {
       const away = this.now() - this.hiddenAt;
+      pauseSummoned(this.state, this.hiddenAt, this.now());
+      if (away > 60_000) this.preSyncSig = { sig: progressSig(this.state), at: performance.now() };
       this.hiddenAt = 0;
       const events = tick(this.state, this.now(), { maxStepMs: TUNING.offlineStepSec * 1000 });
       this.dispatch(events, false);
@@ -395,6 +403,7 @@ export class Game {
     setTimeout(() => this.ui.showLoginCalendar(), 900);
   }
   private loginOffered = '';
+  private preSyncSig?: { sig: string; at: number };
 
   /**
    * A new keeper's first stretch is kept calm: while Lotl's Quest is running (for up to
@@ -1349,7 +1358,7 @@ export class Game {
   /** Give back one-time purchases (the pass) this store account owns. `manual` = the Restore button. */
   async restorePurchases(manual = true): Promise<void> {
     const owned = await this.purchases.owned(manual);
-    if (owned.includes(PASS.productId) && !passState(this.state).premium) {
+    if (owned.includes(passProductId(this.state)) && !passState(this.state).premium) {
       const pet = unlockPass(this.state, this.now());
       this.audio.play('discover');
       this.ui.toast(`🎃 Halloween Pass restored!${pet ? ' Pumpkit has joined you!' : ''}`, 'discovery', undefined, 4000, { priority: 3 });

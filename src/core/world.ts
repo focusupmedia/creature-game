@@ -79,13 +79,26 @@ export function windowAt(state: Pick<GameState, 'createdAt'>, t: number): number
 
 export function activeEvent(state: Sched, t: number): SkyEvent | null {
   const s = state.summoned;
-  if (s && t >= s.start && t < s.end) return { key: `s${s.start}`, kind: s.kind, start: s.start, end: s.end, summoned: true };
+  // (time paused while away is left out of its length, so its mutation chances aren't watered down)
+  if (s && t >= s.start && t < s.end) return { key: s.id ?? `s${s.start}`, kind: s.kind, start: s.start + (s.pausedMs ?? 0), end: s.end, summoned: true };
   const w = windowAt(state, t);
   for (const k of [w, w - 1]) {
     const e = eventInWindow(state, k);
     if (e && t >= e.start && t < e.end) return e;
   }
   return null;
+}
+
+/**
+ * A summoned (ad) event pauses while the keeper is away: the time away is added on,
+ * so they still get all of what they watched the ad for. Call before catching up.
+ */
+export function pauseSummoned(state: GameState, from: number, to: number): void {
+  const s = state.summoned;
+  if (!s || s.end <= from || to <= from) return;
+  s.id ??= `s${s.start}`; // same event, same bookkeeping
+  s.end += to - from;
+  s.pausedMs = (s.pausedMs ?? 0) + (to - from);
 }
 
 /** The next event that hasn't started yet. */

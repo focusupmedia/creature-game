@@ -68,6 +68,10 @@ const TEMPER: Record<Personality, Temper> = {
   friendly: { speed: 1, idle: 0.3, nap: 0.04, social: 0.8, squabble: 0.03, lure: 0.25 },
 };
 
+/** Scratch vectors for steering (no per-frame allocations). */
+const TO = new THREE.Vector3();
+const LOOK = new THREE.Vector3();
+
 export class CreatureActor {
   readonly model: CreatureModel;
   readonly root: THREE.Group;
@@ -1082,22 +1086,28 @@ export class CreatureActor {
   /** Steer toward target; returns true when arrived. */
   private moveToward(dt: number, speedMul: number): boolean {
     const pos = this.p;
-    const to = new THREE.Vector3(this.target.x - pos.x, 0, this.target.z - pos.z);
+    const to = TO.set(this.target.x - pos.x, 0, this.target.z - pos.z);
     const d = to.length();
     if (d < 0.12) return true;
     if (this.tripT > 0) return false;
     to.normalize();
     if (!this.isFlyer && !this.isSwimmer) {
-      for (const o of [...this.geo.obstacles, ...this.geo.lava]) {
-        const ox = pos.x - o.x;
-        const oz = pos.z - o.z;
-        const od = Math.hypot(ox, oz);
-        if (od < o.r + 0.9 && od > 0.001) {
-          const push = (o.r + 0.9 - od) / (o.r + 0.9);
-          to.x += (ox / od) * push * 1.5;
-          to.z += (oz / od) * push * 1.5;
+      // walk around rocks, booths and lava, and around the pond unless you like a paddle
+      const avoid = (list: readonly { x: number; z: number; r: number }[], pad: number) => {
+        for (const o of list) {
+          const ox = pos.x - o.x;
+          const oz = pos.z - o.z;
+          const od = Math.hypot(ox, oz);
+          if (od < o.r + pad && od > 0.001) {
+            const push = (o.r + pad - od) / (o.r + pad);
+            to.x += (ox / od) * push * 1.5;
+            to.z += (oz / od) * push * 1.5;
+          }
         }
-      }
+      };
+      avoid(this.geo.obstacles, 0.9);
+      avoid(this.geo.lava, 0.9);
+      if (!this.amphibious) avoid(this.geo.water, 0.5);
       to.normalize();
     }
     let speed = (SPEED[this.model.movement] ?? 0.7) * speedMul * this.temper.speed;
@@ -1109,7 +1119,7 @@ export class CreatureActor {
     const g = this.geo;
     if (this.isSwimmer || onLand(g, nx, nz, 0.4) || this.state === 'arrive') pos.set(nx, pos.y, nz);
     else this.target.set(g.ox + (pos.x - g.ox) * 0.8, 0, g.oz + (pos.z - g.oz) * 0.8);
-    this.face(new THREE.Vector3(pos.x + to.x, 0, pos.z + to.z), dt);
+    this.face(LOOK.set(pos.x + to.x, 0, pos.z + to.z), dt);
     return false;
   }
 
