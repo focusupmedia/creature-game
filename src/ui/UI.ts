@@ -1,7 +1,7 @@
 import { UPDATES } from '../content/updates';
 import { SPECIES, species } from '../content/species';
 import { DECOR, EGG_TIERS, EVENTS, FOODS, GIFTABLE_MUTATIONS, TOOLS, ITEMS, LEGENDARY, LEGENDARY_ORDER, LURES, MUTATIONS, SKY_ITEMS, SPOTS, spotOpen } from '../content/world';
-import { ISLANDS, ISLAND_ORDER, SIZE_NAMES, SIZE_PRICE } from '../content/islands';
+import { ISLANDS, ISLAND_ORDER, SIZE_CAPACITY, SIZE_NAMES, SIZE_PRICE } from '../content/islands';
 import { TUNING } from '../content/tuning';
 import { FONT, SHOP_STALL } from '../content/layout';
 import * as A from '../core/actions';
@@ -1091,6 +1091,10 @@ export class UI {
             ...owned.map((id) => chip(id, `${ISLANDS[id].icon} ${out.filter((c) => c.island === id).length}/${islandCapacity(s, id)}`))));
           shown = out.filter((c) => this.petWorld === 'all' || c.island === this.petWorld).sort(favFirst);
           const groups = this.petWorld === 'all' ? owned : [this.petWorld];
+          // a (nearly) full world: show how to make it bigger
+          const tight = groups.find((w) => out.filter((c) => c.island === w).length >= islandCapacity(s, w) - 1 && SIZE_PRICE[(s.islands[w]?.size ?? 0) + 1]);
+          const grow = tight ? this.growRow(tight) : null;
+          if (grow) b.append(grow);
           for (const w of groups) {
             const here = shown.filter((c) => c.island === w);
             if (!here.length) continue;
@@ -1354,6 +1358,24 @@ export class UI {
     });
   }
 
+  /** "Make this world bigger" (more room, sometimes a new lure spot), or null when it's as big as it gets. */
+  private growRow(id: IslandId, after?: () => void): HTMLElement | null {
+    const s = this.game.state;
+    const isl = s.islands[id];
+    const next = isl?.owned ? SIZE_PRICE[isl.size + 1] : undefined;
+    if (!isl || !next) return null;
+    const more = (SIZE_CAPACITY[isl.size + 1] ?? 0) - (SIZE_CAPACITY[isl.size] ?? 0);
+    const spot = Object.values(SPOTS).some((sp) => sp.island === id && sp.minSize === isl.size + 1);
+    const buy = (cur: 'glimmer' | 'shards') => { if (this.game.upgradeIsland(id, cur)) after?.(); };
+    return h('div', { class: 'item grow-world' },
+      h('div', { class: 'grow' },
+        h('div', { class: 'name' }, `🌱 Make ${ISLANDS[id].name} bigger`),
+        h('div', { class: 'desc' }, `${SIZE_NAMES[isl.size + 1]}: room for ${more} more creatures${spot ? ' and a new lure spot' : ''}.`)),
+      h('div', { class: 'col', style: 'gap:4px' },
+        h('button', { class: 'btn small', disabled: s.glimmer < next.coins, onClick: () => buy('glimmer') }, rich(`{coin} ${next.coins.toLocaleString()}`)),
+        h('button', { class: 'btn shard small', disabled: s.shards < next.gems, onClick: () => buy('shards') }, rich(`{gem} ${next.gems}`))));
+  }
+
   /**
    * A world is full: store or release someone to make room, then carry on.
    * `elsewhere` (optional) offers to send the newcomer to another world with room instead.
@@ -1366,6 +1388,9 @@ export class UI {
       const here = s.creatures.filter((c) => c.island === island && !c.stored);
       m.append(h('h2', null, `${ISLANDS[island].name} is full`),
         h('p', { class: 'muted' }, `${here.length} of ${cap} creatures live here. Make space by storing or releasing someone${elsewhere ? ', or send the newcomer to another world' : ''}.`));
+      // or simply make the world bigger
+      const grow = this.growRow(island, () => { close(); onDone(); });
+      if (grow) m.append(grow);
       if (elsewhere) {
         const others = ISLAND_ORDER.filter((id) => id !== island && s.islands[id]?.owned
           && s.creatures.filter((c) => c.island === id && !c.stored).length < islandCapacity(s, id));
@@ -2975,6 +3000,14 @@ export class UI {
       if (e.nest === null || e.progressMs < e.incubationMs) continue;
       const at = s.placedDecor.find((d) => d.id === e.nest)?.island ?? 'home';
       if (at !== here) out.set(at, 'An egg is ready to hatch!');
+    }
+    // a full world you can afford to make bigger (any world, the one you're on too)
+    for (const id of ISLAND_ORDER) {
+      const isl = s.islands[id];
+      const next = isl?.owned ? SIZE_PRICE[isl.size + 1] : undefined;
+      if (!next || out.has(id) || (s.glimmer < next.coins && s.shards < next.gems)) continue;
+      const pop = s.creatures.filter((c) => c.island === id && !c.stored && !c.trip).length;
+      if (pop >= islandCapacity(s, id)) out.set(id, `${ISLANDS[id].name} is full. Make it bigger for more room!`);
     }
     return out;
   }

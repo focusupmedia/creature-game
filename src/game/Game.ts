@@ -771,16 +771,18 @@ export class Game {
     this.ui.toast(`${ISLANDS[id].icon} ${ISLANDS[id].name} is yours! Here are 2 free lures to get started.${welcome}`, 'discovery', undefined, 6500);
   }
 
-  upgradeIsland(id: IslandId, currency: 'glimmer' | 'shards'): void {
+  upgradeIsland(id: IslandId, currency: 'glimmer' | 'shards'): boolean {
     const r = A.upgradeIsland(this.state, id, currency);
     if (!r.ok) {
-      return this.ui.fail(r.error);
+      this.ui.fail(r.error);
+      return false;
     }
     this.audio.play('discover');
     this.analytics.track('island_upgraded', { island: id, size: this.state.islands[id].size, currency });
     this.ui.toast(`${ISLANDS[id].name} grew! More room for creatures.`, 'discovery');
     this.saveSoon();
     this.ui.rerender();
+    return true;
   }
 
   moveCreature(creatureId: string, to: IslandId): void {

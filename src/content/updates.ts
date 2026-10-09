@@ -7,6 +7,7 @@ export const UPDATES: UpdateNote[] = [
     version: '1.0', date: 'October 2026', lines: [
       'Sky events and their mutations now only happen while you\'re playing, so you never miss one.',
       'While you\'re away, a couple of visitors and a few finds wait for you instead of a flood.',
+      'World full? Make it bigger right from the "full" pop-up, the Pets list or Worlds.',
     ],
   },
   {
