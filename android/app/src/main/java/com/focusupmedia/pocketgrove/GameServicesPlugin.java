@@ -8,6 +8,8 @@ import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
 import com.google.android.gms.games.PlayGames;
+import com.google.android.play.core.review.ReviewManager;
+import com.google.android.play.core.review.ReviewManagerFactory;
 
 @CapacitorPlugin(name = "GameServices")
 public class GameServicesPlugin extends Plugin {
@@ -46,5 +48,19 @@ public class GameServicesPlugin extends Plugin {
                 .addOnSuccessListener(intent -> getActivity().startActivityForResult(intent, 9102));
         } catch (Exception ignored) { }
         call.resolve();
+    }
+
+    /** Google Play's in-app rating card (Play decides whether it actually shows). */
+    @PluginMethod
+    public void requestReview(PluginCall call) {
+        try {
+            ReviewManager manager = ReviewManagerFactory.create(getContext());
+            manager.requestReviewFlow().addOnCompleteListener(task -> {
+                if (task.isSuccessful()) manager.launchReviewFlow(getActivity(), task.getResult()).addOnCompleteListener(done -> call.resolve());
+                else call.resolve();
+            });
+        } catch (Exception ignored) {
+            call.resolve();
+        }
     }
 }

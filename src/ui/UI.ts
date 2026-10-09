@@ -2571,6 +2571,11 @@ export class UI {
 
   // ------------------------------------------------------------------ modal
 
+  /** A sheet or pop-up is open (so it isn't a good moment for a system prompt). */
+  hasOpenPopup(): boolean {
+    return this.sheetOpen || this.modalHost.childElementCount > 0;
+  }
+
   hasModal(kind: string): boolean {
     return !!this.modalHost.querySelector(`[data-kind="${kind}"]`);
   }

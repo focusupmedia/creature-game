@@ -4,6 +4,7 @@
 
 import Capacitor
 import GameKit
+import StoreKit
 
 @objc(GameServicesPlugin)
 public class GameServicesPlugin: CAPPlugin, CAPBridgedPlugin, GKGameCenterControllerDelegate {
@@ -14,7 +15,19 @@ public class GameServicesPlugin: CAPPlugin, CAPBridgedPlugin, GKGameCenterContro
         CAPPluginMethod(name: "unlock", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "showLeaderboards", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "showAchievements", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "requestReview", returnType: CAPPluginReturnPromise),
     ]
+
+    /// Apple's own "Enjoying Pocket Grove?" star prompt. iOS decides whether it
+    /// actually shows (at most 3 times a year per person).
+    @objc func requestReview(_ call: CAPPluginCall) {
+        DispatchQueue.main.async {
+            if let scene = self.bridge?.viewController?.view.window?.windowScene {
+                SKStoreReviewController.requestReview(in: scene)
+            }
+            call.resolve()
+        }
+    }
 
     @objc func submitScore(_ call: CAPPluginCall) {
         guard GKLocalPlayer.local.isAuthenticated, let id = call.getString("leaderboard") else { return call.resolve() }

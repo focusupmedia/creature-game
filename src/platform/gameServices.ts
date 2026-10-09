@@ -11,6 +11,7 @@ interface GameServicesPlugin {
   unlock(o: { achievement: string }): Promise<void>;
   showLeaderboards(): Promise<void>;
   showAchievements(): Promise<void>;
+  requestReview(): Promise<void>;
 }
 
 const native = Capacitor.isNativePlatform();
@@ -29,4 +30,6 @@ export const gameServices = {
   },
   showLeaderboards(): void { plugin?.showLeaderboards().catch(() => {}); },
   showAchievements(): void { plugin?.showAchievements().catch(() => {}); },
+  /** The store's own star-rating prompt (the store decides if it really shows). */
+  requestReview(): void { plugin?.requestReview().catch(() => {}); },
 };

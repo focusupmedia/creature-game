@@ -55,6 +55,7 @@ const SETTINGS_KEY = 'kindred-grove.settings';
 const REMINDERS_KEY = 'kindred-grove.reminders';
 /** Set by Start over: the next cloud check overwrites the cloud with the fresh game instead of loading the old one back. */
 const FRESH_KEY = 'kindred-grove.fresh-start';
+const RATING_KEY = 'kindred-grove.rating-asked';
 const LIVE_TICK_S = 0.25;
 const AWAY_REPORT_MS = 90_000;
 
@@ -885,6 +886,8 @@ export class Game {
       this.world.endReveal();
       this.ui.hideHud(false);
       this.record(hatched);
+      // a happy moment (something new or glowing): maybe ask for a store rating
+      if (r.newSpecies || r.creature.mutations.length) this.maybeAskForRating();
       if (toStorage) {
         this.ui.toast(`${displayName(r.creature)} is resting in storage. Bring it out from Pets whenever you like.`);
         for (const note of r.notes) this.ui.toast(`📝 Journal: ${note}`, 'info', undefined, 5000);
@@ -1072,6 +1075,25 @@ export class Game {
     r.told = true;
     this.ui.toast(`🦎 Lotl's rumour: ${rumourText(r.species)}`, 'info', undefined, 8000, { priority: 2, action: { label: 'Quests', run: () => this.ui.showQuests() } });
     this.saveSoon();
+  }
+
+  /**
+   * Ask for an App Store / Play rating right after a happy moment. Only for keepers who
+   * have played a while (a day, or 10 hatches), at most every 60 days; the store itself
+   * also limits how often its prompt really shows.
+   */
+  private maybeAskForRating(): void {
+    if (!gameServices.available || this.state.tutorial < 6) return;
+    const played = this.now() - this.state.createdAt > 86_400_000 || this.state.stats.hatches >= 10;
+    if (!played) return;
+    const last = Number(this.storage.load(RATING_KEY) ?? 0);
+    if (Date.now() - last < 60 * 86_400_000) return;
+    setTimeout(() => {
+      if (this.world.revealing || this.ui.hasOpenPopup()) return; // try again next time
+      this.storage.save(RATING_KEY, String(Date.now()));
+      this.analytics.track('rating_prompt');
+      gameServices.requestReview();
+    }, 2500);
   }
 
   private gainXp(amount: number): void {
