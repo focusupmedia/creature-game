@@ -10,9 +10,9 @@ const HOUR = 3_600_000;
 describe('care', () => {
   it('creatures get hungry slowly, hungry ones can\'t breed, and food fixes it', () => {
     const s = createGame(1, 0);
-    tick(s, 5 * HOUR, { maxStepMs: 60_000 });
+    tick(s, 5 * HOUR, { maxStepMs: 60_000, live: true });
     expect(s.creatures.some(isHungry)).toBe(false);
-    tick(s, 9 * HOUR, { maxStepMs: 60_000 });
+    tick(s, 9 * HOUR, { maxStepMs: 60_000, live: true });
     expect(s.creatures.every(isHungry)).toBe(true);
     const [a, b] = s.creatures;
     const r = startCombine(s, a.id, b.id, s.lastTick);
@@ -20,6 +20,15 @@ describe('care', () => {
     s.food.snack = 2;
     expect(feedCreature(s, a.id).ok).toBe(true);
     expect(isHungry(a)).toBe(false);
+  });
+
+  it('pets get hungry half as fast while you are away', () => {
+    const playing = createGame(1, 0);
+    const away = createGame(1, 0);
+    tick(playing, 6 * HOUR, { maxStepMs: 60_000, live: true });
+    tick(away, 6 * HOUR, { maxStepMs: 60_000 });
+    const lost = (s: typeof away) => 1 - s.creatures[0].fullness;
+    expect(lost(away)).toBeCloseTo(lost(playing) * TUNING.awayHungerRate, 1);
   });
 
   it('feedbags feed hungry creatures while you are away', () => {

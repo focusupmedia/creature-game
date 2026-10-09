@@ -18,10 +18,10 @@ Until the keys below are filled in, the apps show Google's **test** ads.
 | Play Games project id | Play Console → Play Games Services → Configuration | `strings.xml` → `game_services_project_id` |
 
 ## In-app products to create (same ids in App Store Connect, Google Play and RevenueCat)
-All are consumable except the pass (non-consumable / one-time).
+All are **Consumable**, including the pass: `pass_monthly` is bought again for each month's pass (so no Restore button is needed).
 `shards_small` $0.99 · `shards_medium` $4.99 · `shards_large` $9.99 · `shards_huge` $19.99 · `shards_mega` $49.99 · `shards_ultimate` $99.99 ·
 `coins_small` $0.99 · `coins_medium` $4.99 · `coins_large` $9.99 · `coins_huge` $19.99 · `coins_mega` $49.99 · `coins_ultimate` $99.99 ·
-`pass_halloween` $4.99
+`pass_monthly` $4.99
 
 ## Build and upload
 - **iPhone (needs a Mac with Xcode):** `npx cap open ios` → pick your team under Signing & Capabilities → Product → Archive → Distribute → App Store Connect. Test with TestFlight, then submit for review.

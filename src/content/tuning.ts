@@ -93,6 +93,8 @@ export const TUNING = {
   /** While you're away: finds stop piling up past this many per world, and at most this many visitors arrive per absence. */
   awayGiftsOnGround: 4,
   awayVisitors: 2,
+  /** Hunger runs this fast while you're away. */
+  awayHungerRate: 0.5,
   /** Dig spots (sparkly dust, bubbling puddles, berry bushes) you drop creatures on. Per owned island. */
   /**
    * Keeper levels: XP to go from level L to L+1 is 20 + base * L^0.9 (about 49k XP to reach 50).

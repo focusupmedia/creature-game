@@ -8,6 +8,7 @@ export const UPDATES: UpdateNote[] = [
       'Sky events and their mutations now only happen while you\'re playing, so you never miss one.',
       'While you\'re away, a couple of visitors and a few finds wait for you instead of a flood.',
       'World full? Make it bigger right from the "full" pop-up, the Pets list or Worlds.',
+      'Pets get hungry more slowly while you\'re away, so mornings start ready to play.',
     ],
   },
   {

@@ -262,7 +262,7 @@ function step(state: GameState, t: number, dt: number, out: GameEvent[], live = 
   }
 
   // ---- hunger, feedbags and the Collector
-  stepCare(state, t, dt, rng, out);
+  stepCare(state, t, dt, rng, out, !!away);
 
   // ---- legendary events (very rare)
   stepLegendary(state, t, dt, rng, out, !away);

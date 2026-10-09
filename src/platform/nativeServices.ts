@@ -138,20 +138,9 @@ export class StorePurchases implements Purchases {
       return { ok: true, product };
     } catch (e) {
       const code = String((e as { code?: unknown })?.code ?? '');
-      // Ask to Buy: a parent approves later; a pass then comes back through restore
+      // Ask to Buy: a parent approves it later
       if (code === '20' || /pending/i.test(String((e as Error)?.message))) return { ok: false, error: 'Waiting for approval. Nothing was charged yet.' };
       return { ok: false }; // cancelled or failed: nothing charged
-    }
-  }
-
-  /** Ids of the one-time purchases this store account already owns (the pass). */
-  async owned(restore: boolean): Promise<string[]> {
-    try {
-      if (!this.configured) await this.init();
-      const { customerInfo } = restore ? await RC.restorePurchases() : await RC.getCustomerInfo();
-      return customerInfo.allPurchasedProductIdentifiers ?? [];
-    } catch {
-      return [];
     }
   }
 }

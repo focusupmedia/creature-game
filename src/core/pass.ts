@@ -13,7 +13,8 @@ import type { Result } from './actions';
 import type { PlayEvent } from './progress';
 import type { GameState, SpeciesId } from './types';
 
-export const PASS = { id: 'halloween', name: 'Halloween Pass', pointsPerTier: 120, tiers: 25, productId: 'pass_halloween' };
+/** `productId`: one Consumable bought again for each month's pass (owner's choice). */
+export const PASS = { id: 'halloween', name: 'Halloween Pass', pointsPerTier: 120, tiers: 25, productId: 'pass_monthly' };
 
 export interface PassReward {
   coins?: number;
@@ -64,10 +65,9 @@ function seasonPassId(state: GameState): string {
   return year <= 2026 ? PASS.id : `${PASS.id}-${year}`;
 }
 
-/** This season's store product: each year's pass is its own purchase (add it to the stores). */
-export function passProductId(state: GameState): string {
-  const year = passYear(state);
-  return year <= 2026 ? PASS.productId : `${PASS.productId}_${year}`;
+/** The store product for the pass: the same Consumable every time (the pass itself changes). */
+export function passProductId(_state: GameState): string {
+  return PASS.productId;
 }
 
 export function passState(state: GameState) {

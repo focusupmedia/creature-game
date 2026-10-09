@@ -2355,8 +2355,6 @@ export class UI {
       b.append(h('div', { class: 'btns' },
         h('button', { class: 'btn secondary small', onClick: () => this.showControls() }, '👆 How to get around'),
         h('button', { class: 'btn secondary small', onClick: () => this.showUpdates() }, '📜 What\'s new')));
-      if (gameServices.available) b.append(h('div', { class: 'btns' },
-        h('button', { class: 'btn secondary small', onClick: () => void g.restorePurchases(true) }, 'Restore purchases')));
       // playtest tools: in the web playtest build only, never in the store apps
       if (!gameServices.available) {
         b.append(h('div', { class: 'section-title' }, 'Playtest tools'));
@@ -2726,7 +2724,6 @@ export class UI {
             h('div', null, 'Pumpkit right away, Peekaboo at tier 1 and the Mythical Gloomwing at tier 25. Only this Halloween!'),
             waiting ? h('div', { class: 'pass-waiting' }, rich(`🎁 ${waiting} bonus reward${waiting === 1 ? '' : 's'} already waiting for you`)) : ''),
           h('button', { class: 'btn pass-cta', onClick: () => void g.buyPack(passProductId(g.state)) }, h('span', null, 'UNLOCK NOW'), h('small', null, prod?.price ?? ''))));
-        if (gameServices.available) b.append(h('button', { class: 'link-btn pass-restore', onClick: () => void g.restorePurchases(true) }, 'Already bought it? Restore purchase'));
       }
       // the track: tickets on the left, tiers scroll sideways (premium on top, free below)
       const ico = (r: PassReward): Node => {

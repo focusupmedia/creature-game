@@ -60,8 +60,6 @@ export interface Purchases {
   products(): Product[];
   /** `test` is true when no real money changed hands (web playtest build). */
   buy(productId: string): Promise<{ ok: boolean; product?: Product; test?: boolean; error?: string }>;
-  /** Ids of one-time purchases already owned (restore = ask the store to re-check the account). */
-  owned(restore: boolean): Promise<string[]>;
 }
 
 export interface Analytics {
@@ -114,7 +112,7 @@ export class StubPurchases implements Purchases {
       { id: 'coins_mega', currency: 'coins', amount: 40000, price: '$49.99', tag: '+14% bonus' },
       { id: 'coins_ultimate', currency: 'coins', amount: 90000, price: '$99.99', tag: 'Best value · +29%' },
       // the Halloween Pass's paid track (approved price)
-      { id: 'pass_halloween', currency: 'pass', amount: 1, price: '$4.99' },
+      { id: 'pass_monthly', currency: 'pass', amount: 1, price: '$4.99' },
     ];
   }
   async buy(productId: string) {
@@ -122,9 +120,6 @@ export class StubPurchases implements Purchases {
     // Web playtest build: packs are granted for free so the flow can be tested.
     // Store SDKs replace this class in the App Store / Google Play builds.
     return { ok: !!product, product, test: true };
-  }
-  async owned(): Promise<string[]> {
-    return [];
   }
 }
 

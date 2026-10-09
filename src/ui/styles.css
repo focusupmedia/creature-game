@@ -896,6 +896,5 @@ input.rename { font-family: var(--display); font-size: 22px; border: var(--outli
 @media (prefers-reduced-motion: reduce) { .tut-arrow-ico { animation: none; } }
 .gesture-hint.paused { display: none; }
 
-.pass-restore { display: block; margin: -4px auto 8px; background: none; border: 0; color: inherit; opacity: 0.7; text-decoration: underline; font: inherit; font-size: 13px; }
 
 .grow-world { background: linear-gradient(180deg, #fff6d6, #ffe9a8); border-color: #e0b84a; margin: 6px 0 10px; }

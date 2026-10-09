@@ -26,8 +26,9 @@ export function isHungry(c: Pick<Creature, 'fullness'>): boolean {
 }
 
 /** Runs inside the sim step: hunger drains, feedbags refill, the Collector comes and goes. */
-export function stepCare(state: GameState, t: number, dt: number, rng: StateRng, out: GameEvent[]): void {
-  const drain = dt / (TUNING.hungerHours * HOUR);
+/** `away`: the keeper isn't playing, so pets get hungry more slowly (mornings start playable). */
+export function stepCare(state: GameState, t: number, dt: number, rng: StateRng, out: GameEvent[], away = false): void {
+  const drain = (dt / (TUNING.hungerHours * HOUR)) * (away ? TUNING.awayHungerRate : 1);
   // a Musical pet out on a world cheers everyone there up: they get hungry a bit slower
   const music = new Set(state.creatures.filter((c) => !c.stored && !c.trip && hasQuirk(c, 'musical')).map((c) => c.island));
   for (const c of state.creatures) {

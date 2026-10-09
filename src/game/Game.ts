@@ -21,7 +21,7 @@ import { RUMOUR_REWARD, checkRumour, rumourText, todaysRumour } from '../core/ru
 import { awayFinds, bulkRelease, bulkRetrieve, bulkSell, bulkStore, buyStorageSlot, findVisitor, keepVisitor, releaseCreature, sendAwayVisitor, feastIsland, feedCreature, hangFeedbag, feedSprout, harvestTree, retrieveCreature, sellCreature, storeCreature } from '../core/care';
 import { islandCapacity } from '../core/sim';
 import { xpFor, type PlayEvent } from '../core/progress';
-import { addCandy, candyFor, markCandy, passProductId, passState, unlockPass } from '../core/pass';
+import { addCandy, candyFor, markCandy, passState, unlockPass } from '../core/pass';
 import { ISLANDS, islandGeo } from '../content/islands';
 import { WANDERERS } from '../content/wanderers';
 import { dismissWanderer, meetWanderer, takeDeal } from '../core/wanderers';
@@ -149,7 +149,6 @@ export class Game {
     }
     // see what's in the cloud (signs in automatically on phones)
     setTimeout(() => void this.cloudSync(), 1500);
-    setTimeout(() => void this.restorePurchases(false), 4000); // a reinstall gets its pass back
     this.analytics.track('session_start', { creatures: this.state.creatures.length, away_min: Math.round(away / 60000) });
     this.world.start();
     // gestures are taught with small tips when they're useful (ui/hints.ts); the full card lives in Settings
@@ -1351,6 +1350,9 @@ export class Game {
   /** Buy a Starshard or coin pack. On the web playtest build nothing is charged. */
   async buyPack(productId: string): Promise<void> {
     this.analytics.track('iap_tapped', { product: productId });
+    // the pass is a Consumable: never charge twice for the same month's pass
+    const isPass = this.purchases.products().find((p) => p.id === productId)?.currency === 'pass';
+    if (isPass && passState(this.state).premium) return this.ui.toast('You already have this pass!');
     const r = await this.purchases.buy(productId);
     if (!r.ok || !r.product) return this.ui.toast(r.error ?? 'That purchase didn\'t go through. Nothing was charged.');
     const p = r.product;
@@ -1366,20 +1368,6 @@ export class Game {
     this.audio.play('coin');
     this.ui.toast(`${p.currency === 'shards' ? '{gem}' : '{coin}'} +${p.amount}${r.test ? ' (test purchase, nothing was charged)' : ''}`, 'discovery', undefined, 3600, { priority: 3 });
     this.saveSoon();
-  }
-
-  /** Give back one-time purchases (the pass) this store account owns. `manual` = the Restore button. */
-  async restorePurchases(manual = true): Promise<void> {
-    const owned = await this.purchases.owned(manual);
-    if (owned.includes(passProductId(this.state)) && !passState(this.state).premium) {
-      const pet = unlockPass(this.state, this.now());
-      this.audio.play('discover');
-      this.ui.toast(`🎃 Halloween Pass restored!${pet ? ' Pumpkit has joined you!' : ''}`, 'discovery', undefined, 4000, { priority: 3 });
-      this.saveSoon();
-      this.ui.rerender();
-    } else if (manual) {
-      this.ui.toast(owned.length ? 'Your purchases are all here already.' : 'No purchases to restore on this account.');
-    }
   }
 
   // ------------------------------------------------------------------ playtest tools

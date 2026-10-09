@@ -8,7 +8,7 @@ Cozy mobile creature-discovery game **Pocket Grove** by Focus Up Media (formerly
 - North Star: every session should make the player wonder what they'll discover next.
 
 ## Commands
-`npm run dev` · `npm test` (144 tests, includes a pacing bot, an economy sim (`ECON=1 npx vitest run tests/economy.test.ts` prints the day-by-day table), music checks and an every-emoji-is-drawn check) · `npx tsc --noEmit` · `npm run build:single` (one-file build)
+`npm run dev` · `npm test` (146 tests, includes a pacing bot, an economy sim (`ECON=1 npx vitest run tests/economy.test.ts` prints the day-by-day table), music checks and an every-emoji-is-drawn check) · `npx tsc --noEmit` · `npm run build:single` (one-file build)
 
 Playable link (private artifact, republish to the same URL): https://claude.ai/artifact/Vp8BW1soCF5jXTZ76FZ3hP. To republish, convert `dist-single/index.html` to artifact format (no doctype/html/head/body; keep title, styles, body divs, scripts) and publish it with the Artifact tool. Visual checks: Playwright with `executablePath: '/opt/pw-browsers/chromium'` against `npx vite preview --port 4173`, and `?debug` exposes `window.game`.
 
@@ -57,7 +57,7 @@ Step 1 (all creatures): kawaii eyes with two sparkles, auto blush (`Kit.noBlush`
 `ios/` and `android/` Capacitor projects with icons/splash. Real AdMob rewarded ads + RevenueCat purchases in `src/platform/nativeServices.ts` (keys in `storeKeys.ts`; test ads until filled). Cloud-save plugins wired in. Release steps: docs/STORE_RELEASE.md.
 
 ## Next up
-Ask the owner what's next (ideas: final art pass, store listing).
+Monthly pass for November (theme, rewards, creatures: propose to the owner first), store listing.
 
 ## Open / later
 Android RevenueCat key + Play Console, first device test + TestFlight (owner builds from the zip on the Mac; steps in "START HERE (Mac).txt" we hand over), real phone home-screen widgets, final art and audio.
