@@ -99,7 +99,7 @@ describe('sky events', () => {
     const t0 = T0 + 60_000;
     s.summoned = { kind: 'meteor', start: t0, end: t0 + 3 * 60_000 };
     s.gifts = [];
-    tick(s, t0 + 3 * 60_000, { maxStepMs: 1000 });
+    tick(s, t0 + 3 * 60_000, { maxStepMs: 1000, live: true });
     const rocks = s.gifts.filter((g) => g.meteor);
     expect(rocks.length).toBeGreaterThan(0);
     expect(rocks.every((g) => g.shards >= 1)).toBe(true);
@@ -113,7 +113,7 @@ describe('sky events', () => {
     if (!r.ok) return;
     expect(activeEvent(s, t + 1000)?.kind).toBe(r.kind);
     expect(summonEvent(s, t + 1000).ok).toBe(false);
-    const events = tick(s, t + 6 * MIN, { maxStepMs: 5000 });
+    const events = tick(s, t + 6 * MIN, { maxStepMs: 5000, live: true });
     expect(events.some((e) => e.type === 'eventStart' && e.kind === r.kind)).toBe(true);
     expect(events.some((e) => e.type === 'eventEnd' && e.kind === r.kind)).toBe(true);
     // Keep summoning whenever the sky is free; the daily ad cap is the only limit.
@@ -135,7 +135,7 @@ describe('sky events', () => {
         s.lastTick = t;
         if (!summonEvent(s, t).ok) continue;
         s.ads.count = 0;
-        const ev = tick(s, t + 6 * MIN, { maxStepMs: 5000 });
+        const ev = tick(s, t + 6 * MIN, { maxStepMs: 5000, live: true });
         for (const e of ev) if (e.type === 'mutation') seen.add(e.cause);
       }
     }
@@ -144,7 +144,7 @@ describe('sky events', () => {
 
   it('emits start and end once', () => {
     const s = fresh();
-    const events = tick(s, T0 + 15 * MIN);
+    const events = tick(s, T0 + 15 * MIN, { live: true });
     expect(events.filter((e) => e.type === 'eventStart')).toHaveLength(1);
     expect(events.filter((e) => e.type === 'eventEnd')).toHaveLength(1);
   });
@@ -270,7 +270,7 @@ describe('eggs and events', () => {
       const r = startCombine(s, a.id, b.id, T0 + 6.5 * MIN);
       if (!r.ok) continue;
       r.egg.incubationMs = 60 * MIN;
-      const ev = tick(s, T0 + 8 * MIN);
+      const ev = tick(s, T0 + 8 * MIN, { live: true });
       if (ev.some((e) => e.type === 'eggTouched')) touched++;
     }
     expect(touched).toBeGreaterThan(3);
@@ -307,11 +307,21 @@ describe('eggs and events', () => {
 });
 
 describe('economy', () => {
+  it('while away: no sky events or mutations, at most two visitors, finds marked as away', () => {
+    const s = fresh();
+    expect(placeLure(s, 'glade', 'mossberry', T0).ok).toBe(true);
+    s.stats.arrivals = 5; // past the tutorial's guaranteed first visitor
+    const ev = tick(s, T0 + 8 * 60 * MIN, { maxStepMs: 10_000 });
+    expect(ev.filter((e) => e.type === 'eventStart' || e.type === 'mutation')).toHaveLength(0);
+    expect(ev.filter((e) => e.type === 'arrival').length).toBeLessThanOrEqual(TUNING.awayVisitors);
+    expect(s.gifts.filter((g) => !g.meteor).every((g) => g.away)).toBe(true);
+  });
+
   it('gifts accumulate while away but are capped', () => {
     const s = fresh();
     tick(s, T0 + 6 * 60 * MIN, { maxStepMs: 10_000 });
     // (a meteor shower may drop a few Starshard rocks on top)
-    expect(s.gifts.filter((g) => !g.meteor).length).toBe(TUNING.maxGiftsOnGround);
+    expect(s.gifts.filter((g) => !g.meteor).length).toBe(TUNING.awayGiftsOnGround);
     const before = s.glimmer;
     const r = collectGift(s, s.gifts[0].id);
     expect(r.ok).toBe(true);

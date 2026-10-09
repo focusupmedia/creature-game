@@ -694,6 +694,7 @@ export class Game {
     const found = this.state.gifts.find((x) => x.id === giftId);
     const via = found?.via;
     const meteor = !!found?.meteor;
+    const fromAway = !!found?.away;
     const r = A.collectGift(this.state, giftId, this.now());
     if (!r.ok) return;
     this.audio.play('coin');
@@ -702,7 +703,8 @@ export class Game {
     const who = by ? this.state.creatures.find((c) => c.id === by) : undefined;
     const verb = via ? DIG_KINDS[via].verb.toLowerCase() : 'dug up';
     this.ui.toast(`${who ? `${displayName(who)} ${dug ? verb : 'grabbed'}` : meteor ? 'Starshard rock' : via ? DIG_KINDS[via].verb : 'Dug up'}: {coin} ${r.glimmer}${r.shards ? ` and {gem} ${r.shards}` : ''}${extra}`, r.item ? 'discovery' : 'info', undefined, r.item ? 4000 : 1800);
-    this.record({ kind: 'gift', glimmer: r.glimmer, shards: r.shards, byCreature: !!by && !dug });
+    // finds that piled up while you were away are yours, but don't count toward quests or XP
+    if (!fromAway) this.record({ kind: 'gift', glimmer: r.glimmer, shards: r.shards, byCreature: !!by && !dug });
     this.analytics.track('gift_collected', { glimmer: r.glimmer, shards: r.shards, item: r.item ?? '', by: by ? 'creature' : 'player' });
     this.saveSoon();
   }

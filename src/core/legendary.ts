@@ -28,13 +28,14 @@ export function startLegendary(state: GameState, kind: LegendaryKind, t: number)
 }
 
 /** Runs inside the sim step. */
-export function stepLegendary(state: GameState, t: number, dt: number, rng: StateRng, out: GameEvent[]): void {
+/** `canStart` false while the keeper is away: a legendary event is something to witness. */
+export function stepLegendary(state: GameState, t: number, dt: number, rng: StateRng, out: GameEvent[], canStart = true): void {
   if (state.legendary && t >= state.legendary.end) {
     out.push({ type: 'legendaryEnd', kind: state.legendary.kind, t });
     state.legendary = null;
   }
   if (state.blessing && t >= state.blessing.expiresAt) state.blessing = null;
-  if (state.legendary) return;
+  if (state.legendary || !canStart) return;
   for (const kind of LEGENDARY_ORDER) {
     const def = LEGENDARY[kind];
     if (def.island && !state.islands[def.island]?.owned) continue;

@@ -36,18 +36,25 @@ export function tick(state: GameState, now: number, opts: { maxStepMs?: number; 
   const cap = TUNING.offlineCapHours * 60 * MIN;
   if (now - state.lastTick > cap) state.lastTick = now - cap;
   let t = state.lastTick;
+  // while you're away only a little happens: no skies, a couple of visitors, a few finds
+  const away: AwayBudget | undefined = opts.live ? undefined : { visitors: TUNING.awayVisitors };
   while (t < now) {
     const dt = Math.min(maxStep, now - t);
     t += dt;
-    step(state, t, dt, out, opts.live ?? false, opts.here);
+    step(state, t, dt, out, opts.live ?? false, opts.here, away);
   }
   state.lastTick = now;
   return out;
 }
 
-function step(state: GameState, t: number, dt: number, out: GameEvent[], live = false, here?: IslandId): void {
+/** What may still happen in one catch-up while the keeper is away. */
+interface AwayBudget { visitors: number }
+
+function step(state: GameState, t: number, dt: number, out: GameEvent[], live = false, here?: IslandId, away?: AwayBudget): void {
   const rng = new StateRng(state);
-  const ev = activeEvent(state, t);
+  // Sky events (and the mutations they bring) only happen while you're playing.
+  // One that's still running when you come back starts then.
+  const ev = away ? null : activeEvent(state, t);
   const sky: EventKind | null = ev ? ev.kind : null;
   const dark = isDark(state, t);
 
@@ -139,6 +146,7 @@ function step(state: GameState, t: number, dt: number, out: GameEvent[], live = 
     // First-ever lure (the tutorial): someone answers right away to keep the keeper's attention.
     const first = state.stats.arrivals === 0 && t - active.placedAt > 1500;
     if (first) p = 1;
+    if (away && away.visitors <= 0) continue;
     if (!rng.chance(p)) continue;
     // weights add up to at most 1: the rest of the time, nobody answers
     const total = weights.reduce((a, [, w]) => a + w, 0);
@@ -157,6 +165,7 @@ function step(state: GameState, t: number, dt: number, out: GameEvent[], live = 
     if (sky === 'fog' && rng.chance(0.5)) c.personality = 'shy';
     active.visitors += 1;
     state.stats.arrivals += 1;
+    if (away) away.visitors -= 1;
     const discovered = recordSpecies(state, sp, t);
     for (const m of c.mutations) {
       if (recordMutation(state, m, t)) note(state, out, t, `mut-${m}`, `First ${m} creature seen.`);
@@ -211,7 +220,8 @@ function step(state: GameState, t: number, dt: number, out: GameEvent[], live = 
     const rate = Math.min(total, TUNING.giftResidentsCap) / (TUNING.giftEveryMin * MIN);
     const from = diggers.length && rng.chance(1 - Math.exp(-rate * dt)) ? rng.weighted(diggers.map((c) => [c, rate1(c)] as [typeof c, number])) : null;
     // each world has its own limit, so finds left lying on one world don't stop digging on the others
-    if (from && state.gifts.filter((x) => x.island === from.island).length < TUNING.maxGiftsOnGround) {
+    const limit = away ? TUNING.awayGiftsOnGround : TUNING.maxGiftsOnGround;
+    if (from && state.gifts.filter((x) => x.island === from.island).length < limit) {
       const g = islandGeo(from.island, state.islands[from.island]?.size ?? 0);
       const p = randomLand(g, () => rng.next());
       const [g0, g1] = TUNING.giftGlimmer;
@@ -227,6 +237,7 @@ function step(state: GameState, t: number, dt: number, out: GameEvent[], live = 
       else if (rng.chance(TUNING.digEggChance * curious) && state.eggs.filter((e) => e.nest === null && !e.nurseryId).length < TUNING.basketSize) {
         gift.item = 'egg';
       }
+      if (away) gift.away = true; // found while you were away: doesn't count toward quests or XP
       state.gifts.push(gift);
       out.push({ type: 'gift', gift, t });
     }
@@ -252,7 +263,7 @@ function step(state: GameState, t: number, dt: number, out: GameEvent[], live = 
   stepCare(state, t, dt, rng, out);
 
   // ---- legendary events (very rare)
-  stepLegendary(state, t, dt, rng, out);
+  stepLegendary(state, t, dt, rng, out, !away);
 
   // ---- pets coming home from expeditions
   stepExpeditions(state, t, out);

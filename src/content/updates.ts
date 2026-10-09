@@ -4,6 +4,12 @@ export interface UpdateNote { version: string; date: string; lines: string[] }
 
 export const UPDATES: UpdateNote[] = [
   {
+    version: '1.0', date: 'October 2026', lines: [
+      'Sky events and their mutations now only happen while you\'re playing, so you never miss one.',
+      'While you\'re away, a couple of visitors and a few finds wait for you instead of a flood.',
+    ],
+  },
+  {
     version: '0.10', date: 'October 2026', lines: [
       'Friends! Swap friend codes to visit each other\'s groves and open a gift from each friend every day.',
       'Weekly events: a new themed week every Monday with a bonus and a prize, plus big holiday festivals.',

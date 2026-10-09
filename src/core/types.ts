@@ -332,6 +332,8 @@ export interface Gift {
   island: IslandId;
   /** Rare finds when digging. */
   item?: string;
+  /** Turned up while the keeper was away (no quest progress or XP for it). */
+  away?: boolean;
   /** Came from a dig spot you sent a creature to (changes the wording: dug, fished, foraged). */
   via?: DigKind;
   /** A Starshard rock that fell in a meteor shower. */
